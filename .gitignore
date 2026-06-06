@@ -5,7 +5,6 @@ dist
 .env
 .env.local
 .env.*.local
-prisma/migrations
 playwright-report
 test-results
 *.log
