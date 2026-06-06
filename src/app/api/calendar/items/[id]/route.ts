@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { getRequestContext, ok, readJson, withApiHandler } from "@/app/api/_utils";
-import { store } from "@/server/services/mock-store";
+import { updateCalendarItem } from "@/server/services/calendar-service";
 
 const schema = z.object({
   scheduledAt: z.string().datetime().optional(),
@@ -9,12 +9,7 @@ const schema = z.object({
 });
 
 export const PATCH = withApiHandler(async (request: NextRequest, { params }: { params: { id: string } }) => {
-  const { workspaceId } = getRequestContext(request);
+  const { user, workspaceId } = getRequestContext(request);
   const input = await readJson(request, schema);
-  const item = store.calendarItems.find((record) => record.workspaceId === workspaceId && record.id === params.id);
-  if (!item) {
-    return Response.json({ error: "日历项不存在" }, { status: 404 });
-  }
-  Object.assign(item, input);
-  return ok(item);
+  return ok(updateCalendarItem({ workspaceId, userId: user.id, id: params.id, patch: input }));
 });

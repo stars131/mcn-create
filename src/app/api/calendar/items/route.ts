@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { getRequestContext, ok, readJson, withApiHandler } from "@/app/api/_utils";
-import { nextId, store } from "@/server/services/mock-store";
+import { createCalendarItem } from "@/server/services/calendar-service";
 
 const schema = z.object({
   title: z.string().min(1),
@@ -11,17 +11,14 @@ const schema = z.object({
 });
 
 export const POST = withApiHandler(async (request: NextRequest) => {
-  const { workspaceId } = getRequestContext(request);
+  const { user, workspaceId } = getRequestContext(request);
   const input = await readJson(request, schema);
-  const item = {
-    id: nextId("cal"),
+  return ok(createCalendarItem({
     workspaceId,
+    userId: user.id,
     title: input.title,
     platform: input.platform,
     scheduledAt: input.scheduledAt,
-    ownerName: input.ownerName,
-    status: "PLANNED" as const
-  };
-  store.calendarItems.unshift(item);
-  return ok(item);
+    ownerName: input.ownerName
+  }));
 });
