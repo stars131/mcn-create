@@ -9,6 +9,8 @@ type Input = z.infer<typeof contentAgentInputSchema>;
 type Output = z.infer<typeof contentAgentOutputSchema>;
 
 export class ContentAgent extends BaseAgent<Input, Output> {
+  createdDraft?: ContentDraft;
+
   constructor(workspaceId: string, userId: string) {
     super("CONTENT", workspaceId, userId, contentAgentInputSchema, contentAgentOutputSchema);
   }
@@ -67,9 +69,11 @@ export class ContentAgent extends BaseAgent<Input, Output> {
       currentVersion: 1,
       riskLevel: "LOW",
       riskItems: ["待执行风险检查"],
+      sourceAgentRunId: run.id,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
+    this.createdDraft = draft;
     store.contentDrafts.unshift(draft);
   }
 }

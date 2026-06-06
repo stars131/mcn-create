@@ -38,6 +38,10 @@ export interface MockStore {
   teamMembers: TeamMember[];
 }
 
+type ContentOsGlobal = typeof globalThis & {
+  __contentOsMockStore?: MockStore;
+};
+
 export const defaultWorkspace: Workspace = {
   id: "ws_demo",
   name: "ContentOS 增长工作室",
@@ -62,7 +66,7 @@ const trend = [
   { time: "16:00", heat: 91, growth: 68 }
 ];
 
-export const store: MockStore = {
+const initialStore: MockStore = {
   users: [
     {
       id: "user_owner",
@@ -386,6 +390,11 @@ export const store: MockStore = {
     }
   ]
 };
+
+const globalStore = globalThis as ContentOsGlobal;
+
+export const store: MockStore =
+  globalStore.__contentOsMockStore ?? (globalStore.__contentOsMockStore = initialStore);
 
 export function nextId(prefix: string) {
   return `${prefix}_${crypto.randomUUID().slice(0, 8)}`;

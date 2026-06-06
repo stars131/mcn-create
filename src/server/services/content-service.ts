@@ -27,13 +27,17 @@ export async function generateContent(input: {
   cta?: string;
 }) {
   const agent = new ContentAgent(input.workspaceId, input.userId);
-  return agent.run({
+  await agent.run({
     topicId: input.topicId,
     personaId: input.personaId ?? "persona_001",
     platform: input.platform ?? "XIAOHONGSHU",
     format: input.format ?? "图文",
     cta: input.cta ?? "引导读者领取工作流清单"
   });
+  if (!agent.createdDraft) {
+    throw new Error("内容草稿生成失败");
+  }
+  return agent.createdDraft;
 }
 
 export function updateContent(input: {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TopicAgent, RiskCheckAgent } from "@/server/agents";
+import { generateContent } from "@/server/services/content-service";
 import { store } from "@/server/services/mock-store";
 
 describe("Agent framework", () => {
@@ -27,5 +28,20 @@ describe("Agent framework", () => {
 
     expect(output.riskLevel).toBe("HIGH");
     expect(output.riskItems.length).toBeGreaterThan(0);
+  });
+
+  it("returns the persisted content draft from content generation", async () => {
+    const draft = await generateContent({
+      workspaceId: "ws_demo",
+      userId: "user_owner",
+      topicId: "topic_001",
+      personaId: "persona_001",
+      platform: "XIAOHONGSHU",
+      format: "图文"
+    });
+
+    expect(draft.id).toMatch(/^content_/);
+    expect(draft.sourceAgentRunId).toBeTruthy();
+    expect(store.contentDrafts.some((item) => item.id === draft.id)).toBe(true);
   });
 });
