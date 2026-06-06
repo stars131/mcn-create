@@ -51,6 +51,37 @@ export function createWorkspace(input: { name: string; organizationName?: string
   return workspace;
 }
 
+export function switchWorkspace(input: { userId: string; workspaceId: string }) {
+  const user = store.users.find((item) => item.id === input.userId);
+  if (!user) {
+    throw new Error("用户不存在");
+  }
+
+  const workspace = store.workspaces.find((item) => item.id === input.workspaceId);
+  if (!workspace) {
+    throw new Error("workspace 不存在");
+  }
+
+  const isMember = store.teamMembers.some(
+    (member) => member.workspaceId === workspace.id && member.email === user.email
+  );
+  if (!isMember) {
+    throw new Error("无权切换到该 workspace");
+  }
+
+  user.currentWorkspaceId = workspace.id;
+  writeAuditLog({
+    workspaceId: workspace.id,
+    userId: user.id,
+    action: "workspace.switch",
+    entityType: "Workspace",
+    entityId: workspace.id,
+    summary: `切换 workspace：${workspace.name}`
+  });
+
+  return { user, workspace };
+}
+
 export function listMembers(workspaceId: string) {
   return store.teamMembers.filter((member) => member.workspaceId === workspaceId);
 }

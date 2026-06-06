@@ -58,6 +58,14 @@ export const secondaryWorkspace: Workspace = {
   currentPlan: "Client"
 };
 
+export const privateWorkspace: Workspace = {
+  id: "ws_private",
+  name: "隔离客户 B",
+  slug: "private-client-b",
+  organizationName: "外部隔离组织",
+  currentPlan: "Locked"
+};
+
 const trend = [
   { time: "08:00", heat: 61, growth: 18 },
   { time: "10:00", heat: 68, growth: 24 },
@@ -90,7 +98,7 @@ const initialStore: MockStore = {
       role: "ANALYST"
     }
   ],
-  workspaces: [defaultWorkspace, secondaryWorkspace],
+  workspaces: [defaultWorkspace, secondaryWorkspace, privateWorkspace],
   hotItems: [
     {
       id: "hot_001",
@@ -401,6 +409,15 @@ const initialStore: MockStore = {
       role: "ANALYST",
       title: "数据分析",
       joinedAt: iso(-6)
+    },
+    {
+      id: "member_004",
+      workspaceId: secondaryWorkspace.id,
+      name: "林澈",
+      email: "owner@contentos.local",
+      role: "OWNER",
+      title: "客户负责人",
+      joinedAt: iso(-4)
     }
   ]
 };

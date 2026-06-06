@@ -15,6 +15,7 @@ type ContentOsMiddlewareGlobal = typeof globalThis & {
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS = 240;
 const MUTATING_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);
+const WORKSPACE_COOKIE_NAME = process.env.WORKSPACE_COOKIE_NAME ?? "contentos_workspace";
 
 function getClientKey(request: NextRequest) {
   const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
@@ -49,6 +50,10 @@ function getWorkspaceRole(userId: string, workspaceId: string): RoleKey | null {
   }
 
   return user.currentWorkspaceId === workspaceId ? user.role : null;
+}
+
+function canAccessWorkspace(userId: string, workspaceId: string) {
+  return getWorkspaceRole(userId, workspaceId) !== null;
 }
 
 function inferPermission(request: NextRequest): PermissionAction | null {
@@ -100,10 +105,20 @@ function authorizeApiRequest(request: NextRequest) {
   if (!pathname.startsWith("/api/") || pathname.startsWith("/api/auth")) {
     return null;
   }
+  if (pathname === "/api/workspaces/switch") {
+    return null;
+  }
 
-  const workspacePathMatch = pathname.match(/^\/api\/workspaces\/([^/]+)/);
-  const workspaceId = workspacePathMatch?.[1] ?? searchParams.get("workspaceId") ?? defaultWorkspace.id;
   const userId = getMockUserId(request);
+  const user = store.users.find((item) => item.id === userId);
+  const workspacePathMatch = pathname.match(/^\/api\/workspaces\/([^/]+)/);
+  const explicitWorkspaceId = workspacePathMatch?.[1] ?? searchParams.get("workspaceId");
+  const cookieWorkspaceId = request.cookies.get(WORKSPACE_COOKIE_NAME)?.value;
+  const fallbackWorkspaceId =
+    cookieWorkspaceId && canAccessWorkspace(userId, cookieWorkspaceId)
+      ? cookieWorkspaceId
+      : user?.currentWorkspaceId ?? defaultWorkspace.id;
+  const workspaceId = explicitWorkspaceId ?? fallbackWorkspaceId;
   const role = getWorkspaceRole(userId, workspaceId);
   if (!role) {
     return applySecurityHeaders(NextResponse.json({ error: "无权访问该 workspace" }, { status: 403 }));
@@ -122,7 +137,32 @@ function isSameOrigin(request: NextRequest) {
   if (!origin) {
     return true;
   }
-  return origin === request.nextUrl.origin;
+  if (origin === request.nextUrl.origin) {
+    return true;
+  }
+
+  const host = request.headers.get("host");
+  if (!host) {
+    return false;
+  }
+
+  try {
+    const originUrl = new URL(origin);
+    const requestHost = host.toLowerCase();
+    const originHost = originUrl.host.toLowerCase();
+    if (originHost === requestHost) {
+      return true;
+    }
+
+    const requestPort = requestHost.split(":")[1] ?? "";
+    const originPort = originHost.split(":")[1] ?? "";
+    const requestName = requestHost.split(":")[0];
+    const originName = originHost.split(":")[0];
+    const loopbackHosts = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+    return requestPort === originPort && loopbackHosts.has(requestName) && loopbackHosts.has(originName);
+  } catch {
+    return false;
+  }
 }
 
 function rateLimit(request: NextRequest) {
