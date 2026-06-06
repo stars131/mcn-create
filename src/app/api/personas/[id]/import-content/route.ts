@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
-import { getRequestContext, ok, readJson } from "@/app/api/_utils";
+import { getRequestContext, ok, readJson, withApiHandler } from "@/app/api/_utils";
 import { importPersonaContent } from "@/server/services/persona-service";
 
 const schema = z.object({
@@ -8,7 +8,7 @@ const schema = z.object({
   brandNotes: z.string().optional()
 });
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export const POST = withApiHandler(async (request: NextRequest, { params }: { params: { id: string } }) => {
   const { user, workspaceId } = getRequestContext(request);
   const input = await readJson(request, schema);
   return ok(
@@ -20,4 +20,4 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       brandNotes: input.brandNotes
     })
   );
-}
+});

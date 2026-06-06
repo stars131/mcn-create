@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
-import { getRequestContext, ok, readJson } from "@/app/api/_utils";
+import { getRequestContext, ok, readJson, withApiHandler } from "@/app/api/_utils";
 import { createDataSource, listDataSources } from "@/server/services/data-source-service";
 
 const schema = z.object({
@@ -11,13 +11,13 @@ const schema = z.object({
   notes: z.string().optional()
 });
 
-export async function GET(request: NextRequest) {
+export const GET = withApiHandler(async (request: NextRequest) => {
   const { workspaceId } = getRequestContext(request);
   return ok(listDataSources(workspaceId));
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withApiHandler(async (request: NextRequest) => {
   const { user, workspaceId } = getRequestContext(request);
   const input = await readJson(request, schema);
   return ok(createDataSource({ workspaceId, userId: user.id, ...input }));
-}
+});

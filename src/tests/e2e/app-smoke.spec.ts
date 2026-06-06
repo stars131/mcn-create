@@ -41,3 +41,15 @@ test("enforces API tenant isolation and role permissions", async ({ request }) =
   });
   expect(analystSchedule.status()).toBe(403);
 });
+
+test("normalizes API validation errors through the shared handler", async ({ request }) => {
+  const invalidCalendarItem = await request.post("/api/calendar/items", {
+    data: {
+      title: "Missing platform and scheduledAt"
+    }
+  });
+
+  expect(invalidCalendarItem.status()).toBe(422);
+  const payload = await invalidCalendarItem.json();
+  expect(payload).toEqual({ error: "请求参数不符合接口要求" });
+});

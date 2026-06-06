@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
-import { getRequestContext, ok, readJson } from "@/app/api/_utils";
+import { getRequestContext, ok, readJson, withApiHandler } from "@/app/api/_utils";
 import { nextId, store } from "@/server/services/mock-store";
 
 const schema = z.object({
@@ -10,7 +10,7 @@ const schema = z.object({
   ownerName: z.string().default("林澈")
 });
 
-export async function POST(request: NextRequest) {
+export const POST = withApiHandler(async (request: NextRequest) => {
   const { workspaceId } = getRequestContext(request);
   const input = await readJson(request, schema);
   const item = {
@@ -24,4 +24,4 @@ export async function POST(request: NextRequest) {
   };
   store.calendarItems.unshift(item);
   return ok(item);
-}
+});

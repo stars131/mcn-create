@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
-import { getRequestContext, ok, readJson } from "@/app/api/_utils";
+import { getRequestContext, ok, readJson, withApiHandler } from "@/app/api/_utils";
 import { refreshHotspots } from "@/server/services/hotspot-service";
 
 const refreshSchema = z.object({
@@ -11,8 +11,8 @@ const refreshSchema = z.object({
   industry: z.string().optional()
 });
 
-export async function POST(request: NextRequest) {
+export const POST = withApiHandler(async (request: NextRequest) => {
   const { user, workspaceId } = getRequestContext(request);
   const input = await readJson(request, refreshSchema);
   return ok(await refreshHotspots({ workspaceId, userId: user.id, ...input }));
-}
+});

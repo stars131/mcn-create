@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
-import { getRequestContext, ok } from "@/app/api/_utils";
+import { getRequestContext, ok, withApiHandler } from "@/app/api/_utils";
 import { getPersona, updatePersona } from "@/server/services/persona-service";
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export const POST = withApiHandler(async (request: NextRequest, { params }: { params: { id: string } }) => {
   const { user, workspaceId } = getRequestContext(request);
   const persona = getPersona(workspaceId, params.id);
   return ok(
@@ -13,4 +13,4 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       patch: { version: persona.version + 1, reviewStatus: "REVIEWING" }
     })
   );
-}
+});

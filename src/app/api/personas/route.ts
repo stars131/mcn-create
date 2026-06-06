@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
-import { getRequestContext, ok, readJson } from "@/app/api/_utils";
+import { getRequestContext, ok, readJson, withApiHandler } from "@/app/api/_utils";
 import { createPersona, listPersonas } from "@/server/services/persona-service";
 
 const createSchema = z.object({
@@ -10,13 +10,13 @@ const createSchema = z.object({
   coreAudience: z.string().min(1)
 });
 
-export async function GET(request: NextRequest) {
+export const GET = withApiHandler(async (request: NextRequest) => {
   const { workspaceId } = getRequestContext(request);
   return ok(listPersonas(workspaceId));
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withApiHandler(async (request: NextRequest) => {
   const { user, workspaceId } = getRequestContext(request);
   const input = await readJson(request, createSchema);
   return ok(createPersona({ workspaceId, userId: user.id, ...input }));
-}
+});
