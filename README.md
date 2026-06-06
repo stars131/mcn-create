@@ -88,7 +88,7 @@ MVP 页面使用内存 mock store 保证开箱可运行；Prisma schema 和 seed
 - 官方平台 OAuth/API 接入：通过 PlatformDataAdapter 扩展。
 - 真实模型供应商接入：通过 AiProvider 扩展。
 - pgvector 向量检索：schema 已预留 `Unsupported("vector")` 字段。
-- Redis/BullMQ 异步 Agent 队列：已保留 queue 模块和 docker-compose Redis。
+- Redis/BullMQ 异步 Agent 队列：MVP 使用 in-process 队列记录任务状态、结果、错误和耗时，热点刷新与数据复盘已通过队列入口执行；docker-compose Redis 已预留给 BullMQ worker。
 - API Key、Webhook、UsageEvent、CreditLedger、数据保留策略。
 - 内容版本 diff、复杂日历拖拽、真实自动发布。
 
@@ -105,6 +105,6 @@ MVP 页面使用内存 mock store 保证开箱可运行；Prisma schema 和 seed
 
 1. 将 `src/server/services/mock-store.ts` 替换为 Prisma repository，实现真实多租户数据隔离。
 2. 接入 Auth.js 或企业自定义认证，完善 session、CSRF、防暴力登录和邀请流程。
-3. 接入 Redis/BullMQ，把热点刷新、内容生成、数据分析改为异步任务。
+3. 将 in-process Agent 队列替换为 Redis/BullMQ worker，并把内容生成等长任务纳入异步执行。
 4. 增加真实 AI provider、模型成本计算、prompt A/B 和输出质量反馈。
 5. 接入官方授权平台 API，并完善授权删除、数据保留与审计证据链。

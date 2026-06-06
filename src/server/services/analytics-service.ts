@@ -1,5 +1,6 @@
 import { AnalyticsAgent } from "@/server/agents";
 import { writeAuditLog } from "@/server/audit/audit-service";
+import { enqueueAndProcessAgentJob } from "@/server/queue/agent-queue";
 import { getWorkspaceScoped, nextId, store } from "@/server/services/mock-store";
 import type { MetricRecord, Platform } from "@/types/domain";
 
@@ -281,11 +282,27 @@ export function importMetricData(input: {
 }
 
 export async function generateAnalyticsReport(input: { workspaceId: string; userId: string; period?: string }) {
-  const agent = new AnalyticsAgent(input.workspaceId, input.userId);
-  return agent.run({
+  const payload = {
     metricIds: getWorkspaceScoped(store.metricRecords, input.workspaceId).map((record) => record.id),
     period: input.period ?? "本周"
+  };
+  const { job, result } = await enqueueAndProcessAgentJob("agent.analytics.report", {
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    input: payload
+  }, async (payload) => {
+    const agent = new AnalyticsAgent(payload.workspaceId, payload.userId);
+    return agent.run(payload.input);
   });
+  writeAuditLog({
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    action: "analytics.report.generate",
+    entityType: "AnalyticsReport",
+    summary: `生成数据复盘：${payload.period}`,
+    metadata: { queueJobId: job.id, queueStatus: job.status }
+  });
+  return result;
 }
 
 export function recommendationsToTopics(input: { workspaceId: string; userId: string }) {

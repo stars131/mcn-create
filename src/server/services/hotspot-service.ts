@@ -1,5 +1,6 @@
 import { HotspotAgent } from "@/server/agents";
 import { writeAuditLog } from "@/server/audit/audit-service";
+import { enqueueAndProcessAgentJob } from "@/server/queue/agent-queue";
 import { getWorkspaceScoped, normalizePlatform, store } from "@/server/services/mock-store";
 import type { Platform } from "@/types/domain";
 
@@ -22,20 +23,28 @@ export async function refreshHotspots(input: {
   keyword?: string;
   industry?: string;
 }) {
-  const agent = new HotspotAgent(input.workspaceId, input.userId);
-  const result = await agent.run({
+  const payload = {
     platforms: input.platforms ?? ["ALL"],
     keyword: input.keyword,
     industry: input.industry,
     competitorAccounts: [],
     window: "24h"
+  } as const;
+  const { job, result } = await enqueueAndProcessAgentJob("agent.hotspot.refresh", {
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    input: payload
+  }, async (payload) => {
+    const agent = new HotspotAgent(payload.workspaceId, payload.userId);
+    return agent.run(payload.input);
   });
   writeAuditLog({
     workspaceId: input.workspaceId,
     userId: input.userId,
     action: "hotspot.refresh",
     entityType: "HotItem",
-    summary: `刷新热点：${result.items.length} 条`
+    summary: `刷新热点：${result.items.length} 条`,
+    metadata: { queueJobId: job.id, queueStatus: job.status }
   });
   return result;
 }
