@@ -6,11 +6,11 @@ import { RiskBadge } from "@/components/ui/status-badge";
 import { Table, Td, Th } from "@/components/ui/table";
 import { TrendChart } from "@/components/dashboard/trend-chart";
 import { platformLabels } from "@/lib/constants/navigation";
+import { getCurrentWorkspaceId } from "@/server/auth/session";
 import { listHotClusters, listHotspots } from "@/server/services/hotspot-service";
-import { defaultWorkspace } from "@/server/services/mock-store";
 
 export default function HotspotsPage() {
-  const workspaceId = defaultWorkspace.id;
+  const workspaceId = getCurrentWorkspaceId();
   const hotspots = listHotspots({ workspaceId });
   const clusters = listHotClusters(workspaceId);
   const mainHotspot = hotspots[0];

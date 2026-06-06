@@ -4,13 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
 import { ContentStatusBadge, RiskBadge } from "@/components/ui/status-badge";
 import { platformLabels } from "@/lib/constants/navigation";
+import { getCurrentWorkspaceId } from "@/server/auth/session";
 import { listContents } from "@/server/services/content-service";
-import { defaultWorkspace, store } from "@/server/services/mock-store";
+import { store } from "@/server/services/mock-store";
 import { listPersonas } from "@/server/services/persona-service";
 import { listTopics } from "@/server/services/topic-service";
 
 export default function ContentPage() {
-  const workspaceId = defaultWorkspace.id;
+  const workspaceId = getCurrentWorkspaceId();
   const topics = listTopics(workspaceId);
   const personas = listPersonas(workspaceId);
   const contents = listContents(workspaceId);

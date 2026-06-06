@@ -5,11 +5,12 @@ import { PageHeading } from "@/components/ui/page-heading";
 import { Table, Td, Th } from "@/components/ui/table";
 import { permissions, rolePermissions } from "@/lib/constants/rbac";
 import { roleLabels } from "@/lib/constants/navigation";
-import { defaultWorkspace, store } from "@/server/services/mock-store";
+import { getCurrentWorkspaceId } from "@/server/auth/session";
+import { store } from "@/server/services/mock-store";
 import { listMembers } from "@/server/services/workspace-service";
 
 export default function TeamPage() {
-  const workspaceId = defaultWorkspace.id;
+  const workspaceId = getCurrentWorkspaceId();
   const members = listMembers(workspaceId);
 
   return (

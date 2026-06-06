@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
 import { Table, Td, Th } from "@/components/ui/table";
 import { platformLabels } from "@/lib/constants/navigation";
+import { getCurrentWorkspaceId } from "@/server/auth/session";
 import { listDataSources } from "@/server/services/data-source-service";
-import { defaultWorkspace } from "@/server/services/mock-store";
 
 const statusTone = {
   CONNECTED: "success",
@@ -16,7 +16,7 @@ const statusTone = {
 } as const;
 
 export default function DataSourcesPage() {
-  const workspaceId = defaultWorkspace.id;
+  const workspaceId = getCurrentWorkspaceId();
   const sources = listDataSources(workspaceId);
 
   return (

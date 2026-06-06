@@ -7,11 +7,11 @@ import { MetricCard } from "@/components/ui/metric-card";
 import { PageHeading } from "@/components/ui/page-heading";
 import { Table, Td, Th } from "@/components/ui/table";
 import { platformLabels } from "@/lib/constants/navigation";
+import { getCurrentWorkspaceId } from "@/server/auth/session";
 import { getAnalyticsOverview, listPostMetrics } from "@/server/services/analytics-service";
-import { defaultWorkspace } from "@/server/services/mock-store";
 
 export default function AnalyticsPage() {
-  const workspaceId = defaultWorkspace.id;
+  const workspaceId = getCurrentWorkspaceId();
   const overview = getAnalyticsOverview(workspaceId);
   const posts = listPostMetrics(workspaceId);
   const report = overview.reports[0];

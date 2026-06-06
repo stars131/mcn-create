@@ -5,10 +5,13 @@ import { PageHeading } from "@/components/ui/page-heading";
 import { Table, Td, Th } from "@/components/ui/table";
 import { listAuditLogs } from "@/server/audit/audit-service";
 import { promptTemplates } from "@/server/ai/prompts/templates";
-import { defaultWorkspace, store } from "@/server/services/mock-store";
+import { getCurrentUser, getCurrentWorkspaceId } from "@/server/auth/session";
+import { store } from "@/server/services/mock-store";
 
 export default function SettingsPage() {
-  const workspaceId = defaultWorkspace.id;
+  const user = getCurrentUser();
+  const workspaceId = getCurrentWorkspaceId();
+  const workspace = store.workspaces.find((item) => item.id === workspaceId);
   const logs = listAuditLogs(workspaceId);
 
   return (
@@ -27,15 +30,15 @@ export default function SettingsPage() {
           <CardContent className="space-y-3 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">名称</span>
-              <span className="font-medium">{defaultWorkspace.name}</span>
+              <span className="font-medium">{workspace?.name ?? workspaceId}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">组织</span>
-              <span className="font-medium">{defaultWorkspace.organizationName}</span>
+              <span className="font-medium">{workspace?.organizationName ?? "-"}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">计划</span>
-              <Badge tone="info">{defaultWorkspace.currentPlan}</Badge>
+              <Badge tone="info">{workspace?.currentPlan ?? "MVP Team"}</Badge>
             </div>
           </CardContent>
         </Card>
@@ -111,7 +114,7 @@ export default function SettingsPage() {
               </div>
             ))}
             <div className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-              当前用户：{store.users[0].email}
+              当前用户：{user.email}
             </div>
           </CardContent>
         </Card>

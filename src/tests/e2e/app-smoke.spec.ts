@@ -57,6 +57,7 @@ test("switches workspaces and scopes default API reads to the active workspace",
   expect(switchResponse.ok()).toBeTruthy();
   await expect(switcher).toHaveValue("ws_brand");
   await expect(page.getByText("Client")).toBeVisible();
+  await expect(page.getByText("私域品牌如何用季度主题降低内容内耗")).toBeVisible();
 
   await expect
     .poll(async () => {

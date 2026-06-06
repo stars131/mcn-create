@@ -3,11 +3,11 @@ import { ActionButton } from "@/components/ui/action-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
-import { defaultWorkspace } from "@/server/services/mock-store";
+import { getCurrentWorkspaceId } from "@/server/auth/session";
 import { listPersonaVersions, listPersonas } from "@/server/services/persona-service";
 
 export default function PersonaPage() {
-  const workspaceId = defaultWorkspace.id;
+  const workspaceId = getCurrentWorkspaceId();
   const persona = listPersonas(workspaceId)[0];
   const versions = persona ? listPersonaVersions(workspaceId, persona.id) : [];
 

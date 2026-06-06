@@ -4,11 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
 import { platformLabels } from "@/lib/constants/navigation";
-import { defaultWorkspace, getWorkspaceScoped, store } from "@/server/services/mock-store";
+import { getCurrentWorkspaceId } from "@/server/auth/session";
+import { listCalendarItems } from "@/server/services/calendar-service";
 
 export default function CalendarPage() {
-  const workspaceId = defaultWorkspace.id;
-  const items = getWorkspaceScoped(store.calendarItems, workspaceId);
+  const workspaceId = getCurrentWorkspaceId();
+  const items = listCalendarItems(workspaceId);
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const days = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
 

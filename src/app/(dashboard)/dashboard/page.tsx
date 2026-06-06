@@ -8,12 +8,13 @@ import { listAgentRuns } from "@/server/services/agent-run-service";
 import { getAnalyticsOverview } from "@/server/services/analytics-service";
 import { listContents } from "@/server/services/content-service";
 import { listHotspots } from "@/server/services/hotspot-service";
-import { defaultWorkspace, store } from "@/server/services/mock-store";
+import { getCurrentWorkspaceId } from "@/server/auth/session";
+import { store } from "@/server/services/mock-store";
 import { listTopics } from "@/server/services/topic-service";
 import { platformLabels } from "@/lib/constants/navigation";
 
 export default function DashboardPage() {
-  const workspaceId = defaultWorkspace.id;
+  const workspaceId = getCurrentWorkspaceId();
   const hotspots = listHotspots({ workspaceId });
   const topics = listTopics(workspaceId);
   const contents = listContents(workspaceId);

@@ -3,11 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
 import { AgentStatusBadge } from "@/components/ui/status-badge";
 import { Table, Td, Th } from "@/components/ui/table";
+import { getCurrentWorkspaceId } from "@/server/auth/session";
 import { listAgentRuns } from "@/server/services/agent-run-service";
-import { defaultWorkspace } from "@/server/services/mock-store";
 
 export default function AgentRunsPage() {
-  const workspaceId = defaultWorkspace.id;
+  const workspaceId = getCurrentWorkspaceId();
   const runs = listAgentRuns(workspaceId);
 
   return (

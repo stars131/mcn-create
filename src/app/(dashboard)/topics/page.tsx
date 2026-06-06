@@ -5,11 +5,12 @@ import { PageHeading } from "@/components/ui/page-heading";
 import { RiskBadge, TopicStatusBadge } from "@/components/ui/status-badge";
 import { Table, Td, Th } from "@/components/ui/table";
 import { platformLabels } from "@/lib/constants/navigation";
-import { defaultWorkspace, store } from "@/server/services/mock-store";
+import { getCurrentWorkspaceId } from "@/server/auth/session";
+import { store } from "@/server/services/mock-store";
 import { listTopics } from "@/server/services/topic-service";
 
 export default function TopicsPage() {
-  const workspaceId = defaultWorkspace.id;
+  const workspaceId = getCurrentWorkspaceId();
   const topics = listTopics(workspaceId);
 
   return (
@@ -38,8 +39,12 @@ export default function TopicsPage() {
             </thead>
             <tbody>
               {topics.map((topic) => {
-                const hot = store.hotItems.find((item) => item.id === topic.hotItemId);
-                const persona = store.personas.find((item) => item.id === topic.personaId);
+                const hot = store.hotItems.find(
+                  (item) => item.workspaceId === workspaceId && item.id === topic.hotItemId
+                );
+                const persona = store.personas.find(
+                  (item) => item.workspaceId === workspaceId && item.id === topic.personaId
+                );
                 return (
                   <tr key={topic.id}>
                     <Td className="min-w-[280px]">
