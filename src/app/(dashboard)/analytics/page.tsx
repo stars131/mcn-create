@@ -21,25 +21,18 @@ export default function AnalyticsPage() {
       <PageHeading
         eyebrow="Lightweight BI"
         title="数据分析"
-        description="支持 CSV / JSON 导入的轻量复盘，生成周报、异常解释、A/B 假设，并将建议回流选题池。"
+        description="支持 CSV / JSON / Excel 表格导入的轻量复盘，生成周报、异常解释、A/B 假设，并将建议回流选题池。"
         actions={
           <>
             <ActionButton
               endpoint="/api/analytics/import"
               body={{
-                records: [
-                  {
-                    title: "导入样例：人设记忆清单",
-                    platform: "WECHAT",
-                    views: 16800,
-                    likes: 820,
-                    comments: 91,
-                    shares: 134,
-                    conversions: 42
-                  }
-                ]
+                fileType: "CSV",
+                fileName: "content-performance-sample.csv",
+                rawText:
+                  "作品,平台,曝光,点赞,评论,分享,转化,发布时间\n导入样例：人设记忆清单,公众号,16800,820,91,134,42,2026-06-07"
               }}
-              label="导入 mock 数据"
+              label="导入 CSV 样例"
               pendingLabel="导入中"
               icon="fileUp"
             />
