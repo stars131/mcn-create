@@ -2,8 +2,20 @@ import { writeAuditLog } from "@/server/audit/audit-service";
 import { defaultWorkspace, nextId, store } from "@/server/services/mock-store";
 import type { RoleKey, TeamMember, Workspace } from "@/types/domain";
 
-export function listWorkspaces() {
-  return store.workspaces;
+export function listWorkspaces(userEmail?: string) {
+  if (!userEmail) {
+    return store.workspaces;
+  }
+
+  const user = store.users.find((item) => item.email === userEmail);
+  const workspaceIds = new Set(
+    store.teamMembers.filter((member) => member.email === userEmail).map((member) => member.workspaceId)
+  );
+  if (user) {
+    workspaceIds.add(user.currentWorkspaceId);
+  }
+
+  return store.workspaces.filter((workspace) => workspaceIds.has(workspace.id));
 }
 
 export function createWorkspace(input: { name: string; organizationName?: string; userId: string }) {
@@ -15,6 +27,19 @@ export function createWorkspace(input: { name: string; organizationName?: string
     currentPlan: "MVP Team"
   };
   store.workspaces.push(workspace);
+  const owner = store.users.find((user) => user.id === input.userId);
+  if (owner) {
+    store.teamMembers.push({
+      id: nextId("member"),
+      workspaceId: workspace.id,
+      name: owner.name,
+      email: owner.email,
+      role: "OWNER",
+      title: "Workspace Owner",
+      joinedAt: new Date().toISOString()
+    });
+    owner.currentWorkspaceId = workspace.id;
+  }
   writeAuditLog({
     workspaceId: workspace.id,
     userId: input.userId,

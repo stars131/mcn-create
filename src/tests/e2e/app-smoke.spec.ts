@@ -12,9 +12,32 @@ test("opens the dashboard and serves core mock workflow data", async ({ page, re
 
   const hotspots = await request.get("/api/hotspots");
   expect(hotspots.ok()).toBeTruthy();
+  expect(hotspots.headers()["x-content-type-options"]).toBe("nosniff");
+  expect(hotspots.headers()["x-frame-options"]).toBe("DENY");
   const hotspotPayload = await hotspots.json();
   expect(hotspotPayload.data.length).toBeGreaterThan(0);
 
   const agentRuns = await request.get("/api/agent-runs");
   expect(agentRuns.ok()).toBeTruthy();
+});
+
+test("enforces API tenant isolation and role permissions", async ({ request }) => {
+  const me = await request.get("/api/me");
+  expect(me.ok()).toBeTruthy();
+  const mePayload = await me.json();
+  expect(mePayload.data.workspaces.map((workspace: { id: string }) => workspace.id)).toEqual(["ws_demo"]);
+
+  const crossWorkspace = await request.get("/api/hotspots?workspaceId=ws_brand");
+  expect(crossWorkspace.status()).toBe(403);
+
+  const analystSchedule = await request.post("/api/contents/content_001/schedule", {
+    headers: {
+      Cookie: "contentos_session=mock:user_analyst"
+    },
+    data: {
+      platform: "XIAOHONGSHU",
+      scheduledAt: new Date(Date.now() + 86_400_000).toISOString()
+    }
+  });
+  expect(analystSchedule.status()).toBe(403);
 });

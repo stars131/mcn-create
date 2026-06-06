@@ -74,6 +74,20 @@ const initialStore: MockStore = {
       name: "林澈",
       currentWorkspaceId: defaultWorkspace.id,
       role: "OWNER"
+    },
+    {
+      id: "user_editor",
+      email: "editor@contentos.local",
+      name: "周安",
+      currentWorkspaceId: defaultWorkspace.id,
+      role: "EDITOR"
+    },
+    {
+      id: "user_analyst",
+      email: "analyst@contentos.local",
+      name: "陈棠",
+      currentWorkspaceId: defaultWorkspace.id,
+      role: "ANALYST"
     }
   ],
   workspaces: [defaultWorkspace, secondaryWorkspace],

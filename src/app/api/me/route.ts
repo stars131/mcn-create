@@ -1,8 +1,8 @@
-import { ok } from "@/app/api/_utils";
+import { ok, publicUser, withApiHandler } from "@/app/api/_utils";
 import { getCurrentUser } from "@/server/auth/session";
 import { listWorkspaces } from "@/server/services/workspace-service";
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const user = getCurrentUser();
-  return ok({ user, workspaces: listWorkspaces() });
-}
+  return ok({ user: publicUser(user), workspaces: listWorkspaces(user.email) });
+});

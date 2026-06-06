@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
-import { getRequestContext, ok, readJson } from "@/app/api/_utils";
+import { getRequestContext, ok, readJson, withApiHandler } from "@/app/api/_utils";
 import { inviteMember, listMembers } from "@/server/services/workspace-service";
 
 const inviteSchema = z.object({
@@ -9,12 +9,13 @@ const inviteSchema = z.object({
   title: z.string().optional()
 });
 
-export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
+export const GET = withApiHandler(async (request: NextRequest, { params }: { params: { id: string } }) => {
+  getRequestContext(request, { workspaceId: params.id });
   return ok(listMembers(params.id));
-}
+});
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
-  const { user } = getRequestContext(request);
+export const POST = withApiHandler(async (request: NextRequest, { params }: { params: { id: string } }) => {
+  const { user } = getRequestContext(request, { workspaceId: params.id, permission: "member.manage" });
   const input = await readJson(request, inviteSchema);
   return ok(inviteMember({ workspaceId: params.id, userId: user.id, ...input }));
-}
+});

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { ok, readJson } from "@/app/api/_utils";
+import { ok, publicUser, readJson, withApiHandler } from "@/app/api/_utils";
 import { nextId, store } from "@/server/services/mock-store";
 
 const registerSchema = z.object({
@@ -9,7 +9,7 @@ const registerSchema = z.object({
   name: z.string().min(1).default("新成员")
 });
 
-export async function POST(request: NextRequest) {
+export const POST = withApiHandler(async (request: NextRequest) => {
   const input = await readJson(request, registerSchema);
   const existing = store.users.find((user) => user.email === input.email);
   if (existing) {
@@ -24,5 +24,5 @@ export async function POST(request: NextRequest) {
     role: "VIEWER" as const
   };
   store.users.push(user);
-  return ok({ user });
-}
+  return ok({ user: publicUser(user) });
+});
