@@ -1,0 +1,1090 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector")]
+}
+
+enum RoleKey {
+  OWNER
+  ADMIN
+  EDITOR
+  ANALYST
+  VIEWER
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum SourceType {
+  OFFICIAL_API
+  USER_AUTHORIZED
+  USER_UPLOAD
+  PUBLIC_COMPLIANT
+  THIRD_PARTY_LEGAL
+  MOCK
+}
+
+enum AuthorizationStatus {
+  CONNECTED
+  DISCONNECTED
+  EXPIRED
+  REVOKED
+  MOCKED
+}
+
+enum Platform {
+  ALL
+  DOUYIN
+  XIAOHONGSHU
+  BILIBILI
+  WECHAT
+  WEIBO
+  KUAISHOU
+  VIDEO_ACCOUNT
+  OTHER
+}
+
+enum TopicStatus {
+  PENDING
+  ADOPTED
+  WRITING
+  PUBLISHED
+  DROPPED
+}
+
+enum ContentStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  SCHEDULED
+  PUBLISHED
+}
+
+enum PublishStatus {
+  PLANNED
+  READY
+  EXPORTED
+  PUBLISHED
+  FAILED
+}
+
+enum AgentType {
+  HOTSPOT
+  TOPIC
+  PERSONA
+  CONTENT
+  ANALYTICS
+  RISK
+}
+
+enum AgentStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model User {
+  id             String       @id @default(cuid())
+  email          String       @unique
+  name           String?
+  passwordHash   String?
+  image          String?
+  emailVerified  DateTime?
+  memberships    Membership[]
+  accounts       Account[]
+  sessions       Session[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+}
+
+model Account {
+  id                 String   @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refreshToken       String?
+  accessToken        String?
+  expiresAt          Int?
+  tokenType          String?
+  scope              String?
+  idToken            String?
+  sessionState       String?
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Organization {
+  id          String      @id @default(cuid())
+  name        String
+  slug        String      @unique
+  workspaces  Workspace[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+}
+
+model Workspace {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  slug           String
+  currentPlan    String       @default("mvp")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberships    Membership[]
+  roles          Role[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  @@unique([organizationId, slug])
+}
+
+model Membership {
+  id          String    @id @default(cuid())
+  userId      String
+  workspaceId String
+  roleId      String?
+  roleKey     RoleKey   @default(VIEWER)
+  title       String?
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  role        Role?     @relation(fields: [roleId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId, roleKey])
+}
+
+model Role {
+  id          String          @id @default(cuid())
+  workspaceId String
+  key         RoleKey
+  name        String
+  description String?
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  memberships Membership[]
+  permissions RolePermission[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  deletedAt   DateTime?
+
+  @@unique([workspaceId, key])
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  action      String           @unique
+  description String?
+  roles       RolePermission[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([roleId, permissionId])
+}
+
+model Invitation {
+  id          String           @id @default(cuid())
+  workspaceId String
+  email       String
+  roleKey     RoleKey          @default(VIEWER)
+  token       String           @unique
+  invitedById String
+  status      InvitationStatus @default(PENDING)
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, status])
+}
+
+model BrandProfile {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  industry    String
+  positioning String
+  promise     String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId])
+}
+
+model PersonaProfile {
+  id             String   @id @default(cuid())
+  workspaceId    String
+  brandProfileId String?
+  name           String
+  voiceGuide     String
+  coreAudience   String
+  highFrequencyWords String[]
+  forbiddenTopics String[]
+  status         String   @default("active")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+
+  @@index([workspaceId])
+}
+
+model PersonaVersion {
+  id          String   @id @default(cuid())
+  workspaceId String
+  personaId   String
+  version     Int
+  summary     String
+  snapshot    Json
+  reviewerId  String?
+  approvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@unique([personaId, version])
+  @@index([workspaceId])
+}
+
+model PersonaMemoryChunk {
+  id          String                  @id @default(cuid())
+  workspaceId String
+  personaId   String
+  sourceType  SourceType              @default(USER_UPLOAD)
+  sourceId    String?
+  content     String
+  embedding   Unsupported("vector")?
+  metadata    Json?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, personaId])
+}
+
+model PersonaRule {
+  id          String   @id @default(cuid())
+  workspaceId String
+  personaId   String
+  type        String
+  rule        String
+  severity    String   @default("medium")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, personaId])
+}
+
+model ForbiddenExpression {
+  id          String   @id @default(cuid())
+  workspaceId String
+  personaId   String?
+  expression  String
+  reason      String
+  replacement String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId])
+}
+
+model ToneExample {
+  id          String   @id @default(cuid())
+  workspaceId String
+  personaId   String
+  title       String
+  content     String
+  tags        String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, personaId])
+}
+
+model TargetAudience {
+  id          String   @id @default(cuid())
+  workspaceId String
+  personaId   String
+  name        String
+  painPoints  String[]
+  goals       String[]
+  channels    Platform[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, personaId])
+}
+
+model DataSource {
+  id                  String              @id @default(cuid())
+  workspaceId          String
+  name                String
+  sourceType          SourceType
+  platform            Platform
+  authorizationStatus AuthorizationStatus @default(MOCKED)
+  lastSyncedAt        DateTime?
+  config              Json?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  deletedAt           DateTime?
+
+  @@index([workspaceId, platform])
+}
+
+model PlatformAccount {
+  id          String   @id @default(cuid())
+  workspaceId String
+  platform    Platform
+  handle      String
+  displayName String
+  accountUrl  String?
+  status      AuthorizationStatus @default(MOCKED)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, platform])
+}
+
+model PlatformAuthorization {
+  id                  String              @id @default(cuid())
+  workspaceId          String
+  platformAccountId    String
+  platform            Platform
+  authorizationStatus AuthorizationStatus
+  scopes              String[]
+  tokenRef            String?
+  lastSyncedAt        DateTime?
+  revokedAt           DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  deletedAt           DateTime?
+
+  @@index([workspaceId, platform])
+}
+
+model HotItem {
+  id             String     @id @default(cuid())
+  workspaceId    String
+  dataSourceId   String?
+  platform       Platform
+  title          String
+  url            String?
+  industry       String
+  heatScore      Float
+  growthScore    Float
+  riskLevel      RiskLevel  @default(LOW)
+  riskTags       String[]
+  suggestedAngles String[]
+  raw            Json?
+  observedAt     DateTime
+  embedding      Unsupported("vector")?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  deletedAt      DateTime?
+
+  @@index([workspaceId, platform, observedAt])
+}
+
+model HotCluster {
+  id             String    @id @default(cuid())
+  workspaceId    String
+  name           String
+  summary        String
+  trendReason    String
+  platforms      Platform[]
+  heatScore      Float
+  growthScore    Float
+  riskLevel      RiskLevel @default(LOW)
+  suggestedAngles String[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  @@index([workspaceId])
+}
+
+model HotSignal {
+  id          String    @id @default(cuid())
+  workspaceId String
+  hotItemId   String?
+  clusterId   String?
+  signalType  String
+  title       String
+  confidence  Float
+  detectedAt  DateTime
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, detectedAt])
+}
+
+model HotTrendSnapshot {
+  id          String   @id @default(cuid())
+  workspaceId String
+  hotItemId   String?
+  clusterId   String?
+  capturedAt  DateTime
+  heatScore   Float
+  growthScore Float
+  metrics     Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, capturedAt])
+}
+
+model CompetitorAccount {
+  id          String   @id @default(cuid())
+  workspaceId String
+  platform    Platform
+  handle      String
+  displayName String
+  tags        String[]
+  sourceType  SourceType @default(PUBLIC_COMPLIANT)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, platform])
+}
+
+model KeywordWatch {
+  id          String   @id @default(cuid())
+  workspaceId String
+  keyword     String
+  industry    String
+  platforms   Platform[]
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, keyword])
+}
+
+model Topic {
+  id              String      @id @default(cuid())
+  workspaceId     String
+  title           String
+  angle           String
+  audience        String
+  status          TopicStatus @default(PENDING)
+  targetPlatforms Platform[]
+  score           Float       @default(0)
+  hotItemId       String?
+  personaId       String?
+  riskLevel       RiskLevel   @default(LOW)
+  sourceAgentRunId String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?
+
+  @@index([workspaceId, status])
+}
+
+model TopicAngle {
+  id          String   @id @default(cuid())
+  workspaceId String
+  topicId     String
+  title       String
+  hook        String
+  outline     String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, topicId])
+}
+
+model TopicScore {
+  id          String   @id @default(cuid())
+  workspaceId String
+  topicId     String
+  relevance   Float
+  competition Float
+  businessValue Float
+  executionDifficulty Float
+  rationale   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, topicId])
+}
+
+model TopicBrief {
+  id          String   @id @default(cuid())
+  workspaceId String
+  topicId     String
+  version     Int
+  summary     String
+  outline     String[]
+  cta         String
+  materialNotes String?
+  sourceAgentRunId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@unique([topicId, version])
+  @@index([workspaceId, topicId])
+}
+
+model TopicCalendarItem {
+  id          String   @id @default(cuid())
+  workspaceId String
+  topicId     String
+  contentDraftId String?
+  platform    Platform
+  scheduledAt DateTime
+  ownerId     String?
+  status      PublishStatus @default(PLANNED)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, scheduledAt])
+}
+
+model TopicStatusHistory {
+  id          String      @id @default(cuid())
+  workspaceId String
+  topicId     String
+  fromStatus  TopicStatus?
+  toStatus    TopicStatus
+  changedById String?
+  reason      String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, topicId])
+}
+
+model ContentDraft {
+  id              String        @id @default(cuid())
+  workspaceId     String
+  topicId         String?
+  personaId       String?
+  title           String
+  platform        Platform
+  format          String
+  content         String
+  status          ContentStatus @default(DRAFT)
+  currentVersion  Int           @default(1)
+  sourceAgentRunId String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?
+
+  @@index([workspaceId, status])
+}
+
+model ContentVersion {
+  id          String   @id @default(cuid())
+  workspaceId String
+  contentDraftId String
+  version     Int
+  content     String
+  changeNote  String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@unique([contentDraftId, version])
+  @@index([workspaceId, contentDraftId])
+}
+
+model ContentBlock {
+  id          String   @id @default(cuid())
+  workspaceId String
+  contentDraftId String
+  type        String
+  sortOrder   Int
+  body        String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, contentDraftId])
+}
+
+model ContentTemplate {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  platform    Platform
+  format      String
+  schema      Json
+  systemPrompt String
+  version     Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, platform])
+}
+
+model PlatformAdaptation {
+  id          String   @id @default(cuid())
+  workspaceId String
+  contentDraftId String
+  platform    Platform
+  title       String
+  body        String
+  checklist   Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, contentDraftId])
+}
+
+model MediaAsset {
+  id          String   @id @default(cuid())
+  workspaceId String
+  contentDraftId String?
+  name        String
+  assetType   String
+  url         String
+  sourceType  SourceType @default(USER_UPLOAD)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId])
+}
+
+model ContentReview {
+  id          String   @id @default(cuid())
+  workspaceId String
+  contentDraftId String
+  reviewerId  String?
+  status      ContentStatus
+  comment     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, contentDraftId])
+}
+
+model ContentRiskCheck {
+  id          String    @id @default(cuid())
+  workspaceId String
+  contentDraftId String
+  riskLevel   RiskLevel
+  riskItems   Json
+  rewriteSuggestions String[]
+  sourceAgentRunId String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, contentDraftId])
+}
+
+model PublishPlan {
+  id          String   @id @default(cuid())
+  workspaceId String
+  contentDraftId String
+  platform    Platform
+  scheduledAt DateTime
+  ownerId     String?
+  status      PublishStatus @default(PLANNED)
+  exportUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, scheduledAt])
+}
+
+model PublishedPost {
+  id          String   @id @default(cuid())
+  workspaceId String
+  publishPlanId String?
+  contentDraftId String
+  platform    Platform
+  platformPostId String?
+  url         String?
+  publishedAt DateTime
+  metrics     Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, publishedAt])
+}
+
+model ImportedMetricFile {
+  id          String   @id @default(cuid())
+  workspaceId String
+  fileName    String
+  fileType    String
+  sourceType  SourceType @default(USER_UPLOAD)
+  rowCount    Int
+  status      String   @default("parsed")
+  parsedData  Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId])
+}
+
+model PostMetricDaily {
+  id          String   @id @default(cuid())
+  workspaceId String
+  publishedPostId String?
+  platform    Platform
+  metricDate  DateTime
+  views       Int      @default(0)
+  likes       Int      @default(0)
+  comments    Int      @default(0)
+  shares      Int      @default(0)
+  conversions Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, metricDate])
+}
+
+model AccountMetricDaily {
+  id          String   @id @default(cuid())
+  workspaceId String
+  platformAccountId String?
+  platform    Platform
+  metricDate  DateTime
+  followers   Int      @default(0)
+  impressions Int      @default(0)
+  engagementRate Float @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, metricDate])
+}
+
+model CommentInsight {
+  id          String   @id @default(cuid())
+  workspaceId String
+  publishedPostId String?
+  sentiment   String
+  summary     String
+  keywords    String[]
+  sourceAgentRunId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId])
+}
+
+model AnalyticsReport {
+  id          String   @id @default(cuid())
+  workspaceId String
+  title       String
+  periodStart DateTime
+  periodEnd   DateTime
+  summary     String
+  anomalies   Json
+  recommendations Json
+  sourceAgentRunId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, periodStart])
+}
+
+model Experiment {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  hypothesis  String
+  status      String   @default("planned")
+  metric      String
+  startedAt   DateTime?
+  endedAt     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, status])
+}
+
+model ABHypothesis {
+  id          String   @id @default(cuid())
+  workspaceId String
+  experimentId String?
+  title       String
+  variantA    String
+  variantB    String
+  successMetric String
+  rationale   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId])
+}
+
+model Recommendation {
+  id          String   @id @default(cuid())
+  workspaceId String
+  sourceType  String
+  title       String
+  rationale   String
+  targetModule String
+  status      String   @default("open")
+  sourceAgentRunId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, status])
+}
+
+model AgentRun {
+  id           String      @id @default(cuid())
+  workspaceId  String
+  userId       String?
+  agentType    AgentType
+  status       AgentStatus @default(PENDING)
+  input        Json
+  output       Json?
+  model        String?
+  tokenUsage   Json?
+  costEstimate Float       @default(0)
+  latencyMs    Int         @default(0)
+  errorMessage String?
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  deletedAt    DateTime?
+
+  @@index([workspaceId, agentType, status])
+}
+
+model AgentStep {
+  id          String      @id @default(cuid())
+  workspaceId String
+  agentRunId  String
+  name        String
+  status      AgentStatus @default(PENDING)
+  input       Json?
+  output      Json?
+  latencyMs   Int         @default(0)
+  errorMessage String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, agentRunId])
+}
+
+model AgentPromptTemplate {
+  id          String    @id @default(cuid())
+  workspaceId String?
+  agentType   AgentType
+  name        String
+  version     Int
+  systemPrompt String
+  userPrompt   String
+  outputSchema Json?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@unique([agentType, name, version])
+}
+
+model AgentOutput {
+  id          String   @id @default(cuid())
+  workspaceId String
+  agentRunId  String
+  entityType  String
+  entityId    String?
+  payload     Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, agentRunId])
+}
+
+model AgentFeedback {
+  id          String   @id @default(cuid())
+  workspaceId String
+  agentRunId  String
+  userId      String?
+  rating      Int
+  comment     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, agentRunId])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  workspaceId String?
+  userId      String?
+  action      String
+  entityType  String
+  entityId    String?
+  summary     String
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, action])
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String?
+  title       String
+  body        String
+  readAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, userId])
+}
+
+model UsageEvent {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String?
+  eventType   String
+  quantity    Int      @default(1)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId, eventType])
+}
+
+model CreditLedger {
+  id          String   @id @default(cuid())
+  workspaceId String
+  delta       Int
+  balance     Int
+  reason      String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId])
+}
+
+model ApiKey {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  keyHash     String
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId])
+}
+
+model WebhookEndpoint {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  url         String
+  secretHash  String?
+  events      String[]
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([workspaceId])
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  workspaceId String?
+  key         String
+  value       Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@unique([workspaceId, key])
+}
