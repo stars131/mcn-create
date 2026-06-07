@@ -45,6 +45,47 @@ test("opens the dashboard and serves core mock workflow data", async ({ page, re
     headers: { Cookie: ownerCookie }
   });
   expect(agentRuns.ok()).toBeTruthy();
+  const beforeRunsPayload = await agentRuns.json();
+  const beforeRunIds = new Set(beforeRunsPayload.data.map((run: { id: string }) => run.id));
+
+  const retry = await request.post("/api/agent-runs/run_002/retry", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(retry.ok()).toBeTruthy();
+  await expect(retry.json()).resolves.toMatchObject({
+    data: { riskLevel: "LOW" }
+  });
+
+  const afterRuns = await request.get("/api/agent-runs", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(afterRuns.ok()).toBeTruthy();
+  const afterRunsPayload = await afterRuns.json();
+  const retryRun = afterRunsPayload.data.find(
+    (run: { id: string; agentType: string; status: string; input: unknown }) =>
+      !beforeRunIds.has(run.id) && run.agentType === "RISK"
+  );
+  expect(retryRun).toMatchObject({
+    agentType: "RISK",
+    status: "SUCCESS",
+    input: {
+      contentDraftId: "content_001"
+    }
+  });
+
+  const auditLogs = await request.get("/api/audit-logs", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(auditLogs.ok()).toBeTruthy();
+  const auditPayload = await auditLogs.json();
+  expect(auditPayload.data[0]).toMatchObject({
+    action: "agent.retry",
+    entityType: "AgentRun",
+    metadata: {
+      originalRunId: "run_002",
+      retryStatus: "SUCCESS"
+    }
+  });
 });
 
 test("logs out and clears access to protected pages", async ({ page }) => {

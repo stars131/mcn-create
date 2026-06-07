@@ -82,6 +82,9 @@ const trend = [
   { time: "16:00", heat: 91, growth: 68 }
 ];
 
+const seedContentDraftText =
+  "很多团队的问题不是不会生成，而是生成之后没人知道这篇内容是否符合品牌。先做一份可审阅的人设记忆：语气、禁用表达、目标受众、风格样例。再把热点、选题、草稿、日历和复盘串起来，内容产能才会稳定。";
+
 const initialStore: MockStore = {
   users: [
     {
@@ -254,8 +257,7 @@ const initialStore: MockStore = {
       title: "小团队别急着买更多 AI 工具",
       platform: "XIAOHONGSHU",
       format: "图文",
-      content:
-        "很多团队的问题不是不会生成，而是生成之后没人知道这篇内容是否符合品牌。先做一份可审阅的人设记忆：语气、禁用表达、目标受众、风格样例。再把热点、选题、草稿、日历和复盘串起来，内容产能才会稳定。",
+      content: seedContentDraftText,
       status: "IN_REVIEW",
       currentVersion: 2,
       riskLevel: "LOW",
@@ -369,7 +371,7 @@ const initialStore: MockStore = {
       userId: "user_owner",
       agentType: "RISK",
       status: "SUCCESS",
-      input: { contentDraftId: "content_001" },
+      input: { contentDraftId: "content_001", content: seedContentDraftText },
       output: { riskLevel: "LOW" },
       model: "mock-contentos-v1",
       tokenUsage: { prompt: 430, completion: 220, total: 650 },
