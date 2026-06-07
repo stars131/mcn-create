@@ -66,6 +66,12 @@ function inferPermission(request: NextRequest): PermissionAction | undefined {
     }
     return "analytics.read";
   }
+  if (pathname.startsWith("/api/settings/api-keys") || pathname.startsWith("/api/settings/webhooks")) {
+    return "api_key.manage";
+  }
+  if (pathname.startsWith("/api/settings")) {
+    return "workspace.manage";
+  }
   if (pathname.startsWith("/api/data-sources")) {
     return "data_source.manage";
   }

@@ -1,9 +1,11 @@
 import type {
   AgentRun,
   AnalyticsReport,
+  ApiKey,
   AuditLog,
   CalendarItem,
   ContentDraft,
+  CreditLedger,
   DataSource,
   HotCluster,
   HotItem,
@@ -13,7 +15,9 @@ import type {
   TeamMember,
   Topic,
   TopicBrief,
+  UsageEvent,
   User,
+  WebhookEndpoint,
   Workspace
 } from "@/types/domain";
 
@@ -35,6 +39,10 @@ export interface MockStore {
   analyticsReports: AnalyticsReport[];
   agentRuns: AgentRun[];
   auditLogs: AuditLog[];
+  usageEvents: UsageEvent[];
+  creditLedger: CreditLedger[];
+  apiKeys: ApiKey[];
+  webhookEndpoints: WebhookEndpoint[];
   teamMembers: TeamMember[];
 }
 
@@ -380,6 +388,80 @@ const initialStore: MockStore = {
       summary: "刷新 mock 热点数据并生成热点簇",
       metadata: { sourceType: "MOCK", compliant: true },
       createdAt: iso()
+    }
+  ],
+  usageEvents: [
+    {
+      id: "usage_001",
+      workspaceId: defaultWorkspace.id,
+      userId: "user_owner",
+      eventType: "agent.run",
+      quantity: 2,
+      metadata: { agentTypes: ["HOTSPOT", "RISK"] },
+      createdAt: iso()
+    },
+    {
+      id: "usage_002",
+      workspaceId: secondaryWorkspace.id,
+      userId: "user_owner",
+      eventType: "analytics.report",
+      quantity: 1,
+      metadata: { reportId: "report_001" },
+      createdAt: iso(-1)
+    }
+  ],
+  creditLedger: [
+    {
+      id: "credit_001",
+      workspaceId: defaultWorkspace.id,
+      delta: 5000,
+      balance: 5000,
+      reason: "MVP 初始额度",
+      metadata: { plan: defaultWorkspace.currentPlan },
+      createdAt: iso(-20)
+    },
+    {
+      id: "credit_002",
+      workspaceId: defaultWorkspace.id,
+      delta: -120,
+      balance: 4880,
+      reason: "Agent mock 运行消耗",
+      metadata: { agentRunIds: ["run_001", "run_002"] },
+      createdAt: iso()
+    },
+    {
+      id: "credit_003",
+      workspaceId: secondaryWorkspace.id,
+      delta: 2000,
+      balance: 2000,
+      reason: "客户 workspace 初始额度",
+      metadata: { plan: secondaryWorkspace.currentPlan },
+      createdAt: iso(-4)
+    }
+  ],
+  apiKeys: [
+    {
+      id: "api_key_001",
+      workspaceId: defaultWorkspace.id,
+      name: "Server ingest key",
+      keyPrefix: "cos_live_demo",
+      keyHash: "mock_hash_server_ingest_key",
+      lastUsedAt: iso(-1),
+      createdById: "user_owner",
+      createdAt: iso(-7)
+    }
+  ],
+  webhookEndpoints: [
+    {
+      id: "webhook_001",
+      workspaceId: defaultWorkspace.id,
+      name: "Agent run notifier",
+      url: "https://example.com/contentos/webhook",
+      secretHash: "mock_hash_webhook_secret",
+      events: ["agent.run.success", "content.scheduled"],
+      enabled: true,
+      createdAt: iso(-5),
+      updatedAt: iso(-1)
     }
   ],
   teamMembers: [

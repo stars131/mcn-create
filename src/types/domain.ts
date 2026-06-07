@@ -215,6 +215,51 @@ export interface AuditLog {
   createdAt: string;
 }
 
+export interface UsageEvent {
+  id: string;
+  workspaceId: string;
+  userId?: string;
+  eventType: string;
+  quantity: number;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface CreditLedger {
+  id: string;
+  workspaceId: string;
+  delta: number;
+  balance: number;
+  reason: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface ApiKey {
+  id: string;
+  workspaceId: string;
+  name: string;
+  keyPrefix: string;
+  keyHash: string;
+  lastUsedAt?: string;
+  expiresAt?: string;
+  createdById?: string;
+  createdAt: string;
+  deletedAt?: string;
+}
+
+export interface WebhookEndpoint {
+  id: string;
+  workspaceId: string;
+  name: string;
+  url: string;
+  secretHash?: string;
+  events: string[];
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface TeamMember {
   id: string;
   workspaceId: string;

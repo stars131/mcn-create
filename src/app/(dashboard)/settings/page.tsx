@@ -1,4 +1,5 @@
 import { KeyRound, Settings2 } from "lucide-react";
+import { ActionButton } from "@/components/ui/action-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
@@ -7,12 +8,16 @@ import { listAuditLogs } from "@/server/audit/audit-service";
 import { promptTemplates } from "@/server/ai/prompts/templates";
 import { getCurrentUser, getCurrentWorkspaceId } from "@/server/auth/session";
 import { store } from "@/server/services/mock-store";
+import { getUsageSummary, listApiKeys, listWebhookEndpoints } from "@/server/services/settings-service";
 
 export default function SettingsPage() {
   const user = getCurrentUser();
   const workspaceId = getCurrentWorkspaceId();
   const workspace = store.workspaces.find((item) => item.id === workspaceId);
   const logs = listAuditLogs(workspaceId);
+  const apiKeys = listApiKeys(workspaceId);
+  const webhooks = listWebhookEndpoints(workspaceId);
+  const usageSummary = getUsageSummary(workspaceId);
 
   return (
     <>
@@ -63,14 +68,165 @@ export default function SettingsPage() {
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <div className="flex items-center gap-2 text-foreground">
               <KeyRound className="h-4 w-4 text-primary" aria-hidden="true" />
-              <span className="font-medium">结构已预留</span>
+              <span className="font-medium">可运行预留层</span>
             </div>
-            <p>Prisma schema 中已包含 ApiKey、WebhookEndpoint、UsageEvent 和 CreditLedger。</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-md bg-muted px-3 py-2">
+                <div className="text-xs">API Key</div>
+                <div className="mt-1 text-lg font-semibold text-foreground">{apiKeys.length}</div>
+              </div>
+              <div className="rounded-md bg-muted px-3 py-2">
+                <div className="text-xs">Webhook</div>
+                <div className="mt-1 text-lg font-semibold text-foreground">{webhooks.length}</div>
+              </div>
+            </div>
+            <p>ApiKey、WebhookEndpoint、UsageEvent 和 CreditLedger 已进入 mock 运行层，可通过 API 和审计日志验证。</p>
           </CardContent>
         </Card>
       </section>
 
       <section className="mt-5 grid gap-4 xl:grid-cols-[1fr_420px]">
+        <Card>
+          <CardHeader className="flex items-center justify-between gap-3 sm:flex-row">
+            <CardTitle>API Key</CardTitle>
+            <ActionButton
+              endpoint="/api/settings/api-keys"
+              body={{ name: `MVP 操作 Key ${apiKeys.length + 1}` }}
+              label="创建 Key"
+              pendingLabel="创建中"
+              icon="key"
+              variant="primary"
+            />
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>名称</Th>
+                  <Th>Key</Th>
+                  <Th>状态</Th>
+                  <Th>最近使用</Th>
+                  <Th>操作</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {apiKeys.map((apiKey) => (
+                  <tr key={apiKey.id}>
+                    <Td className="font-medium">{apiKey.name}</Td>
+                    <Td>{apiKey.keyPreview}</Td>
+                    <Td>
+                      <Badge tone={apiKey.deletedAt ? "danger" : "success"}>
+                        {apiKey.deletedAt ? "已撤销" : "可用"}
+                      </Badge>
+                    </Td>
+                    <Td>{apiKey.lastUsedAt ? new Date(apiKey.lastUsedAt).toLocaleString("zh-CN") : "-"}</Td>
+                    <Td>
+                      {apiKey.deletedAt ? (
+                        <span className="text-xs text-muted-foreground">已关闭</span>
+                      ) : (
+                        <ActionButton
+                          endpoint={`/api/settings/api-keys/${apiKey.id}`}
+                          method="DELETE"
+                          label="撤销"
+                          pendingLabel="撤销中"
+                          icon="shieldX"
+                          variant="danger"
+                        />
+                      )}
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex items-center justify-between gap-3 sm:flex-row">
+            <CardTitle>用量与额度</CardTitle>
+            <Badge tone="info">余额 {usageSummary.creditBalance}</Badge>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 text-sm sm:grid-cols-2">
+              <div className="rounded-md bg-muted px-3 py-2">
+                <div className="text-xs text-muted-foreground">事件用量</div>
+                <div className="mt-1 text-xl font-semibold">{usageSummary.usageTotal}</div>
+              </div>
+              <div className="rounded-md bg-muted px-3 py-2">
+                <div className="text-xs text-muted-foreground">账本条目</div>
+                <div className="mt-1 text-xl font-semibold">{usageSummary.creditLedger.length}</div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {usageSummary.creditLedger.slice(0, 4).map((entry) => (
+                <div key={entry.id} className="rounded-md border border-border px-3 py-2 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium">{entry.reason}</span>
+                    <Badge tone={entry.delta >= 0 ? "success" : "warning"}>{entry.delta}</Badge>
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">余额：{entry.balance}</div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="mt-5 grid gap-4 xl:grid-cols-[1fr_420px]">
+        <Card>
+          <CardHeader className="flex items-center justify-between gap-3 sm:flex-row">
+            <CardTitle>Webhook</CardTitle>
+            <ActionButton
+              endpoint="/api/settings/webhooks"
+              body={{
+                name: `Webhook ${webhooks.length + 1}`,
+                url: "https://example.com/contentos/webhook",
+                events: ["agent.run.success", "content.scheduled"]
+              }}
+              label="新增 Webhook"
+              pendingLabel="新增中"
+              icon="plug"
+              variant="primary"
+            />
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>名称</Th>
+                  <Th>URL</Th>
+                  <Th>事件</Th>
+                  <Th>状态</Th>
+                  <Th>操作</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {webhooks.map((webhook) => (
+                  <tr key={webhook.id}>
+                    <Td className="font-medium">{webhook.name}</Td>
+                    <Td>{webhook.url}</Td>
+                    <Td>{webhook.events.join(", ")}</Td>
+                    <Td>
+                      <Badge tone={webhook.enabled ? "success" : "neutral"}>
+                        {webhook.enabled ? "启用" : "停用"}
+                      </Badge>
+                    </Td>
+                    <Td>
+                      <ActionButton
+                        endpoint={`/api/settings/webhooks/${webhook.id}`}
+                        method="PATCH"
+                        body={{ enabled: !webhook.enabled }}
+                        label={webhook.enabled ? "停用" : "启用"}
+                        pendingLabel="更新中"
+                      />
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </CardContent>
+        </Card>
+
         <Card id="audit">
           <CardHeader>
             <CardTitle>审计日志</CardTitle>

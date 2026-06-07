@@ -130,6 +130,71 @@ test("switches workspaces and scopes default API reads to the active workspace",
   expect(resetOk).toBeTruthy();
 });
 
+test("exposes API key, webhook, and usage reserves with RBAC", async ({ page, request }) => {
+  await loginAsOwner(page, "/settings");
+  await expect(page.getByRole("heading", { name: "设置", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "API Key", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Webhook", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "用量与额度", exact: true })).toBeVisible();
+  await expect(page.getByText("Server ingest key")).toBeVisible();
+
+  const keys = await request.get("/api/settings/api-keys", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(keys.ok()).toBeTruthy();
+  const keysPayload = await keys.json();
+  expect(keysPayload.data.length).toBeGreaterThan(0);
+  expect(keysPayload.data[0]).not.toHaveProperty("keyHash");
+  expect(keysPayload.data[0]).toHaveProperty("keyPreview");
+
+  const createdKey = await request.post("/api/settings/api-keys", {
+    headers: { Cookie: ownerCookie },
+    data: { name: `E2E Key ${Date.now()}` }
+  });
+  expect(createdKey.ok()).toBeTruthy();
+  const createdKeyPayload = await createdKey.json();
+  expect(createdKeyPayload.data.secret).toMatch(/^cos_/);
+  expect(createdKeyPayload.data.apiKey).not.toHaveProperty("keyHash");
+
+  const revokedKey = await request.delete(`/api/settings/api-keys/${createdKeyPayload.data.apiKey.id}`, {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(revokedKey.ok()).toBeTruthy();
+  await expect(revokedKey.json()).resolves.toMatchObject({
+    data: { id: createdKeyPayload.data.apiKey.id }
+  });
+
+  const webhooks = await request.get("/api/settings/webhooks", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(webhooks.ok()).toBeTruthy();
+  const webhooksPayload = await webhooks.json();
+  expect(webhooksPayload.data.length).toBeGreaterThan(0);
+  expect(webhooksPayload.data[0]).not.toHaveProperty("secretHash");
+
+  const disabledWebhook = await request.patch(`/api/settings/webhooks/${webhooksPayload.data[0].id}`, {
+    headers: { Cookie: ownerCookie },
+    data: { enabled: false }
+  });
+  expect(disabledWebhook.ok()).toBeTruthy();
+  await expect(disabledWebhook.json()).resolves.toMatchObject({
+    data: { id: webhooksPayload.data[0].id, enabled: false }
+  });
+
+  const usage = await request.get("/api/settings/usage", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(usage.ok()).toBeTruthy();
+  const usagePayload = await usage.json();
+  expect(usagePayload.data.creditBalance).toBe(4880);
+  expect(usagePayload.data.usageTotal).toBeGreaterThan(0);
+
+  const viewerDenied = await request.get("/api/settings/api-keys", {
+    headers: { Cookie: "contentos_session=mock:user_editor; contentos_workspace=ws_demo" }
+  });
+  expect(viewerDenied.status()).toBe(403);
+});
+
 test("normalizes API validation errors through the shared handler", async ({ request }) => {
   const invalidCalendarItem = await request.post("/api/calendar/items", {
     headers: { Cookie: ownerCookie },
