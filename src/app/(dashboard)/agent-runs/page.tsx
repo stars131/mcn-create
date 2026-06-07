@@ -1,23 +1,72 @@
 import { ActionButton } from "@/components/ui/action-button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
 import { AgentStatusBadge } from "@/components/ui/status-badge";
 import { Table, Td, Th } from "@/components/ui/table";
 import { getCurrentWorkspaceId } from "@/server/auth/session";
-import { listAgentRuns } from "@/server/services/agent-run-service";
+import { listAgentRunDetails } from "@/server/services/agent-run-service";
+
+function summarize(value: unknown, maxLength = 110) {
+  const text = typeof value === "string" ? value : JSON.stringify(value);
+  if (!text) {
+    return "-";
+  }
+  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+}
 
 export default function AgentRunsPage() {
   const workspaceId = getCurrentWorkspaceId();
-  const runs = listAgentRuns(workspaceId);
+  const details = listAgentRunDetails(workspaceId);
+  const latest = details[0];
 
   return (
     <>
       <PageHeading
         eyebrow="Agent Runs"
         title="Agent 运行中心"
-        description="每次 Agent 调用都记录 workspace、用户、输入、输出、模型、token、成本、耗时、状态和错误信息。"
+        description="每次 Agent 调用都记录运行状态、Prompt 模板、步骤轨迹、结构化输出、反馈和审计信息。"
       />
-      <Card>
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>运行次数</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold">{details.length}</div>
+            <div className="mt-1 text-xs text-muted-foreground">当前 workspace</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>步骤记录</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold">{details.reduce((sum, item) => sum + item.steps.length, 0)}</div>
+            <div className="mt-1 text-xs text-muted-foreground">验证、调用、持久化</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>输出记录</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold">{details.reduce((sum, item) => sum + item.outputs.length, 0)}</div>
+            <div className="mt-1 text-xs text-muted-foreground">AgentOutput / AgentError</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>反馈记录</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold">{details.reduce((sum, item) => sum + item.feedback.length, 0)}</div>
+            <div className="mt-1 text-xs text-muted-foreground">人工评分与备注</div>
+          </CardContent>
+        </Card>
+      </section>
+
+      <Card className="mt-5">
         <CardHeader>
           <CardTitle>运行记录</CardTitle>
         </CardHeader>
@@ -36,28 +85,42 @@ export default function AgentRunsPage() {
               </tr>
             </thead>
             <tbody>
-              {runs.map((run) => (
+              {details.map(({ run, steps, outputs, feedback }) => (
                 <tr key={run.id}>
                   <Td className="font-medium">{run.agentType.toLowerCase()}</Td>
                   <Td>
                     <AgentStatusBadge status={run.status} />
                   </Td>
                   <Td className="max-w-[220px] truncate text-xs text-muted-foreground">
-                    {JSON.stringify(run.input)}
+                    {summarize(run.input)}
                   </Td>
                   <Td className="max-w-[220px] truncate text-xs text-muted-foreground">
-                    {run.output ? JSON.stringify(run.output) : "-"}
+                    {summarize(run.output)}
                   </Td>
                   <Td>{run.tokenUsage?.total ?? 0}</Td>
                   <Td>{run.latencyMs}ms</Td>
                   <Td className="text-xs text-red-700">{run.errorMessage ?? "-"}</Td>
                   <Td>
-                    <ActionButton
-                      endpoint={`/api/agent-runs/${run.id}/retry`}
-                      label="重跑"
-                      pendingLabel="重跑中"
-                      icon="rotateCcw"
-                    />
+                    <div className="flex flex-wrap gap-2">
+                      <ActionButton
+                        endpoint={`/api/agent-runs/${run.id}/retry`}
+                        label="重跑"
+                        pendingLabel="重跑中"
+                        icon="rotateCcw"
+                      />
+                      <ActionButton
+                        endpoint={`/api/agent-runs/${run.id}/feedback`}
+                        body={{ rating: 5, comment: "页面快捷反馈：结果可用" }}
+                        label="好评"
+                        pendingLabel="提交中"
+                        icon="checkCircle"
+                      />
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1 text-xs text-muted-foreground">
+                      <Badge>{steps.length} 步</Badge>
+                      <Badge>{outputs.length} 输出</Badge>
+                      <Badge>{feedback.length} 反馈</Badge>
+                    </div>
                   </Td>
                 </tr>
               ))}
@@ -65,6 +128,88 @@ export default function AgentRunsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {latest ? (
+        <section className="mt-5 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+          <Card>
+            <CardHeader>
+              <CardTitle>最新运行轨迹</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <thead>
+                  <tr>
+                    <Th>步骤</Th>
+                    <Th>状态</Th>
+                    <Th>输入</Th>
+                    <Th>输出</Th>
+                    <Th>耗时</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {latest.steps.map((step) => (
+                    <tr key={step.id}>
+                      <Td className="font-medium">{step.name}</Td>
+                      <Td>
+                        <AgentStatusBadge status={step.status} />
+                      </Td>
+                      <Td className="max-w-[220px] truncate text-xs text-muted-foreground">{summarize(step.input, 90)}</Td>
+                      <Td className="max-w-[220px] truncate text-xs text-muted-foreground">{summarize(step.output, 90)}</Td>
+                      <Td>{step.latencyMs}ms</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Prompt 模板</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                {latest.promptTemplate ? (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge tone="info">{latest.promptTemplate.agentType.toLowerCase()}</Badge>
+                      <Badge>v{latest.promptTemplate.version}</Badge>
+                      <Badge>{latest.promptTemplate.name}</Badge>
+                    </div>
+                    <p className="leading-6 text-muted-foreground">{latest.promptTemplate.systemPrompt}</p>
+                    <p className="leading-6 text-muted-foreground">{latest.promptTemplate.userPrompt}</p>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground">未找到激活模板。</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>输出与反馈</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {latest.outputs.slice(0, 3).map((output) => (
+                  <div key={output.id} className="rounded-md border border-border p-3">
+                    <div className="flex items-center gap-2">
+                      <Badge tone={output.entityType === "AgentError" ? "danger" : "success"}>{output.entityType}</Badge>
+                      <span className="text-xs text-muted-foreground">{output.entityId ?? "-"}</span>
+                    </div>
+                    <div className="mt-2 text-xs leading-5 text-muted-foreground">{summarize(output.payload, 180)}</div>
+                  </div>
+                ))}
+                {latest.feedback.slice(0, 3).map((feedback) => (
+                  <div key={feedback.id} className="rounded-md bg-muted px-3 py-2 text-sm">
+                    <span className="font-medium">{feedback.rating}/5</span>
+                    <span className="ml-2 text-muted-foreground">{feedback.comment ?? "无备注"}</span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+      ) : null}
     </>
   );
 }

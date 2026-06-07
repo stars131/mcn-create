@@ -2,7 +2,7 @@ import { getAiProvider } from "@/server/ai/providers";
 import type { AiProvider } from "@/server/ai/providers/ai-provider";
 import { writeAuditLog } from "@/server/audit/audit-service";
 import { nextId, store } from "@/server/services/mock-store";
-import type { AgentRun, AgentType } from "@/types/domain";
+import type { AgentOutput, AgentRun, AgentStatus, AgentStep, AgentType } from "@/types/domain";
 import type { z } from "zod";
 
 export interface AgentContext {
@@ -31,35 +31,69 @@ export abstract class BaseAgent<TInput, TOutput> {
 
   async run(input: unknown): Promise<TOutput> {
     const startedAt = Date.now();
-    const parsedInput = this.validateInput(input);
+    const now = new Date().toISOString();
     const run: AgentRun = {
       id: nextId("run"),
       workspaceId: this.workspaceId,
       userId: this.userId,
       agentType: this.type,
       status: "RUNNING",
-      input: parsedInput,
+      input,
       model: this.aiProvider.id,
       costEstimate: 0,
       latencyMs: 0,
-      createdAt: new Date().toISOString()
+      startedAt: now,
+      createdAt: now,
+      updatedAt: now
     };
     store.agentRuns.unshift(run);
 
+    const validateStep = this.startStep(run, "validate_input", input);
+    let modelStep: AgentStep | undefined;
+    let persistStep: AgentStep | undefined;
+
     try {
+      const parsedInput = this.validateInput(input);
+      run.input = parsedInput;
+      this.finishStep(validateStep, "SUCCESS", { accepted: true });
+
+      modelStep = this.startStep(run, "model_call", {
+        agentType: this.type,
+        model: this.aiProvider.id
+      });
       const rawOutput = await this.callModel(parsedInput, run);
+      this.finishStep(modelStep, "SUCCESS", rawOutput);
+
       const output = this.outputSchema.parse(rawOutput);
+      persistStep = this.startStep(run, "persist_result", { output });
       await this.persistResult(output, run);
+      this.finishStep(persistStep, "SUCCESS", { persisted: true });
+
       run.status = "SUCCESS";
       run.output = output;
       run.latencyMs = Date.now() - startedAt;
+      run.finishedAt = new Date().toISOString();
+      run.updatedAt = run.finishedAt;
+      this.persistAgentOutput(run, "AgentOutput", run.id, output);
       this.writeAuditLog(run, "success");
       return output;
     } catch (error) {
       const message = error instanceof Error ? error.message : "未知 Agent 错误";
+      if (validateStep.status === "RUNNING") {
+        this.finishStep(validateStep, "FAILED", undefined, message);
+      }
+      if (modelStep?.status === "RUNNING") {
+        this.finishStep(modelStep, "FAILED", undefined, message);
+      }
+      if (persistStep?.status === "RUNNING") {
+        this.finishStep(persistStep, "FAILED", undefined, message);
+      }
       run.status = "FAILED";
       run.errorMessage = message;
       run.latencyMs = Date.now() - startedAt;
+      run.finishedAt = new Date().toISOString();
+      run.updatedAt = run.finishedAt;
+      this.persistAgentOutput(run, "AgentError", run.id, { errorMessage: message });
       this.handleError(error, run);
       this.writeAuditLog(run, "failed");
       throw error;
@@ -70,6 +104,47 @@ export abstract class BaseAgent<TInput, TOutput> {
 
   async persistResult(_output: TOutput, _run: AgentRun) {
     return;
+  }
+
+  protected startStep(run: AgentRun, name: string, input?: unknown) {
+    const now = new Date().toISOString();
+    const step: AgentStep = {
+      id: nextId("agent_step"),
+      workspaceId: this.workspaceId,
+      agentRunId: run.id,
+      name,
+      status: "RUNNING",
+      input,
+      latencyMs: 0,
+      createdAt: now,
+      updatedAt: now
+    };
+    store.agentSteps.push(step);
+    return step;
+  }
+
+  protected finishStep(step: AgentStep, status: AgentStatus, output?: unknown, errorMessage?: string) {
+    step.status = status;
+    step.output = output;
+    step.errorMessage = errorMessage;
+    step.latencyMs = Math.max(0, Date.now() - Date.parse(step.createdAt));
+    step.updatedAt = new Date().toISOString();
+  }
+
+  protected persistAgentOutput(run: AgentRun, entityType: string, entityId: string | undefined, payload: unknown) {
+    const now = new Date().toISOString();
+    const output: AgentOutput = {
+      id: nextId("agent_output"),
+      workspaceId: this.workspaceId,
+      agentRunId: run.id,
+      entityType,
+      entityId,
+      payload,
+      createdAt: now,
+      updatedAt: now
+    };
+    store.agentOutputs.unshift(output);
+    return output;
   }
 
   writeAuditLog(run: AgentRun, status: "success" | "failed") {

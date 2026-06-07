@@ -418,7 +418,60 @@ export interface AgentRun {
   costEstimate: number;
   latencyMs: number;
   errorMessage?: string;
+  startedAt?: string;
+  finishedAt?: string;
   createdAt: string;
+  updatedAt?: string;
+}
+
+export interface AgentStep {
+  id: string;
+  workspaceId: string;
+  agentRunId: string;
+  name: string;
+  status: AgentStatus;
+  input?: unknown;
+  output?: unknown;
+  latencyMs: number;
+  errorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentPromptTemplate {
+  id: string;
+  workspaceId?: string;
+  agentType: AgentType;
+  name: string;
+  version: number;
+  systemPrompt: string;
+  userPrompt: string;
+  outputSchema?: unknown;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentOutput {
+  id: string;
+  workspaceId: string;
+  agentRunId: string;
+  entityType: string;
+  entityId?: string;
+  payload: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentFeedback {
+  id: string;
+  workspaceId: string;
+  agentRunId: string;
+  userId?: string;
+  rating: number;
+  comment?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AuditLog {

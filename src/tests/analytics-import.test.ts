@@ -127,6 +127,9 @@ describe("analytics import", () => {
     const beforeHypotheses = store.abHypotheses.length;
     const beforeRecommendations = store.recommendations.length;
     const beforeTopics = store.topics.length;
+    const beforeAgentRunIds = new Set(store.agentRuns.map((run) => run.id));
+    const beforeStepIds = new Set(store.agentSteps.map((step) => step.id));
+    const beforeOutputIds = new Set(store.agentOutputs.map((output) => output.id));
 
     try {
       const report = await generateAnalyticsReport({ workspaceId: "ws_demo", userId: "user_owner", period: "本周" });
@@ -163,6 +166,9 @@ describe("analytics import", () => {
       store.abHypotheses.splice(0, store.abHypotheses.length - beforeHypotheses);
       store.recommendations.splice(0, store.recommendations.length - beforeRecommendations);
       store.topics.splice(0, store.topics.length - beforeTopics);
+      store.agentRuns = store.agentRuns.filter((run) => beforeAgentRunIds.has(run.id));
+      store.agentSteps = store.agentSteps.filter((step) => beforeStepIds.has(step.id));
+      store.agentOutputs = store.agentOutputs.filter((output) => beforeOutputIds.has(output.id));
     }
   });
 });

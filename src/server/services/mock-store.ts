@@ -1,6 +1,11 @@
+import { promptTemplates } from "@/server/ai/prompts/templates";
 import type {
   ABHypothesis,
+  AgentFeedback,
+  AgentOutput,
+  AgentPromptTemplate,
   AgentRun,
+  AgentStep,
   AnalyticsReport,
   ApiKey,
   AuditLog,
@@ -66,6 +71,10 @@ export interface MockStore {
   abHypotheses: ABHypothesis[];
   recommendations: Recommendation[];
   agentRuns: AgentRun[];
+  agentSteps: AgentStep[];
+  agentPromptTemplates: AgentPromptTemplate[];
+  agentOutputs: AgentOutput[];
+  agentFeedback: AgentFeedback[];
   auditLogs: AuditLog[];
   usageEvents: UsageEvent[];
   creditLedger: CreditLedger[];
@@ -822,7 +831,10 @@ const initialStore: MockStore = {
       tokenUsage: { prompt: 920, completion: 480, total: 1400 },
       costEstimate: 0,
       latencyMs: 620,
-      createdAt: iso()
+      startedAt: iso(),
+      finishedAt: iso(),
+      createdAt: iso(),
+      updatedAt: iso()
     },
     {
       id: "run_002",
@@ -836,7 +848,105 @@ const initialStore: MockStore = {
       tokenUsage: { prompt: 430, completion: 220, total: 650 },
       costEstimate: 0,
       latencyMs: 310,
-      createdAt: iso()
+      startedAt: iso(),
+      finishedAt: iso(),
+      createdAt: iso(),
+      updatedAt: iso()
+    }
+  ],
+  agentSteps: [
+    {
+      id: "agent_step_001",
+      workspaceId: defaultWorkspace.id,
+      agentRunId: "run_001",
+      name: "validate_input",
+      status: "SUCCESS",
+      input: { platforms: ["ALL"], window: "24h" },
+      output: { accepted: true },
+      latencyMs: 4,
+      createdAt: iso(),
+      updatedAt: iso()
+    },
+    {
+      id: "agent_step_002",
+      workspaceId: defaultWorkspace.id,
+      agentRunId: "run_001",
+      name: "model_call",
+      status: "SUCCESS",
+      input: { agentType: "HOTSPOT", promptName: "hotspot-summary" },
+      output: { clusters: 1, items: 3 },
+      latencyMs: 620,
+      createdAt: iso(),
+      updatedAt: iso()
+    },
+    {
+      id: "agent_step_003",
+      workspaceId: defaultWorkspace.id,
+      agentRunId: "run_002",
+      name: "validate_input",
+      status: "SUCCESS",
+      input: { contentDraftId: "content_001" },
+      output: { accepted: true },
+      latencyMs: 3,
+      createdAt: iso(),
+      updatedAt: iso()
+    },
+    {
+      id: "agent_step_004",
+      workspaceId: defaultWorkspace.id,
+      agentRunId: "run_002",
+      name: "model_call",
+      status: "SUCCESS",
+      input: { agentType: "RISK", promptName: "risk-check" },
+      output: { riskLevel: "LOW" },
+      latencyMs: 310,
+      createdAt: iso(),
+      updatedAt: iso()
+    }
+  ],
+  agentPromptTemplates: promptTemplates.map((template) => ({
+    id: `prompt_template_${template.name.replace(/[^a-z0-9]+/gi, "_")}_v${template.version}`,
+    agentType: template.agentType,
+    name: template.name,
+    version: template.version,
+    systemPrompt: template.systemPrompt,
+    userPrompt: template.userPrompt,
+    active: true,
+    createdAt: iso(-2),
+    updatedAt: iso()
+  })),
+  agentOutputs: [
+    {
+      id: "agent_output_001",
+      workspaceId: defaultWorkspace.id,
+      agentRunId: "run_001",
+      entityType: "HotCluster",
+      entityId: "cluster_001",
+      payload: { clusters: 1, items: 3 },
+      createdAt: iso(),
+      updatedAt: iso()
+    },
+    {
+      id: "agent_output_002",
+      workspaceId: defaultWorkspace.id,
+      agentRunId: "run_002",
+      entityType: "ContentRiskCheck",
+      entityId: "content_risk_001",
+      payload: { riskLevel: "LOW" },
+      createdAt: iso(),
+      updatedAt: iso()
+    }
+  ],
+  agentFeedback: [
+    {
+      id: "agent_feedback_001",
+      workspaceId: defaultWorkspace.id,
+      agentRunId: "run_001",
+      userId: "user_owner",
+      rating: 5,
+      comment: "热点摘要能直接回流选题池，保留为默认流程。",
+      createdAt: iso(),
+      updatedAt: iso()
     }
   ],
   auditLogs: [

@@ -1,11 +1,38 @@
 import { AnalyticsAgent, ContentAgent, HotspotAgent, PersonaAgent, RiskCheckAgent, TopicAgent } from "@/server/agents";
 import { writeAuditLog } from "@/server/audit/audit-service";
 import { ApiError } from "@/server/errors";
-import { getWorkspaceScoped, store } from "@/server/services/mock-store";
-import type { AgentRun, AgentType } from "@/types/domain";
+import { getWorkspaceScoped, nextId, store } from "@/server/services/mock-store";
+import type { AgentFeedback, AgentOutput, AgentPromptTemplate, AgentRun, AgentStep, AgentType } from "@/types/domain";
+
+export interface AgentRunDetail {
+  run: AgentRun;
+  steps: AgentStep[];
+  outputs: AgentOutput[];
+  feedback: AgentFeedback[];
+  promptTemplate?: AgentPromptTemplate;
+}
 
 export function listAgentRuns(workspaceId: string) {
   return getWorkspaceScoped(store.agentRuns, workspaceId);
+}
+
+export function getAgentRunDetail(workspaceId: string, id: string): AgentRunDetail {
+  const run = getAgentRun(workspaceId, id);
+  const promptTemplate = store.agentPromptTemplates.find(
+    (template) => template.agentType === run.agentType && template.active
+  );
+
+  return {
+    run,
+    steps: store.agentSteps.filter((step) => step.workspaceId === workspaceId && step.agentRunId === id),
+    outputs: store.agentOutputs.filter((output) => output.workspaceId === workspaceId && output.agentRunId === id),
+    feedback: store.agentFeedback.filter((feedback) => feedback.workspaceId === workspaceId && feedback.agentRunId === id),
+    promptTemplate
+  };
+}
+
+export function listAgentRunDetails(workspaceId: string) {
+  return listAgentRuns(workspaceId).map((run) => getAgentRunDetail(workspaceId, run.id));
 }
 
 export function getAgentRun(workspaceId: string, id: string) {
@@ -24,6 +51,45 @@ function assertRetryable(run: AgentRun) {
   if (run.status === "PENDING" || run.status === "RUNNING") {
     throw new ApiError("Agent 运行尚未结束，不能重试", 409);
   }
+}
+
+export function addAgentFeedback(input: {
+  workspaceId: string;
+  userId: string;
+  agentRunId: string;
+  rating: number;
+  comment?: string;
+}) {
+  getAgentRun(input.workspaceId, input.agentRunId);
+  if (!Number.isInteger(input.rating) || input.rating < 1 || input.rating > 5) {
+    throw new ApiError("反馈评分必须是 1-5 的整数", 422);
+  }
+
+  const now = new Date().toISOString();
+  const feedback: AgentFeedback = {
+    id: nextId("agent_feedback"),
+    workspaceId: input.workspaceId,
+    agentRunId: input.agentRunId,
+    userId: input.userId,
+    rating: input.rating,
+    comment: input.comment?.trim() || undefined,
+    createdAt: now,
+    updatedAt: now
+  };
+  store.agentFeedback.unshift(feedback);
+  writeAuditLog({
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    action: "agent.feedback.create",
+    entityType: "AgentFeedback",
+    entityId: feedback.id,
+    summary: `记录 Agent 反馈：${input.agentRunId}`,
+    metadata: {
+      agentRunId: input.agentRunId,
+      rating: input.rating
+    }
+  });
+  return feedback;
 }
 
 async function runAgent(agentType: AgentType, workspaceId: string, userId: string, input: unknown) {

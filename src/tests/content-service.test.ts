@@ -255,6 +255,8 @@ describe("content service", () => {
     const beforePublishPlanIds = new Set(store.publishPlans.map((plan) => plan.id));
     const beforeCalendarIds = new Set(store.calendarItems.map((item) => item.id));
     const beforeAgentRunIds = new Set(store.agentRuns.map((run) => run.id));
+    const beforeStepIds = new Set(store.agentSteps.map((step) => step.id));
+    const beforeOutputIds = new Set(store.agentOutputs.map((output) => output.id));
     const beforeAuditLogIds = new Set(store.auditLogs.map((log) => log.id));
 
     try {
@@ -347,6 +349,8 @@ describe("content service", () => {
       store.publishPlans = store.publishPlans.filter((plan) => beforePublishPlanIds.has(plan.id));
       store.calendarItems = store.calendarItems.filter((item) => beforeCalendarIds.has(item.id));
       store.agentRuns = store.agentRuns.filter((run) => beforeAgentRunIds.has(run.id));
+      store.agentSteps = store.agentSteps.filter((step) => beforeStepIds.has(step.id));
+      store.agentOutputs = store.agentOutputs.filter((output) => beforeOutputIds.has(output.id));
       store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
     }
   });

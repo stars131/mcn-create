@@ -5,18 +5,31 @@ import { store } from "@/server/services/mock-store";
 
 describe("Agent framework", () => {
   it("generates structured topics from a hotspot", async () => {
-    const before = store.topics.length;
-    const agent = new TopicAgent("ws_demo", "user_owner");
-    const output = await agent.run({
-      hotItemId: "hot_001",
-      personaId: "persona_001",
-      businessGoal: "验证测试",
-      forbiddenTopics: [],
-      targetPlatforms: ["XIAOHONGSHU"]
-    });
+    const beforeTopicIds = new Set(store.topics.map((topic) => topic.id));
+    const beforeAgentRunIds = new Set(store.agentRuns.map((run) => run.id));
+    const beforeStepIds = new Set(store.agentSteps.map((step) => step.id));
+    const beforeOutputIds = new Set(store.agentOutputs.map((output) => output.id));
+    const beforeAuditLogIds = new Set(store.auditLogs.map((log) => log.id));
 
-    expect(output.topics.length).toBeGreaterThan(0);
-    expect(store.topics.length).toBeGreaterThan(before);
+    try {
+      const agent = new TopicAgent("ws_demo", "user_owner");
+      const output = await agent.run({
+        hotItemId: "hot_001",
+        personaId: "persona_001",
+        businessGoal: "验证测试",
+        forbiddenTopics: [],
+        targetPlatforms: ["XIAOHONGSHU"]
+      });
+
+      expect(output.topics.length).toBeGreaterThan(0);
+      expect(store.topics.length).toBeGreaterThan(beforeTopicIds.size);
+    } finally {
+      store.topics = store.topics.filter((topic) => beforeTopicIds.has(topic.id));
+      store.agentRuns = store.agentRuns.filter((run) => beforeAgentRunIds.has(run.id));
+      store.agentSteps = store.agentSteps.filter((step) => beforeStepIds.has(step.id));
+      store.agentOutputs = store.agentOutputs.filter((output) => beforeOutputIds.has(output.id));
+      store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
+    }
   });
 
   it("classifies risky content with structured output", async () => {
@@ -28,6 +41,8 @@ describe("Agent framework", () => {
     };
     const beforeRiskIds = new Set(store.contentRiskChecks.map((check) => check.id));
     const beforeAgentRunIds = new Set(store.agentRuns.map((run) => run.id));
+    const beforeStepIds = new Set(store.agentSteps.map((step) => step.id));
+    const beforeOutputIds = new Set(store.agentOutputs.map((output) => output.id));
     const beforeAuditLogIds = new Set(store.auditLogs.map((log) => log.id));
 
     try {
@@ -52,12 +67,16 @@ describe("Agent framework", () => {
       Object.assign(content!, original);
       store.contentRiskChecks = store.contentRiskChecks.filter((check) => beforeRiskIds.has(check.id));
       store.agentRuns = store.agentRuns.filter((run) => beforeAgentRunIds.has(run.id));
+      store.agentSteps = store.agentSteps.filter((step) => beforeStepIds.has(step.id));
+      store.agentOutputs = store.agentOutputs.filter((output) => beforeOutputIds.has(output.id));
       store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
     }
   });
 
   it("returns the persisted content draft from content generation", async () => {
     const beforeAgentRunIds = new Set(store.agentRuns.map((run) => run.id));
+    const beforeStepIds = new Set(store.agentSteps.map((step) => step.id));
+    const beforeOutputIds = new Set(store.agentOutputs.map((output) => output.id));
     const beforeBlockIds = new Set(store.contentBlocks.map((block) => block.id));
     const beforeMediaIds = new Set(store.mediaAssets.map((asset) => asset.id));
     const beforeAuditLogIds = new Set(store.auditLogs.map((log) => log.id));
@@ -111,6 +130,8 @@ describe("Agent framework", () => {
       store.contentBlocks = store.contentBlocks.filter((block) => beforeBlockIds.has(block.id));
       store.mediaAssets = store.mediaAssets.filter((asset) => beforeMediaIds.has(asset.id));
       store.agentRuns = store.agentRuns.filter((run) => beforeAgentRunIds.has(run.id));
+      store.agentSteps = store.agentSteps.filter((step) => beforeStepIds.has(step.id));
+      store.agentOutputs = store.agentOutputs.filter((output) => beforeOutputIds.has(output.id));
       store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
     }
   });

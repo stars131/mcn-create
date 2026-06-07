@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "@/server/errors";
-import { retryAgentRun } from "@/server/services/agent-run-service";
+import { addAgentFeedback, getAgentRunDetail, retryAgentRun } from "@/server/services/agent-run-service";
 import { store } from "@/server/services/mock-store";
 import type { AgentRun } from "@/types/domain";
 
@@ -53,6 +53,8 @@ describe("agent run service", () => {
       createdAt: new Date().toISOString()
     };
     const beforeRunIds = new Set(store.agentRuns.map((run) => run.id));
+    const beforeStepIds = new Set(store.agentSteps.map((step) => step.id));
+    const beforeOutputIds = new Set(store.agentOutputs.map((output) => output.id));
     let retryRunId: string | undefined;
 
     try {
@@ -83,8 +85,24 @@ describe("agent run service", () => {
           retryStatus: "SUCCESS"
         }
       });
+
+      const detail = getAgentRunDetail("ws_demo", retryRun!.id);
+      expect(detail.steps.map((step) => step.name)).toEqual(["validate_input", "model_call", "persist_result"]);
+      expect(detail.steps.every((step) => step.status === "SUCCESS")).toBe(true);
+      expect(detail.outputs[0]).toMatchObject({
+        workspaceId: "ws_demo",
+        agentRunId: retryRun?.id,
+        entityType: "AgentOutput"
+      });
+      expect(detail.promptTemplate).toMatchObject({
+        agentType: "RISK",
+        name: "risk-check",
+        active: true
+      });
     } finally {
       store.agentRuns = store.agentRuns.filter((run) => beforeRunIds.has(run.id));
+      store.agentSteps = store.agentSteps.filter((step) => beforeStepIds.has(step.id));
+      store.agentOutputs = store.agentOutputs.filter((output) => beforeOutputIds.has(output.id));
       store.auditLogs = store.auditLogs.filter(
         (log) =>
           log.metadata?.originalRunId !== originalRun.id &&
@@ -92,5 +110,55 @@ describe("agent run service", () => {
           log.entityId !== retryRunId
       );
     }
+  });
+
+  it("records feedback for a completed agent run", () => {
+    const beforeFeedbackIds = new Set(store.agentFeedback.map((feedback) => feedback.id));
+    const beforeAuditLogIds = new Set(store.auditLogs.map((log) => log.id));
+
+    try {
+      const feedback = addAgentFeedback({
+        workspaceId: "ws_demo",
+        userId: "user_owner",
+        agentRunId: "run_001",
+        rating: 4,
+        comment: "热点结果可复用"
+      });
+
+      expect(feedback).toMatchObject({
+        workspaceId: "ws_demo",
+        agentRunId: "run_001",
+        userId: "user_owner",
+        rating: 4,
+        comment: "热点结果可复用"
+      });
+      expect(getAgentRunDetail("ws_demo", "run_001").feedback[0]).toMatchObject({
+        id: feedback.id,
+        rating: 4
+      });
+      expect(store.auditLogs[0]).toMatchObject({
+        action: "agent.feedback.create",
+        entityType: "AgentFeedback",
+        entityId: feedback.id,
+        metadata: {
+          agentRunId: "run_001",
+          rating: 4
+        }
+      });
+    } finally {
+      store.agentFeedback = store.agentFeedback.filter((feedback) => beforeFeedbackIds.has(feedback.id));
+      store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
+    }
+  });
+
+  it("rejects invalid feedback ratings", () => {
+    expect(() =>
+      addAgentFeedback({
+        workspaceId: "ws_demo",
+        userId: "user_owner",
+        agentRunId: "run_001",
+        rating: 6
+      })
+    ).toThrow(ApiError);
   });
 });

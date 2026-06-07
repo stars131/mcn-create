@@ -50,6 +50,9 @@ describe("agent queue", () => {
     const beforeJobs = listQueuedJobs().length;
     const beforeReports = store.analyticsReports.length;
     const beforeTopics = store.topics.length;
+    const beforeAgentRunIds = new Set(store.agentRuns.map((run) => run.id));
+    const beforeStepIds = new Set(store.agentSteps.map((step) => step.id));
+    const beforeOutputIds = new Set(store.agentOutputs.map((output) => output.id));
 
     try {
       const hotspots = await refreshHotspots({ workspaceId: "ws_demo", userId: "user_owner" });
@@ -74,6 +77,9 @@ describe("agent queue", () => {
     } finally {
       store.analyticsReports.splice(0, store.analyticsReports.length - beforeReports);
       store.topics.splice(0, store.topics.length - beforeTopics);
+      store.agentRuns = store.agentRuns.filter((run) => beforeAgentRunIds.has(run.id));
+      store.agentSteps = store.agentSteps.filter((step) => beforeStepIds.has(step.id));
+      store.agentOutputs = store.agentOutputs.filter((output) => beforeOutputIds.has(output.id));
     }
   });
 });

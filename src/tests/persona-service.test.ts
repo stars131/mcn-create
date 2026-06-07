@@ -22,6 +22,8 @@ describe("persona service", () => {
       coreAudience: "Target audience"
     });
     const beforeAgentRunIds = new Set(store.agentRuns.map((run) => run.id));
+    const beforeStepIds = new Set(store.agentSteps.map((step) => step.id));
+    const beforeOutputIds = new Set(store.agentOutputs.map((output) => output.id));
     const beforeAuditLogIds = new Set(store.auditLogs.map((log) => log.id));
 
     try {
@@ -121,6 +123,8 @@ describe("persona service", () => {
       store.personas = store.personas.filter((persona) => persona.id !== createdPersona.id);
       store.personaVersions = store.personaVersions.filter((version) => version.personaId !== createdPersona.id);
       store.agentRuns = store.agentRuns.filter((run) => beforeAgentRunIds.has(run.id));
+      store.agentSteps = store.agentSteps.filter((step) => beforeStepIds.has(step.id));
+      store.agentOutputs = store.agentOutputs.filter((output) => beforeOutputIds.has(output.id));
       store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
     }
   });
