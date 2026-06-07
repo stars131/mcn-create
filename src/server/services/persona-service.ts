@@ -77,12 +77,29 @@ export async function importPersonaContent(input: {
   importedContent: string;
   brandNotes?: string;
 }) {
+  const persona = getPersona(input.workspaceId, input.personaId);
+  const previousVersion = persona.version;
   const agent = new PersonaAgent(input.workspaceId, input.userId);
-  return agent.run({
+  const output = await agent.run({
     personaId: input.personaId,
     importedContent: input.importedContent,
     brandNotes: input.brandNotes ?? ""
   });
+  writeAuditLog({
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    action: "persona.import_content",
+    entityType: "PersonaProfile",
+    entityId: persona.id,
+    summary: `导入历史内容并生成人设版本：${persona.name}`,
+    metadata: {
+      previousVersion,
+      nextVersion: persona.version,
+      reviewStatus: persona.reviewStatus,
+      versionSummary: output.versionSummary
+    }
+  });
+  return output;
 }
 
 export function listPersonaVersions(workspaceId: string, personaId: string) {

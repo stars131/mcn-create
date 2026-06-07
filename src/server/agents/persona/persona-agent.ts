@@ -1,6 +1,7 @@
 import { getPromptTemplate } from "@/server/ai/prompts/templates";
 import { BaseAgent } from "@/server/agents/core/base-agent";
 import { personaAgentInputSchema, personaAgentOutputSchema } from "@/server/agents/core/schemas";
+import { ApiError } from "@/server/errors";
 import { store } from "@/server/services/mock-store";
 import type { AgentRun } from "@/types/domain";
 import type { z } from "zod";
@@ -42,16 +43,21 @@ export class PersonaAgent extends BaseAgent<Input, Output> {
     return result.output;
   }
 
-  async persistResult(output: Output) {
-    const persona = store.personas.find((item) => item.workspaceId === this.workspaceId);
-    if (persona) {
-      persona.voiceGuide = output.voiceGuide;
-      persona.forbiddenExpressions = output.forbiddenExpressions;
-      persona.highFrequencyWords = output.highFrequencyWords;
-      persona.targetAudiences = output.audiencePortraits;
-      persona.version += 1;
-      persona.reviewStatus = "REVIEWING";
-      persona.updatedAt = new Date().toISOString();
+  async persistResult(output: Output, run: AgentRun) {
+    const input = run.input as Input;
+    const persona = store.personas.find(
+      (item) => item.workspaceId === this.workspaceId && item.id === input.personaId
+    );
+    if (!persona) {
+      throw new ApiError("人设不存在", 404);
     }
+
+    persona.voiceGuide = output.voiceGuide;
+    persona.forbiddenExpressions = output.forbiddenExpressions;
+    persona.highFrequencyWords = output.highFrequencyWords;
+    persona.targetAudiences = output.audiencePortraits;
+    persona.version += 1;
+    persona.reviewStatus = "REVIEWING";
+    persona.updatedAt = new Date().toISOString();
   }
 }
