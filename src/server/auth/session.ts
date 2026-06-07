@@ -2,11 +2,11 @@ import { cookies } from "next/headers";
 import { store } from "@/server/services/mock-store";
 import type { User } from "@/types/domain";
 
+export const authCookieName = process.env.AUTH_COOKIE_NAME ?? "contentos_session";
 export const workspaceCookieName = process.env.WORKSPACE_COOKIE_NAME ?? "contentos_workspace";
 
 export function getCurrentUser() {
-  const cookieName = process.env.AUTH_COOKIE_NAME ?? "contentos_session";
-  const session = cookies().get(cookieName)?.value;
+  const session = cookies().get(authCookieName)?.value;
   const userId = session?.replace("mock:", "");
   return store.users.find((user) => user.id === userId) ?? store.users[0];
 }

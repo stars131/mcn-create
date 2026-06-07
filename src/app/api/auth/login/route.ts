@@ -1,7 +1,8 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { ok, publicUser, readJson, withApiHandler } from "@/app/api/_utils";
-import { store } from "@/server/services/mock-store";
+import { loginUser } from "@/server/auth/auth-service";
+import { authCookieName, workspaceCookieName } from "@/server/auth/session";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -10,12 +11,15 @@ const loginSchema = z.object({
 
 export const POST = withApiHandler(async (request: NextRequest) => {
   const input = await readJson(request, loginSchema);
-  const user =
-    store.users.find((item) => item.email === input.email) ??
-    store.users.find((item) => item.email === process.env.MOCK_AUTH_EMAIL) ??
-    store.users[0];
-  const response = ok({ user: publicUser(user), workspaceId: user.currentWorkspaceId });
-  response.cookies.set(process.env.AUTH_COOKIE_NAME ?? "contentos_session", `mock:${user.id}`, {
+  const { user, workspaceId } = loginUser(input);
+  const response = ok({ user: publicUser(user), workspaceId });
+  response.cookies.set(authCookieName, `mock:${user.id}`, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7
+  });
+  response.cookies.set(workspaceCookieName, workspaceId, {
     httpOnly: true,
     sameSite: "lax",
     path: "/",

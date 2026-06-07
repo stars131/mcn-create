@@ -60,9 +60,9 @@ export function AuthForm({ mode }: AuthFormProps) {
           name="email"
           type="email"
           required
-          defaultValue="owner@contentos.local"
+          defaultValue={mode === "login" ? "owner@contentos.local" : undefined}
           className="mt-1 h-10 w-full rounded-md border border-border bg-white px-3 text-sm focus-ring"
-          placeholder="owner@contentos.local"
+          placeholder={mode === "login" ? "owner@contentos.local" : "you@example.com"}
         />
       </label>
       <label className="block">
@@ -71,9 +71,9 @@ export function AuthForm({ mode }: AuthFormProps) {
           name="password"
           type="password"
           required
-          defaultValue="contentos123"
+          defaultValue={mode === "login" ? "contentos123" : undefined}
           className="mt-1 h-10 w-full rounded-md border border-border bg-white px-3 text-sm focus-ring"
-          placeholder="contentos123"
+          placeholder={mode === "login" ? "contentos123" : "至少 6 位密码"}
         />
       </label>
       {error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}

@@ -94,3 +94,33 @@ test("normalizes API validation errors through the shared handler", async ({ req
   const payload = await invalidCalendarItem.json();
   expect(payload).toEqual({ error: "请求参数不符合接口要求" });
 });
+
+test("registers users with session cookies and rejects invalid logins", async ({ request }) => {
+  const email = `e2e-${Date.now()}@contentos.local`;
+  const register = await request.post("/api/auth/register", {
+    data: {
+      email,
+      password: "contentos123",
+      name: "E2E 注册成员"
+    }
+  });
+
+  expect(register.ok()).toBeTruthy();
+  const setCookie = register.headers()["set-cookie"];
+  expect(setCookie).toContain("contentos_session=");
+  expect(setCookie).toContain("contentos_workspace=");
+  const payload = await register.json();
+  expect(payload.data).toMatchObject({
+    workspaceId: "ws_demo",
+    user: { email, role: "VIEWER" }
+  });
+
+  const invalidLogin = await request.post("/api/auth/login", {
+    data: {
+      email: `missing-${Date.now()}@contentos.local`,
+      password: "contentos123"
+    }
+  });
+  expect(invalidLogin.status()).toBe(401);
+  await expect(invalidLogin.json()).resolves.toEqual({ error: "邮箱或密码不正确" });
+});

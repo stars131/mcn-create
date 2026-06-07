@@ -3,17 +3,11 @@ import { z } from "zod";
 import { getCurrentUser, getCurrentWorkspaceId } from "@/server/auth/session";
 import type { PermissionAction } from "@/lib/constants/rbac";
 import { hasPermission } from "@/server/rbac/permissions";
+import { ApiError } from "@/server/errors";
 import { store } from "@/server/services/mock-store";
 import type { RoleKey, User } from "@/types/domain";
 
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    readonly status = 400
-  ) {
-    super(message);
-  }
-}
+export { ApiError };
 
 export function ok<T>(data: T, init?: ResponseInit) {
   return NextResponse.json({ data }, init);

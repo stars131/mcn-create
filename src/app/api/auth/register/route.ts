@@ -1,7 +1,8 @@
-import { NextResponse, type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { ok, publicUser, readJson, withApiHandler } from "@/app/api/_utils";
-import { nextId, store } from "@/server/services/mock-store";
+import { registerUser } from "@/server/auth/auth-service";
+import { authCookieName, workspaceCookieName } from "@/server/auth/session";
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -11,18 +12,19 @@ const registerSchema = z.object({
 
 export const POST = withApiHandler(async (request: NextRequest) => {
   const input = await readJson(request, registerSchema);
-  const existing = store.users.find((user) => user.email === input.email);
-  if (existing) {
-    return NextResponse.json({ error: "邮箱已注册" }, { status: 409 });
-  }
-
-  const user = {
-    id: nextId("user"),
-    email: input.email,
-    name: input.name,
-    currentWorkspaceId: "ws_demo",
-    role: "VIEWER" as const
-  };
-  store.users.push(user);
-  return ok({ user: publicUser(user) });
+  const { user, workspaceId } = registerUser(input);
+  const response = ok({ user: publicUser(user), workspaceId });
+  response.cookies.set(authCookieName, `mock:${user.id}`, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7
+  });
+  response.cookies.set(workspaceCookieName, workspaceId, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7
+  });
+  return response;
 });
