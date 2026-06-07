@@ -1,15 +1,56 @@
 import { writeAuditLog } from "@/server/audit/audit-service";
+import { ApiError } from "@/server/errors";
 import { defaultWorkspace, nextId, store } from "@/server/services/mock-store";
 import type { RoleKey, TeamMember, Workspace } from "@/types/domain";
+
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+function getWorkspaceOrThrow(workspaceId: string) {
+  const workspace = store.workspaces.find((item) => item.id === workspaceId);
+  if (!workspace) {
+    throw new ApiError("workspace 不存在", 404);
+  }
+
+  return workspace;
+}
+
+function getUserOrThrow(userId: string) {
+  const user = store.users.find((item) => item.id === userId);
+  if (!user) {
+    throw new ApiError("用户不存在", 404);
+  }
+
+  return user;
+}
+
+function createUniqueSlug(name: string) {
+  const baseSlug = name.trim().toLowerCase().replace(/\s+/g, "-") || "workspace";
+  let slug = baseSlug;
+  let suffix = 2;
+
+  while (store.workspaces.some((workspace) => workspace.slug === slug)) {
+    slug = `${baseSlug}-${suffix}`;
+    suffix += 1;
+  }
+
+  return slug;
+}
+
+function countWorkspaceOwners(workspaceId: string) {
+  return store.teamMembers.filter((member) => member.workspaceId === workspaceId && member.role === "OWNER").length;
+}
 
 export function listWorkspaces(userEmail?: string) {
   if (!userEmail) {
     return store.workspaces;
   }
 
-  const user = store.users.find((item) => item.email === userEmail);
+  const email = normalizeEmail(userEmail);
+  const user = store.users.find((item) => normalizeEmail(item.email) === email);
   const workspaceIds = new Set(
-    store.teamMembers.filter((member) => member.email === userEmail).map((member) => member.workspaceId)
+    store.teamMembers.filter((member) => normalizeEmail(member.email) === email).map((member) => member.workspaceId)
   );
   if (user) {
     workspaceIds.add(user.currentWorkspaceId);
@@ -19,27 +60,30 @@ export function listWorkspaces(userEmail?: string) {
 }
 
 export function createWorkspace(input: { name: string; organizationName?: string; userId: string }) {
+  const owner = getUserOrThrow(input.userId);
+  const name = input.name.trim();
+  if (!name) {
+    throw new ApiError("workspace 名称不能为空", 422);
+  }
+
   const workspace: Workspace = {
     id: nextId("ws"),
-    name: input.name,
-    slug: input.name.toLowerCase().replace(/\s+/g, "-"),
-    organizationName: input.organizationName ?? defaultWorkspace.organizationName,
+    name,
+    slug: createUniqueSlug(name),
+    organizationName: input.organizationName?.trim() || defaultWorkspace.organizationName,
     currentPlan: "MVP Team"
   };
   store.workspaces.push(workspace);
-  const owner = store.users.find((user) => user.id === input.userId);
-  if (owner) {
-    store.teamMembers.push({
-      id: nextId("member"),
-      workspaceId: workspace.id,
-      name: owner.name,
-      email: owner.email,
-      role: "OWNER",
-      title: "Workspace Owner",
-      joinedAt: new Date().toISOString()
-    });
-    owner.currentWorkspaceId = workspace.id;
-  }
+  store.teamMembers.push({
+    id: nextId("member"),
+    workspaceId: workspace.id,
+    name: owner.name,
+    email: owner.email,
+    role: "OWNER",
+    title: "Workspace Owner",
+    joinedAt: new Date().toISOString()
+  });
+  owner.currentWorkspaceId = workspace.id;
   writeAuditLog({
     workspaceId: workspace.id,
     userId: input.userId,
@@ -52,21 +96,14 @@ export function createWorkspace(input: { name: string; organizationName?: string
 }
 
 export function switchWorkspace(input: { userId: string; workspaceId: string }) {
-  const user = store.users.find((item) => item.id === input.userId);
-  if (!user) {
-    throw new Error("用户不存在");
-  }
-
-  const workspace = store.workspaces.find((item) => item.id === input.workspaceId);
-  if (!workspace) {
-    throw new Error("workspace 不存在");
-  }
+  const user = getUserOrThrow(input.userId);
+  const workspace = getWorkspaceOrThrow(input.workspaceId);
 
   const isMember = store.teamMembers.some(
     (member) => member.workspaceId === workspace.id && member.email === user.email
   );
   if (!isMember) {
-    throw new Error("无权切换到该 workspace");
+    throw new ApiError("无权切换到该 workspace", 403);
   }
 
   user.currentWorkspaceId = workspace.id;
@@ -93,11 +130,22 @@ export function inviteMember(input: {
   title?: string;
   userId: string;
 }) {
+  getWorkspaceOrThrow(input.workspaceId);
+  getUserOrThrow(input.userId);
+  const email = normalizeEmail(input.email);
+  const existing = store.teamMembers.find(
+    (member) => member.workspaceId === input.workspaceId && normalizeEmail(member.email) === email
+  );
+  if (existing) {
+    throw new ApiError("成员已在该 workspace 中", 409);
+  }
+
+  const existingUser = store.users.find((user) => normalizeEmail(user.email) === email);
   const member: TeamMember = {
     id: nextId("member"),
     workspaceId: input.workspaceId,
-    name: input.email.split("@")[0],
-    email: input.email,
+    name: existingUser?.name ?? email.split("@")[0],
+    email,
     role: input.role,
     title: input.title ?? "待确认成员",
     joinedAt: new Date().toISOString()
@@ -120,12 +168,19 @@ export function updateMemberRole(input: {
   role: RoleKey;
   userId: string;
 }) {
+  getWorkspaceOrThrow(input.workspaceId);
+  getUserOrThrow(input.userId);
   const member = store.teamMembers.find(
     (item) => item.workspaceId === input.workspaceId && item.id === input.memberId
   );
   if (!member) {
-    throw new Error("成员不存在");
+    throw new ApiError("成员不存在", 404);
   }
+
+  if (member.role === "OWNER" && input.role !== "OWNER" && countWorkspaceOwners(input.workspaceId) <= 1) {
+    throw new ApiError("至少保留一个 OWNER", 409);
+  }
+
   member.role = input.role;
   writeAuditLog({
     workspaceId: input.workspaceId,

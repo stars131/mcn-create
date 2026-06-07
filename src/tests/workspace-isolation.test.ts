@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { ApiError } from "@/server/errors";
 import { listHotspots } from "@/server/services/hotspot-service";
 import { store } from "@/server/services/mock-store";
-import { listWorkspaces, switchWorkspace } from "@/server/services/workspace-service";
+import {
+  createWorkspace,
+  inviteMember,
+  listWorkspaces,
+  switchWorkspace,
+  updateMemberRole
+} from "@/server/services/workspace-service";
 
 describe("workspace isolation", () => {
   it("does not mix hotspot data between workspaces", () => {
@@ -41,5 +48,96 @@ describe("workspace isolation", () => {
         owner.currentWorkspaceId = originalWorkspaceId;
       }
     }
+  });
+
+  it("creates workspaces with owner membership and unique slugs", () => {
+    const owner = store.users.find((user) => user.id === "user_owner");
+    const originalWorkspaceId = owner?.currentWorkspaceId;
+    const createdWorkspaceIds: string[] = [];
+
+    try {
+      const first = createWorkspace({ userId: "user_owner", name: " Client Space " });
+      const second = createWorkspace({ userId: "user_owner", name: "Client Space" });
+      createdWorkspaceIds.push(first.id, second.id);
+
+      expect(first).toMatchObject({
+        name: "Client Space",
+        slug: "client-space"
+      });
+      expect(second.slug).toBe("client-space-2");
+      expect(store.teamMembers).toContainEqual(
+        expect.objectContaining({
+          workspaceId: first.id,
+          email: "owner@contentos.local",
+          role: "OWNER"
+        })
+      );
+      expect(owner?.currentWorkspaceId).toBe(second.id);
+      expect(store.auditLogs[0]).toMatchObject({
+        action: "workspace.create",
+        entityId: second.id
+      });
+    } finally {
+      store.workspaces = store.workspaces.filter((workspace) => !createdWorkspaceIds.includes(workspace.id));
+      store.teamMembers = store.teamMembers.filter((member) => !createdWorkspaceIds.includes(member.workspaceId));
+      store.auditLogs = store.auditLogs.filter((log) => !createdWorkspaceIds.includes(log.entityId ?? ""));
+      if (owner && originalWorkspaceId) {
+        owner.currentWorkspaceId = originalWorkspaceId;
+      }
+    }
+  });
+
+  it("normalizes member invites and rejects duplicate workspace memberships", () => {
+    const email = `Invite-${crypto.randomUUID()}@contentos.local`;
+    const createdMemberIds: string[] = [];
+
+    try {
+      const member = inviteMember({
+        workspaceId: "ws_demo",
+        userId: "user_owner",
+        email,
+        role: "VIEWER",
+        title: "测试成员"
+      });
+      createdMemberIds.push(member.id);
+
+      expect(member).toMatchObject({
+        workspaceId: "ws_demo",
+        email: email.toLowerCase(),
+        role: "VIEWER"
+      });
+      expect(() =>
+        inviteMember({
+          workspaceId: "ws_demo",
+          userId: "user_owner",
+          email: email.toUpperCase(),
+          role: "EDITOR"
+        })
+      ).toThrow(ApiError);
+      expect(store.teamMembers.filter((item) => item.email === email.toLowerCase())).toHaveLength(1);
+    } finally {
+      store.teamMembers = store.teamMembers.filter((member) => !createdMemberIds.includes(member.id));
+      store.auditLogs = store.auditLogs.filter((log) => !createdMemberIds.includes(log.entityId ?? ""));
+    }
+  });
+
+  it("prevents removing the last owner from a workspace", () => {
+    const ownerMember = store.teamMembers.find(
+      (member) => member.workspaceId === "ws_demo" && member.email === "owner@contentos.local"
+    );
+    expect(ownerMember).toBeTruthy();
+
+    const beforeAudits = store.auditLogs.length;
+    expect(() =>
+      updateMemberRole({
+        workspaceId: "ws_demo",
+        memberId: ownerMember!.id,
+        role: "ADMIN",
+        userId: "user_owner"
+      })
+    ).toThrow("至少保留一个 OWNER");
+
+    expect(ownerMember?.role).toBe("OWNER");
+    expect(store.auditLogs.length).toBe(beforeAudits);
   });
 });
