@@ -121,6 +121,32 @@ export interface PersonaProfile {
   updatedAt: string;
 }
 
+export interface PersonaVersionSnapshot {
+  brandName: string;
+  name: string;
+  voiceGuide: string;
+  coreAudience: string;
+  highFrequencyWords: string[];
+  forbiddenExpressions: string[];
+  targetAudiences: string[];
+  toneExamples: string[];
+  reviewStatus: PersonaProfile["reviewStatus"];
+}
+
+export interface PersonaVersion {
+  id: string;
+  workspaceId: string;
+  personaId: string;
+  version: number;
+  summary: string;
+  snapshot: PersonaVersionSnapshot;
+  status: PersonaProfile["reviewStatus"] | "APPROVED";
+  reviewerId?: string;
+  approvedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ContentDraft {
   id: string;
   workspaceId: string;

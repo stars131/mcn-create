@@ -11,6 +11,7 @@ import type {
   HotItem,
   MetricRecord,
   PersonaProfile,
+  PersonaVersion,
   Platform,
   TeamMember,
   Topic,
@@ -32,6 +33,7 @@ export interface MockStore {
   topics: Topic[];
   topicBriefs: TopicBrief[];
   personas: PersonaProfile[];
+  personaVersions: PersonaVersion[];
   contentDrafts: ContentDraft[];
   calendarItems: CalendarItem[];
   dataSources: DataSource[];
@@ -245,6 +247,84 @@ const initialStore: MockStore = {
       ],
       version: 3,
       reviewStatus: "APPROVED",
+      updatedAt: iso()
+    }
+  ],
+  personaVersions: [
+    {
+      id: "persona_version_001",
+      workspaceId: defaultWorkspace.id,
+      personaId: "persona_001",
+      version: 1,
+      summary: "初始人设版本：明确内容工作流与合规边界。",
+      snapshot: {
+        brandName: "ContentOS",
+        name: "务实型内容增长顾问",
+        voiceGuide: "表达直接、具体、克制。先讲业务问题，再给流程和判断标准。",
+        coreAudience: "中文内容创业者、小品牌内容负责人、小型 MCN 主理人",
+        highFrequencyWords: ["工作流", "闭环", "复盘"],
+        forbiddenExpressions: ["稳赚", "全自动代运营"],
+        targetAudiences: ["职业 IP", "3-10 人内容团队"],
+        toneExamples: ["先把选题和人设放在同一个系统里，再谈生成效率。"],
+        reviewStatus: "APPROVED"
+      },
+      status: "APPROVED",
+      reviewerId: "user_owner",
+      approvedAt: iso(-10),
+      createdAt: iso(-10),
+      updatedAt: iso(-10)
+    },
+    {
+      id: "persona_version_002",
+      workspaceId: defaultWorkspace.id,
+      personaId: "persona_001",
+      version: 2,
+      summary: "补充禁用表达和多账号团队受众画像。",
+      snapshot: {
+        brandName: "ContentOS",
+        name: "务实型内容增长顾问",
+        voiceGuide: "表达直接、具体、克制。先讲业务问题，再给流程和判断标准。避免夸大承诺。",
+        coreAudience: "中文内容创业者、小品牌内容负责人、小型 MCN 主理人",
+        highFrequencyWords: ["工作流", "闭环", "审计", "复盘"],
+        forbiddenExpressions: ["稳赚", "全自动代运营", "一键爆款"],
+        targetAudiences: ["职业 IP", "3-10 人内容团队", "多账号代运营团队"],
+        toneExamples: [
+          "先把选题和人设放在同一个系统里，再谈生成效率。",
+          "AI 可以提速，但发布前必须有人审、可追踪、可复盘。"
+        ],
+        reviewStatus: "APPROVED"
+      },
+      status: "APPROVED",
+      reviewerId: "user_owner",
+      approvedAt: iso(-5),
+      createdAt: iso(-5),
+      updatedAt: iso(-5)
+    },
+    {
+      id: "persona_version_003",
+      workspaceId: defaultWorkspace.id,
+      personaId: "persona_001",
+      version: 3,
+      summary: "当前批准版本：加入人设一致性和平台限制边界。",
+      snapshot: {
+        brandName: "ContentOS",
+        name: "务实型内容增长顾问",
+        voiceGuide:
+          "表达直接、具体、克制。先讲业务问题，再给流程和判断标准。避免夸大承诺，不使用玄学增长词。",
+        coreAudience: "中文内容创业者、小品牌内容负责人、小型 MCN 主理人",
+        highFrequencyWords: ["工作流", "闭环", "审计", "复盘", "人设一致性"],
+        forbiddenExpressions: ["稳赚", "全自动代运营", "一键爆款", "绕过平台限制"],
+        targetAudiences: ["职业 IP", "3-10 人内容团队", "多账号代运营团队"],
+        toneExamples: [
+          "先把选题和人设放在同一个系统里，再谈生成效率。",
+          "AI 可以提速，但发布前必须有人审、可追踪、可复盘。"
+        ],
+        reviewStatus: "APPROVED"
+      },
+      status: "APPROVED",
+      reviewerId: "user_owner",
+      approvedAt: iso(),
+      createdAt: iso(),
       updatedAt: iso()
     }
   ],
