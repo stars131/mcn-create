@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TopicAgent, RiskCheckAgent } from "@/server/agents";
-import { generateContent, listContentVersions } from "@/server/services/content-service";
+import { generateContent, listContentBlocks, listContentMediaAssets, listContentVersions } from "@/server/services/content-service";
 import { store } from "@/server/services/mock-store";
 
 describe("Agent framework", () => {
@@ -58,6 +58,8 @@ describe("Agent framework", () => {
 
   it("returns the persisted content draft from content generation", async () => {
     const beforeAgentRunIds = new Set(store.agentRuns.map((run) => run.id));
+    const beforeBlockIds = new Set(store.contentBlocks.map((block) => block.id));
+    const beforeMediaIds = new Set(store.mediaAssets.map((asset) => asset.id));
     const beforeAuditLogIds = new Set(store.auditLogs.map((log) => log.id));
     let draftId: string | undefined;
 
@@ -72,6 +74,8 @@ describe("Agent framework", () => {
       });
       draftId = draft.id;
       const versions = listContentVersions("ws_demo", draft.id);
+      const blocks = listContentBlocks("ws_demo", draft.id);
+      const mediaAssets = listContentMediaAssets("ws_demo", draft.id);
 
       expect(draft.id).toMatch(/^content_/);
       expect(draft.sourceAgentRunId).toBeTruthy();
@@ -84,11 +88,28 @@ describe("Agent framework", () => {
         changeNote: "AI 生成内容初稿",
         createdById: "user_owner"
       });
+      expect(blocks.map((block) => block.type)).toEqual(["hook", "persona", "brief", "body", "cta"]);
+      expect(blocks[0]).toMatchObject({
+        metadata: {
+          templateId: "template_xhs_image_text_v1",
+          label: "开场钩子"
+        }
+      });
+      expect(mediaAssets[0]).toMatchObject({
+        contentDraftId: draft.id,
+        sourceType: "MOCK",
+        metadata: {
+          templateId: "template_xhs_image_text_v1",
+          platform: "XIAOHONGSHU"
+        }
+      });
     } finally {
       if (draftId) {
         store.contentDrafts = store.contentDrafts.filter((item) => item.id !== draftId);
         store.contentVersions = store.contentVersions.filter((version) => version.contentDraftId !== draftId);
       }
+      store.contentBlocks = store.contentBlocks.filter((block) => beforeBlockIds.has(block.id));
+      store.mediaAssets = store.mediaAssets.filter((asset) => beforeMediaIds.has(asset.id));
       store.agentRuns = store.agentRuns.filter((run) => beforeAgentRunIds.has(run.id));
       store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
     }

@@ -2,6 +2,14 @@ import { ContentAgent, RiskCheckAgent } from "@/server/agents";
 import { writeAuditLog } from "@/server/audit/audit-service";
 import { ApiError } from "@/server/errors";
 import {
+  findContentTemplate,
+  listContentBlocks as listStoredContentBlocks,
+  listContentTemplates,
+  listMediaAssets,
+  recordContentBlocks,
+  recordGeneratedMediaAsset
+} from "@/server/services/content-template-service";
+import {
   listContentVersions as listStoredContentVersions,
   recordContentVersion
 } from "@/server/services/content-version-service";
@@ -25,6 +33,20 @@ export function getContent(workspaceId: string, id: string) {
 export function listContentVersions(workspaceId: string, id: string) {
   getContent(workspaceId, id);
   return listStoredContentVersions(workspaceId, id);
+}
+
+export function listContentBlocks(workspaceId: string, id: string) {
+  getContent(workspaceId, id);
+  return listStoredContentBlocks(workspaceId, id);
+}
+
+export function listContentMediaAssets(workspaceId: string, id: string) {
+  getContent(workspaceId, id);
+  return listMediaAssets(workspaceId, id);
+}
+
+export function listWorkspaceContentTemplates(workspaceId: string, platform?: Platform) {
+  return listContentTemplates(workspaceId, platform);
 }
 
 export function listContentRiskChecks(workspaceId: string, id: string) {
@@ -95,6 +117,12 @@ export function updateContent(input: {
     createdById: input.userId,
     changeNote: "人工编辑内容草稿"
   });
+  const template = findContentTemplate({
+    workspaceId: input.workspaceId,
+    platform: content.platform,
+    format: content.format
+  });
+  const blocks = recordContentBlocks({ content, template, replaceExisting: true });
   writeAuditLog({
     workspaceId: input.workspaceId,
     userId: input.userId,
@@ -104,6 +132,8 @@ export function updateContent(input: {
     summary: `更新内容草稿：${content.title}`,
     metadata: {
       versionId: version.id,
+      templateId: template?.id,
+      blockCount: blocks.length,
       previousVersion,
       nextVersion: content.currentVersion
     }
@@ -113,12 +143,27 @@ export function updateContent(input: {
 
 export function adaptContent(input: { workspaceId: string; userId: string; id: string; platform: Platform }) {
   const content = getContent(input.workspaceId, input.id);
+  const requestedFormat =
+    input.platform === "DOUYIN"
+      ? "口播稿"
+      : input.platform === "WECHAT"
+        ? "长文"
+        : input.platform === "BILIBILI"
+          ? "视频脚本"
+          : input.platform === "VIDEO_ACCOUNT"
+            ? "短内容"
+            : content.format;
+  const template = findContentTemplate({
+    workspaceId: input.workspaceId,
+    platform: input.platform,
+    format: requestedFormat
+  });
   const adapted: ContentDraft = {
     ...content,
     id: nextId("content"),
     platform: input.platform,
     title: `${content.title}（${input.platform} 版）`,
-    format: input.platform === "DOUYIN" ? "口播稿" : input.platform === "WECHAT" ? "长文" : content.format,
+    format: template?.format ?? requestedFormat,
     content: `${content.content}\n\n平台适配：根据 ${input.platform} 的内容结构调整开头、节奏和 CTA。`,
     status: "DRAFT" as ContentStatus,
     currentVersion: 1,
@@ -134,11 +179,13 @@ export function adaptContent(input: { workspaceId: string; userId: string; id: s
     platform: input.platform,
     title: adapted.title,
     body: adapted.content,
-    checklist: ["确认平台开场节奏", "复核 CTA 与禁用表达", "保留人工审核记录"],
+    checklist: template?.schema.outputTips ?? ["确认平台开场节奏", "复核 CTA 与禁用表达", "保留人工审核记录"],
     createdAt: now,
     updatedAt: now
   };
   store.platformAdaptations.unshift(adaptation);
+  const blocks = recordContentBlocks({ content: adapted, template, replaceExisting: true });
+  const mediaAsset = recordGeneratedMediaAsset({ content: adapted, template });
   const version = recordContentVersion({
     content: adapted,
     createdById: input.userId,
@@ -156,6 +203,9 @@ export function adaptContent(input: { workspaceId: string; userId: string; id: s
       adaptationId: adaptation.id,
       adaptedContentDraftId: adapted.id,
       versionId: version.id,
+      templateId: template?.id,
+      blockCount: blocks.length,
+      mediaAssetId: mediaAsset.id,
       currentVersion: adapted.currentVersion,
       platform: input.platform
     }

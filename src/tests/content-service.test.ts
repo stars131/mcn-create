@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   adaptContent,
+  listContentBlocks,
+  listContentMediaAssets,
   listContentReviews,
   listContentRiskChecks,
   listContentVersions,
   listPlatformAdaptations,
   listPublishPlans,
+  listWorkspaceContentTemplates,
   reviewContent,
   riskCheckContent,
   scheduleContent,
@@ -22,6 +25,37 @@ describe("content service", () => {
       contentDraftId: "content_001",
       version: 2,
       changeNote: "人工补充人设记忆和复盘链路"
+    });
+  });
+
+  it("lists seeded content templates, blocks, and media assets", () => {
+    const templates = listWorkspaceContentTemplates("ws_demo");
+    const blocks = listContentBlocks("ws_demo", "content_001");
+    const mediaAssets = listContentMediaAssets("ws_demo", "content_001");
+
+    expect(templates.map((template) => template.platform)).toEqual([
+      "BILIBILI",
+      "DOUYIN",
+      "VIDEO_ACCOUNT",
+      "WECHAT",
+      "XIAOHONGSHU"
+    ]);
+    expect(templates.find((template) => template.platform === "XIAOHONGSHU")).toMatchObject({
+      name: "小红书图文工作流模板",
+      format: "图文",
+      version: 1
+    });
+    expect(blocks.map((block) => block.type)).toEqual(["hook", "workflow", "cta"]);
+    expect(blocks[0]).toMatchObject({
+      metadata: {
+        templateId: "template_xhs_image_text_v1",
+        label: "开场钩子"
+      }
+    });
+    expect(mediaAssets[0]).toMatchObject({
+      contentDraftId: "content_001",
+      sourceType: "USER_UPLOAD",
+      assetType: "cover_prompt"
     });
   });
 
@@ -60,6 +94,7 @@ describe("content service", () => {
       riskItems: [...content!.riskItems]
     };
     const beforeVersionIds = new Set(store.contentVersions.map((version) => version.id));
+    const beforeContentBlocks = [...store.contentBlocks];
     const beforeAuditLogIds = new Set(store.auditLogs.map((log) => log.id));
 
     try {
@@ -74,6 +109,7 @@ describe("content service", () => {
         }
       });
       const createdVersion = store.contentVersions.find((version) => !beforeVersionIds.has(version.id));
+      const updatedBlocks = listContentBlocks("ws_demo", "content_001");
 
       expect(updated).toMatchObject({
         id: "content_001",
@@ -90,12 +126,22 @@ describe("content service", () => {
         changeNote: "人工编辑内容草稿",
         createdById: "user_owner"
       });
+      expect(updatedBlocks).toHaveLength(5);
+      expect(updatedBlocks.map((block) => block.type)).toEqual(["hook", "persona", "brief", "body", "cta"]);
+      expect(updatedBlocks[0]).toMatchObject({
+        metadata: {
+          templateId: "template_xhs_image_text_v1",
+          label: "开场钩子"
+        }
+      });
       expect(store.auditLogs[0]).toMatchObject({
         action: "content.update",
         entityType: "ContentDraft",
         entityId: "content_001",
         metadata: {
           versionId: createdVersion?.id,
+          templateId: "template_xhs_image_text_v1",
+          blockCount: 5,
           previousVersion: original.currentVersion,
           nextVersion: original.currentVersion + 1
         }
@@ -103,6 +149,7 @@ describe("content service", () => {
     } finally {
       Object.assign(content!, original);
       store.contentVersions = store.contentVersions.filter((version) => beforeVersionIds.has(version.id));
+      store.contentBlocks = beforeContentBlocks;
       store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
     }
   });
@@ -110,6 +157,8 @@ describe("content service", () => {
   it("records an initial version for platform adaptations", () => {
     const beforeContentDraftIds = new Set(store.contentDrafts.map((draft) => draft.id));
     const beforeVersionIds = new Set(store.contentVersions.map((version) => version.id));
+    const beforeBlockIds = new Set(store.contentBlocks.map((block) => block.id));
+    const beforeMediaIds = new Set(store.mediaAssets.map((asset) => asset.id));
     const beforeAdaptationIds = new Set(store.platformAdaptations.map((adaptation) => adaptation.id));
     const beforeAuditLogIds = new Set(store.auditLogs.map((log) => log.id));
 
@@ -124,6 +173,8 @@ describe("content service", () => {
       const createdAdaptation = store.platformAdaptations.find(
         (adaptation) => !beforeAdaptationIds.has(adaptation.id)
       );
+      const createdBlocks = listContentBlocks("ws_demo", adapted.id);
+      const createdMediaAsset = store.mediaAssets.find((asset) => !beforeMediaIds.has(asset.id));
 
       expect(beforeContentDraftIds.has(adapted.id)).toBe(false);
       expect(adapted).toMatchObject({
@@ -146,7 +197,23 @@ describe("content service", () => {
         platform: "DOUYIN",
         title: adapted.title,
         body: adapted.content,
-        checklist: ["确认平台开场节奏", "复核 CTA 与禁用表达", "保留人工审核记录"]
+        checklist: ["短句优先", "每段不超过 20 秒", "保留风险检查提示"]
+      });
+      expect(createdBlocks.map((block) => block.type)).toEqual(["hook", "scene", "talking_points", "cta"]);
+      expect(createdBlocks[0]).toMatchObject({
+        metadata: {
+          templateId: "template_douyin_talk_v1",
+          label: "前三秒开场"
+        }
+      });
+      expect(createdMediaAsset).toMatchObject({
+        workspaceId: "ws_demo",
+        contentDraftId: adapted.id,
+        sourceType: "MOCK",
+        metadata: {
+          templateId: "template_douyin_talk_v1",
+          platform: "DOUYIN"
+        }
       });
       expect(store.auditLogs[0]).toMatchObject({
         action: "content.adapt",
@@ -157,6 +224,9 @@ describe("content service", () => {
           adaptationId: createdAdaptation?.id,
           adaptedContentDraftId: adapted.id,
           versionId: versions[0].id,
+          templateId: "template_douyin_talk_v1",
+          blockCount: 4,
+          mediaAssetId: createdMediaAsset?.id,
           currentVersion: 1,
           platform: "DOUYIN"
         }
@@ -164,6 +234,8 @@ describe("content service", () => {
     } finally {
       store.contentDrafts = store.contentDrafts.filter((draft) => beforeContentDraftIds.has(draft.id));
       store.contentVersions = store.contentVersions.filter((version) => beforeVersionIds.has(version.id));
+      store.contentBlocks = store.contentBlocks.filter((block) => beforeBlockIds.has(block.id));
+      store.mediaAssets = store.mediaAssets.filter((asset) => beforeMediaIds.has(asset.id));
       store.platformAdaptations = store.platformAdaptations.filter((adaptation) =>
         beforeAdaptationIds.has(adaptation.id)
       );

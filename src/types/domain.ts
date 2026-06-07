@@ -178,6 +178,53 @@ export interface ContentVersion {
   updatedAt: string;
 }
 
+export interface ContentBlock {
+  id: string;
+  workspaceId: string;
+  contentDraftId: string;
+  type: string;
+  sortOrder: number;
+  body: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContentTemplateSchema {
+  blocks: Array<{
+    type: string;
+    label: string;
+    required?: boolean;
+  }>;
+  outputTips?: string[];
+}
+
+export interface ContentTemplate {
+  id: string;
+  workspaceId: string;
+  name: string;
+  platform: Platform;
+  format: string;
+  schema: ContentTemplateSchema;
+  systemPrompt: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MediaAsset {
+  id: string;
+  workspaceId: string;
+  contentDraftId?: string;
+  name: string;
+  assetType: string;
+  url: string;
+  sourceType: SourceType;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PlatformAdaptation {
   id: string;
   workspaceId: string;

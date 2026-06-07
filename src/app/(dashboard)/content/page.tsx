@@ -6,12 +6,15 @@ import { ContentStatusBadge, RiskBadge } from "@/components/ui/status-badge";
 import { platformLabels } from "@/lib/constants/navigation";
 import { getCurrentWorkspaceId } from "@/server/auth/session";
 import {
+  listContentBlocks,
+  listContentMediaAssets,
   listContentReviews,
   listContentRiskChecks,
   listContents,
   listContentVersions,
   listPlatformAdaptations,
-  listPublishPlans
+  listPublishPlans,
+  listWorkspaceContentTemplates
 } from "@/server/services/content-service";
 import { store } from "@/server/services/mock-store";
 import { listPersonas } from "@/server/services/persona-service";
@@ -26,10 +29,18 @@ export default function ContentPage() {
   const activePersona = personas[0];
   const activeContent = contents[0];
   const activeVersions = activeContent ? listContentVersions(workspaceId, activeContent.id) : [];
+  const activeBlocks = activeContent ? listContentBlocks(workspaceId, activeContent.id) : [];
+  const activeMediaAssets = activeContent ? listContentMediaAssets(workspaceId, activeContent.id) : [];
   const activeRiskChecks = activeContent ? listContentRiskChecks(workspaceId, activeContent.id) : [];
   const activeReviews = activeContent ? listContentReviews(workspaceId, activeContent.id) : [];
   const activeAdaptations = activeContent ? listPlatformAdaptations(workspaceId, activeContent.id) : [];
   const activePublishPlans = activeContent ? listPublishPlans(workspaceId, activeContent.id) : [];
+  const contentTemplates = listWorkspaceContentTemplates(workspaceId);
+  const activeTemplate = activeContent
+    ? contentTemplates.find(
+        (template) => template.platform === activeContent.platform && template.format === activeContent.format
+      ) ?? contentTemplates.find((template) => template.platform === activeContent.platform)
+    : undefined;
   const latestRiskCheck = activeRiskChecks[0];
   const latestReview = activeReviews[0];
   const nextPublishPlan = activePublishPlans[0];
@@ -95,6 +106,17 @@ export default function ContentPage() {
                 ))}
               </div>
             </div>
+            <div>
+              <div className="text-xs text-muted-foreground">当前模板</div>
+              <div className="mt-2 rounded-md bg-muted p-3 text-sm leading-6">
+                <div className="font-medium">{activeTemplate?.name ?? "等待选择内容模板"}</div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {activeTemplate
+                    ? `${platformLabels[activeTemplate.platform]} · ${activeTemplate.format} · v${activeTemplate.version}`
+                    : "生成内容时会按平台匹配结构化模板。"}
+                </p>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -115,6 +137,22 @@ export default function ContentPage() {
                 <div className="min-h-[420px] whitespace-pre-wrap rounded-md border border-border bg-white p-4 text-sm leading-7">
                   {activeContent.content}
                 </div>
+                {activeBlocks.length > 0 ? (
+                  <div className="rounded-md border border-border bg-muted/50 p-3">
+                    <div className="mb-3 text-xs font-semibold text-muted-foreground">结构化内容块</div>
+                    <div className="grid gap-2 md:grid-cols-2">
+                      {activeBlocks.map((block) => (
+                        <div key={block.id} className="rounded-md bg-white p-3 text-sm">
+                          <div className="flex items-center justify-between gap-2">
+                            <Badge tone="neutral">{String(block.metadata?.label ?? block.type)}</Badge>
+                            <span className="text-xs text-muted-foreground">#{block.sortOrder}</span>
+                          </div>
+                          <p className="mt-2 line-clamp-3 text-xs leading-5 text-muted-foreground">{block.body}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 <div className="flex flex-wrap gap-2">
                   <ActionButton
                     endpoint={`/api/contents/${activeContent.id}/risk-check`}
@@ -188,6 +226,36 @@ export default function ContentPage() {
                   ) : null}
                 </div>
               ) : null}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>模板与素材</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="rounded-md bg-muted p-3">
+                <div className="text-xs text-muted-foreground">可用模板</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {contentTemplates.slice(0, 5).map((template) => (
+                    <Badge key={template.id} tone={template.id === activeTemplate?.id ? "info" : "neutral"}>
+                      {template.format}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              {activeMediaAssets.length > 0 ? (
+                activeMediaAssets.slice(0, 2).map((asset) => (
+                  <div key={asset.id} className="rounded-md bg-muted p-3">
+                    <div className="font-medium leading-5">{asset.name}</div>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      {asset.assetType} · {asset.sourceType}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">生成内容后会沉淀封面提示和素材记录。</p>
+              )}
             </CardContent>
           </Card>
 

@@ -4,9 +4,11 @@ import type {
   ApiKey,
   AuditLog,
   CalendarItem,
+  ContentBlock,
   ContentDraft,
   ContentReview,
   ContentRiskCheck,
+  ContentTemplate,
   ContentVersion,
   CreditLedger,
   DataSource,
@@ -17,6 +19,7 @@ import type {
   PersonaVersion,
   PlatformAdaptation,
   Platform,
+  MediaAsset,
   PublishPlan,
   TeamMember,
   Topic,
@@ -41,6 +44,9 @@ export interface MockStore {
   personaVersions: PersonaVersion[];
   contentDrafts: ContentDraft[];
   contentVersions: ContentVersion[];
+  contentBlocks: ContentBlock[];
+  contentTemplates: ContentTemplate[];
+  mediaAssets: MediaAsset[];
   platformAdaptations: PlatformAdaptation[];
   contentReviews: ContentReview[];
   contentRiskChecks: ContentRiskCheck[];
@@ -378,6 +384,160 @@ const initialStore: MockStore = {
       content: seedContentDraftText,
       changeNote: "人工补充人设记忆和复盘链路",
       createdById: "user_owner",
+      createdAt: iso(),
+      updatedAt: iso()
+    }
+  ],
+  contentBlocks: [
+    {
+      id: "content_block_001",
+      workspaceId: defaultWorkspace.id,
+      contentDraftId: "content_001",
+      type: "hook",
+      sortOrder: 1,
+      body: "很多团队的问题不是不会生成，而是生成之后没人知道这篇内容是否符合品牌。",
+      metadata: { templateId: "template_xhs_image_text_v1", label: "开场钩子", required: true },
+      createdAt: iso(),
+      updatedAt: iso()
+    },
+    {
+      id: "content_block_002",
+      workspaceId: defaultWorkspace.id,
+      contentDraftId: "content_001",
+      type: "workflow",
+      sortOrder: 2,
+      body: "先做一份可审阅的人设记忆：语气、禁用表达、目标受众、风格样例。",
+      metadata: { templateId: "template_xhs_image_text_v1", label: "流程拆解", required: true },
+      createdAt: iso(),
+      updatedAt: iso()
+    },
+    {
+      id: "content_block_003",
+      workspaceId: defaultWorkspace.id,
+      contentDraftId: "content_001",
+      type: "cta",
+      sortOrder: 3,
+      body: "再把热点、选题、草稿、日历和复盘串起来，内容产能才会稳定。",
+      metadata: { templateId: "template_xhs_image_text_v1", label: "行动引导", required: true },
+      createdAt: iso(),
+      updatedAt: iso()
+    }
+  ],
+  contentTemplates: [
+    {
+      id: "template_xhs_image_text_v1",
+      workspaceId: defaultWorkspace.id,
+      name: "小红书图文工作流模板",
+      platform: "XIAOHONGSHU",
+      format: "图文",
+      schema: {
+        blocks: [
+          { type: "hook", label: "开场钩子", required: true },
+          { type: "persona", label: "人设语气", required: true },
+          { type: "brief", label: "核心 brief", required: true },
+          { type: "body", label: "正文展开", required: true },
+          { type: "cta", label: "行动引导", required: true }
+        ],
+        outputTips: ["标题避免绝对化承诺", "正文保留人工审核与来源说明", "结尾引导下载清单或预约诊断"]
+      },
+      systemPrompt: "按小红书图文结构输出，先给冲突问题，再给流程清单和低风险 CTA。",
+      version: 1,
+      createdAt: iso(-2),
+      updatedAt: iso()
+    },
+    {
+      id: "template_douyin_talk_v1",
+      workspaceId: defaultWorkspace.id,
+      name: "抖音口播稿模板",
+      platform: "DOUYIN",
+      format: "口播稿",
+      schema: {
+        blocks: [
+          { type: "hook", label: "前三秒开场", required: true },
+          { type: "scene", label: "用户场景", required: true },
+          { type: "talking_points", label: "口播要点", required: true },
+          { type: "cta", label: "收束 CTA", required: true }
+        ],
+        outputTips: ["短句优先", "每段不超过 20 秒", "保留风险检查提示"]
+      },
+      systemPrompt: "按抖音口播节奏输出，强化前三秒钩子、短句和自然转场。",
+      version: 1,
+      createdAt: iso(-2),
+      updatedAt: iso()
+    },
+    {
+      id: "template_wechat_long_v1",
+      workspaceId: defaultWorkspace.id,
+      name: "公众号长文模板",
+      platform: "WECHAT",
+      format: "长文",
+      schema: {
+        blocks: [
+          { type: "intro", label: "问题导入", required: true },
+          { type: "analysis", label: "原因拆解", required: true },
+          { type: "workflow", label: "操作流程", required: true },
+          { type: "conclusion", label: "结尾总结", required: true }
+        ],
+        outputTips: ["给出可复盘的步骤", "保留来源说明", "适合延展案例和图表"]
+      },
+      systemPrompt: "按公众号长文结构输出，强调论证链路、案例来源和复盘方法。",
+      version: 1,
+      createdAt: iso(-2),
+      updatedAt: iso()
+    },
+    {
+      id: "template_bilibili_script_v1",
+      workspaceId: defaultWorkspace.id,
+      name: "B 站视频脚本模板",
+      platform: "BILIBILI",
+      format: "视频脚本",
+      schema: {
+        blocks: [
+          { type: "opening", label: "开场问题", required: true },
+          { type: "chapters", label: "分段脚本", required: true },
+          { type: "risk_note", label: "引用与风险提示", required: true },
+          { type: "cta", label: "结尾互动", required: true }
+        ],
+        outputTips: ["注明引用来源", "分段适配字幕", "保留复盘指标"]
+      },
+      systemPrompt: "按 B 站知识视频脚本输出，保留分段、引用提示和字幕友好表达。",
+      version: 1,
+      createdAt: iso(-2),
+      updatedAt: iso()
+    },
+    {
+      id: "template_video_account_short_v1",
+      workspaceId: defaultWorkspace.id,
+      name: "视频号短内容模板",
+      platform: "VIDEO_ACCOUNT",
+      format: "短内容",
+      schema: {
+        blocks: [
+          { type: "hook", label: "开场钩子", required: true },
+          { type: "points", label: "三点内容", required: true },
+          { type: "cta", label: "转化引导", required: true }
+        ],
+        outputTips: ["适合转发到私域", "语气克制", "避免承诺式结论"]
+      },
+      systemPrompt: "按视频号短内容输出，保留私域转发语境和克制 CTA。",
+      version: 1,
+      createdAt: iso(-2),
+      updatedAt: iso()
+    }
+  ],
+  mediaAssets: [
+    {
+      id: "media_001",
+      workspaceId: defaultWorkspace.id,
+      contentDraftId: "content_001",
+      name: "内容工作流检查表封面",
+      assetType: "cover_prompt",
+      url: "mock://assets/content-workflow-checklist-cover",
+      sourceType: "USER_UPLOAD",
+      metadata: {
+        usage: "小红书封面文案参考",
+        alt: "内容工作流、人设记忆、风险审核、数据复盘四步检查表"
+      },
       createdAt: iso(),
       updatedAt: iso()
     }
