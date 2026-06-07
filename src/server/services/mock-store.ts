@@ -1,9 +1,11 @@
 import type {
+  ABHypothesis,
   AgentRun,
   AnalyticsReport,
   ApiKey,
   AuditLog,
   CalendarItem,
+  CommentInsight,
   ContentBlock,
   ContentDraft,
   ContentReview,
@@ -12,8 +14,10 @@ import type {
   ContentVersion,
   CreditLedger,
   DataSource,
+  Experiment,
   HotCluster,
   HotItem,
+  ImportedMetricFile,
   MetricRecord,
   PersonaProfile,
   PersonaVersion,
@@ -21,6 +25,7 @@ import type {
   Platform,
   MediaAsset,
   PublishPlan,
+  Recommendation,
   TeamMember,
   Topic,
   TopicBrief,
@@ -53,8 +58,13 @@ export interface MockStore {
   publishPlans: PublishPlan[];
   calendarItems: CalendarItem[];
   dataSources: DataSource[];
+  importedMetricFiles: ImportedMetricFile[];
   metricRecords: MetricRecord[];
   analyticsReports: AnalyticsReport[];
+  commentInsights: CommentInsight[];
+  experiments: Experiment[];
+  abHypotheses: ABHypothesis[];
+  recommendations: Recommendation[];
   agentRuns: AgentRun[];
   auditLogs: AuditLog[];
   usageEvents: UsageEvent[];
@@ -638,10 +648,46 @@ const initialStore: MockStore = {
       notes: "支持 CSV/JSON 手动导入，后续可接官方授权 API。"
     }
   ],
+  importedMetricFiles: [
+    {
+      id: "import_file_001",
+      workspaceId: defaultWorkspace.id,
+      fileName: "week-23-content-performance.csv",
+      fileType: "CSV",
+      sourceType: "USER_UPLOAD",
+      rowCount: 2,
+      status: "PARSED",
+      parsedData: [
+        {
+          title: "一周内容排期复盘",
+          platform: "XIAOHONGSHU",
+          publishedAt: iso(-5),
+          views: 38600,
+          likes: 2100,
+          comments: 318,
+          shares: 420,
+          conversions: 96
+        },
+        {
+          title: "创始人 IP 人设跑偏",
+          platform: "DOUYIN",
+          publishedAt: iso(-3),
+          views: 58200,
+          likes: 3500,
+          comments: 446,
+          shares: 610,
+          conversions: 128
+        }
+      ],
+      createdAt: iso(-1),
+      updatedAt: iso(-1)
+    }
+  ],
   metricRecords: [
     {
       id: "metric_001",
       workspaceId: defaultWorkspace.id,
+      importedMetricFileId: "import_file_001",
       title: "一周内容排期复盘",
       platform: "XIAOHONGSHU",
       publishedAt: iso(-5),
@@ -654,6 +700,7 @@ const initialStore: MockStore = {
     {
       id: "metric_002",
       workspaceId: defaultWorkspace.id,
+      importedMetricFileId: "import_file_001",
       title: "创始人 IP 人设跑偏",
       platform: "DOUYIN",
       publishedAt: iso(-3),
@@ -674,7 +721,92 @@ const initialStore: MockStore = {
       anomalies: ["B 站长视频脚本主题播放低于账号基线 18%", "周三晚间发布的图文收藏率异常上升"],
       recommendations: ["追加 3 条多平台改写案例", "把人设禁用表达整理成可下载清单"],
       hypotheses: ["标题中加入团队规模会提高点击率", "展示前后对比图能提升收藏率"],
+      sourceAgentRunId: "run_analytics_001",
       createdAt: iso()
+    }
+  ],
+  commentInsights: [
+    {
+      id: "comment_insight_001",
+      workspaceId: defaultWorkspace.id,
+      metricRecordId: "metric_002",
+      sentiment: "MIXED",
+      summary: "评论集中追问人设跑偏后的修正流程，也有人担心 AI 自动改写会削弱品牌表达。",
+      keywords: ["人设一致性", "禁用表达", "人工审核"],
+      sourceReportId: "report_001",
+      sourceAgentRunId: "run_analytics_001",
+      createdAt: iso(),
+      updatedAt: iso()
+    }
+  ],
+  experiments: [
+    {
+      id: "experiment_001",
+      workspaceId: defaultWorkspace.id,
+      name: "团队规模标题变量测试",
+      hypothesis: "标题中加入团队规模会提高点击率",
+      status: "PLANNED",
+      metric: "点击率",
+      createdAt: iso(),
+      updatedAt: iso()
+    }
+  ],
+  abHypotheses: [
+    {
+      id: "ab_hypothesis_001",
+      workspaceId: defaultWorkspace.id,
+      experimentId: "experiment_001",
+      title: "标题中加入团队规模会提高点击率",
+      variantA: "小团队如何稳定内容排期",
+      variantB: "3-10 人内容团队如何稳定一周排期",
+      successMetric: "点击率",
+      rationale: "历史数据里带团队规模的标题更容易让目标用户识别适用场景。",
+      sourceReportId: "report_001",
+      sourceAgentRunId: "run_analytics_001",
+      createdAt: iso(),
+      updatedAt: iso()
+    },
+    {
+      id: "ab_hypothesis_002",
+      workspaceId: defaultWorkspace.id,
+      experimentId: "experiment_001",
+      title: "展示前后对比图能提升收藏率",
+      variantA: "纯文字流程清单",
+      variantB: "排期前后对比图加流程清单",
+      successMetric: "收藏率",
+      rationale: "周三晚间图文收藏率异常上升，可能与对比图降低理解成本有关。",
+      sourceReportId: "report_001",
+      sourceAgentRunId: "run_analytics_001",
+      createdAt: iso(),
+      updatedAt: iso()
+    }
+  ],
+  recommendations: [
+    {
+      id: "recommendation_001",
+      workspaceId: defaultWorkspace.id,
+      sourceType: "ANALYTICS_REPORT",
+      title: "追加 3 条多平台改写案例",
+      rationale: "多平台改写类内容带来更稳定的收藏和分享，适合回流到选题池形成案例拆解。",
+      targetModule: "TOPIC",
+      status: "OPEN",
+      sourceReportId: "report_001",
+      sourceAgentRunId: "run_analytics_001",
+      createdAt: iso(),
+      updatedAt: iso()
+    },
+    {
+      id: "recommendation_002",
+      workspaceId: defaultWorkspace.id,
+      sourceType: "ANALYTICS_REPORT",
+      title: "把人设禁用表达整理成可下载清单",
+      rationale: "评论区反复追问禁用表达和审核边界，适合补充到人设记忆与内容素材库。",
+      targetModule: "PERSONA",
+      status: "OPEN",
+      sourceReportId: "report_001",
+      sourceAgentRunId: "run_analytics_001",
+      createdAt: iso(),
+      updatedAt: iso()
     }
   ],
   agentRuns: [

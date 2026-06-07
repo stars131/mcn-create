@@ -32,6 +32,10 @@ export type PublishStatus = "PLANNED" | "READY" | "EXPORTED" | "PUBLISHED" | "FA
 export type AgentType = "HOTSPOT" | "TOPIC" | "PERSONA" | "CONTENT" | "ANALYTICS" | "RISK";
 export type AgentStatus = "PENDING" | "RUNNING" | "SUCCESS" | "FAILED";
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
+export type MetricImportFileType = "RECORDS" | "JSON" | "CSV" | "TSV" | "EXCEL";
+export type ImportedMetricFileStatus = "PARSED" | "FAILED";
+export type ExperimentStatus = "PLANNED" | "RUNNING" | "COMPLETED" | "PAUSED";
+export type RecommendationStatus = "OPEN" | "CONVERTED" | "DISMISSED";
 
 export interface Workspace {
   id: string;
@@ -299,6 +303,7 @@ export interface DataSource {
 export interface MetricRecord {
   id: string;
   workspaceId: string;
+  importedMetricFileId?: string;
   title: string;
   platform: Platform;
   publishedAt: string;
@@ -307,6 +312,41 @@ export interface MetricRecord {
   comments: number;
   shares: number;
   conversions: number;
+}
+
+export interface ImportedMetricFile {
+  id: string;
+  workspaceId: string;
+  fileName: string;
+  fileType: MetricImportFileType;
+  sourceType: SourceType;
+  rowCount: number;
+  status: ImportedMetricFileStatus;
+  parsedData?: Array<{
+    title: string;
+    platform: Platform;
+    publishedAt: string;
+    views: number;
+    likes: number;
+    comments: number;
+    shares: number;
+    conversions: number;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommentInsight {
+  id: string;
+  workspaceId: string;
+  metricRecordId?: string;
+  sentiment: "POSITIVE" | "NEUTRAL" | "NEGATIVE" | "MIXED";
+  summary: string;
+  keywords: string[];
+  sourceReportId?: string;
+  sourceAgentRunId?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AnalyticsReport {
@@ -318,7 +358,51 @@ export interface AnalyticsReport {
   anomalies: string[];
   recommendations: string[];
   hypotheses: string[];
+  sourceAgentRunId?: string;
   createdAt: string;
+}
+
+export interface Experiment {
+  id: string;
+  workspaceId: string;
+  name: string;
+  hypothesis: string;
+  status: ExperimentStatus;
+  metric: string;
+  startedAt?: string;
+  endedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ABHypothesis {
+  id: string;
+  workspaceId: string;
+  experimentId?: string;
+  title: string;
+  variantA: string;
+  variantB: string;
+  successMetric: string;
+  rationale: string;
+  sourceReportId?: string;
+  sourceAgentRunId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Recommendation {
+  id: string;
+  workspaceId: string;
+  sourceType: string;
+  title: string;
+  rationale: string;
+  targetModule: "TOPIC" | "PERSONA" | "CONTENT" | "CALENDAR";
+  status: RecommendationStatus;
+  sourceReportId?: string;
+  sourceAgentRunId?: string;
+  generatedTopicIds?: string[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AgentRun {

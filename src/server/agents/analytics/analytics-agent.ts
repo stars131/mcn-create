@@ -2,7 +2,7 @@ import { getPromptTemplate } from "@/server/ai/prompts/templates";
 import { BaseAgent } from "@/server/agents/core/base-agent";
 import { analyticsAgentInputSchema, analyticsAgentOutputSchema } from "@/server/agents/core/schemas";
 import { nextId, store } from "@/server/services/mock-store";
-import type { AgentRun, AnalyticsReport, Topic } from "@/types/domain";
+import type { ABHypothesis, AgentRun, AnalyticsReport, CommentInsight, Experiment, Recommendation } from "@/types/domain";
 import type { z } from "zod";
 
 type Input = z.infer<typeof analyticsAgentInputSchema>;
@@ -43,6 +43,7 @@ export class AnalyticsAgent extends BaseAgent<Input, Output> {
   }
 
   async persistResult(output: Output, run: AgentRun) {
+    const now = new Date().toISOString();
     const report: AnalyticsReport = {
       id: nextId("report"),
       workspaceId: this.workspaceId,
@@ -52,26 +53,89 @@ export class AnalyticsAgent extends BaseAgent<Input, Output> {
       anomalies: output.anomalies,
       recommendations: output.recommendations,
       hypotheses: output.hypotheses,
-      createdAt: new Date().toISOString()
+      sourceAgentRunId: run.id,
+      createdAt: now
     };
     store.analyticsReports.unshift(report);
 
-    output.recommendations.forEach((recommendation) => {
-      const topic: Topic = {
-        id: nextId("topic"),
-        workspaceId: this.workspaceId,
-        title: `复盘建议：${recommendation}`,
-        angle: "由数据分析 Agent 回流到选题池。",
-        audience: "内容团队负责人",
-        status: "PENDING",
-        targetPlatforms: ["XIAOHONGSHU", "WECHAT"],
-        score: 76,
-        riskLevel: "LOW",
-        outline: ["复盘结论", "选题假设", "执行计划"],
-        sourceAgentRunId: run.id,
-        createdAt: new Date().toISOString()
-      };
-      store.topics.unshift(topic);
-    });
+    const strongestCommentRecord = store.metricRecords
+      .filter((record) => record.workspaceId === this.workspaceId)
+      .sort((left, right) => right.comments - left.comments)[0];
+
+    const commentInsight: CommentInsight = {
+      id: nextId("comment_insight"),
+      workspaceId: this.workspaceId,
+      metricRecordId: strongestCommentRecord?.id,
+      sentiment: "MIXED",
+      summary: "评论集中关注内容工作流落地、人设一致性和人工审核边界，适合作为下一轮选题与人设规则输入。",
+      keywords: ["工作流落地", "人设一致性", "人工审核"],
+      sourceReportId: report.id,
+      sourceAgentRunId: run.id,
+      createdAt: now,
+      updatedAt: now
+    };
+    store.commentInsights.unshift(commentInsight);
+
+    const experiments: Experiment[] = output.hypotheses.map((hypothesis, index) => ({
+      id: nextId("experiment"),
+      workspaceId: this.workspaceId,
+      name: `复盘假设实验 ${index + 1}`,
+      hypothesis,
+      status: "PLANNED",
+      metric: index === 0 ? "点击率" : "收藏率",
+      createdAt: now,
+      updatedAt: now
+    }));
+    store.experiments.unshift(...experiments);
+
+    const hypotheses: ABHypothesis[] = output.hypotheses.map((hypothesis, index) => ({
+      id: nextId("ab_hypothesis"),
+      workspaceId: this.workspaceId,
+      experimentId: experiments[index]?.id,
+      title: hypothesis,
+      variantA: index === 0 ? "沿用当前标题结构" : "仅保留文字流程清单",
+      variantB: index === 0 ? "标题加入团队规模或适用场景" : "加入前后对比图和风险检查清单",
+      successMetric: experiments[index]?.metric ?? "互动率",
+      rationale: `来自 ${report.title} 的异常和表现解释，适合进入下一轮 A/B 验证。`,
+      sourceReportId: report.id,
+      sourceAgentRunId: run.id,
+      createdAt: now,
+      updatedAt: now
+    }));
+    store.abHypotheses.unshift(...hypotheses);
+
+    const recommendations: Recommendation[] = output.recommendations.map((recommendation) => ({
+      id: nextId("recommendation"),
+      workspaceId: this.workspaceId,
+      sourceType: "ANALYTICS_REPORT",
+      title: recommendation,
+      rationale: `来自 ${report.title}：${output.summary}`,
+      targetModule: "TOPIC",
+      status: "OPEN",
+      sourceReportId: report.id,
+      sourceAgentRunId: run.id,
+      createdAt: now,
+      updatedAt: now
+    }));
+    store.recommendations.unshift(...recommendations);
+
+    const personaRecommendation = output.anomalies[0]
+      ? {
+          id: nextId("recommendation"),
+          workspaceId: this.workspaceId,
+          sourceType: "ANALYTICS_ANOMALY",
+          title: "补充人设记忆中的异常解释边界",
+          rationale: output.anomalies[0],
+          targetModule: "PERSONA" as const,
+          status: "OPEN" as const,
+          sourceReportId: report.id,
+          sourceAgentRunId: run.id,
+          createdAt: now,
+          updatedAt: now
+        }
+      : undefined;
+    if (personaRecommendation) {
+      store.recommendations.unshift(personaRecommendation);
+    }
   }
 }

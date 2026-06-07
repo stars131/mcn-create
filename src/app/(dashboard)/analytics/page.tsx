@@ -10,11 +10,49 @@ import { platformLabels } from "@/lib/constants/navigation";
 import { getCurrentWorkspaceId } from "@/server/auth/session";
 import { getAnalyticsOverview, listPostMetrics } from "@/server/services/analytics-service";
 
+const recommendationStatusLabels = {
+  OPEN: "待处理",
+  CONVERTED: "已回流",
+  DISMISSED: "已关闭"
+};
+
+const recommendationStatusTones = {
+  OPEN: "warning",
+  CONVERTED: "success",
+  DISMISSED: "neutral"
+} as const;
+
+const experimentStatusLabels = {
+  PLANNED: "待验证",
+  RUNNING: "运行中",
+  COMPLETED: "已完成",
+  PAUSED: "已暂停"
+};
+
+const sentimentLabels = {
+  POSITIVE: "正向",
+  NEUTRAL: "中性",
+  NEGATIVE: "负向",
+  MIXED: "混合"
+};
+
+const moduleLabels = {
+  TOPIC: "选题",
+  PERSONA: "人设",
+  CONTENT: "内容",
+  CALENDAR: "日历"
+};
+
+function shortDate(value: string) {
+  return value.slice(0, 10);
+}
+
 export default function AnalyticsPage() {
   const workspaceId = getCurrentWorkspaceId();
   const overview = getAnalyticsOverview(workspaceId);
   const posts = listPostMetrics(workspaceId);
   const report = overview.reports[0];
+  const openRecommendations = overview.recommendations.filter((item) => item.status === "OPEN").length;
 
   return (
     <>
@@ -51,8 +89,8 @@ export default function AnalyticsPage() {
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="总曝光" value={overview.totals.views.toLocaleString()} delta="导入与 mock 指标" icon={BarChart3} />
         <MetricCard label="互动数" value={(overview.totals.likes + overview.totals.comments + overview.totals.shares).toLocaleString()} icon={BarChart3} />
-        <MetricCard label="评论数" value={overview.totals.comments.toLocaleString()} icon={BarChart3} />
-        <MetricCard label="转化目标" value={overview.totals.conversions.toLocaleString()} icon={BarChart3} />
+        <MetricCard label="导入文件" value={overview.importedFiles.length} delta="含解析行数与来源" icon={BarChart3} />
+        <MetricCard label="待处理建议" value={openRecommendations} delta="可回流选题与人设" icon={BarChart3} />
       </section>
 
       <section className="mt-5 grid gap-4 xl:grid-cols-[1fr_360px]">
@@ -97,6 +135,136 @@ export default function AnalyticsPage() {
             ) : (
               <p className="text-sm text-muted-foreground">生成周报后展示复盘结果。</p>
             )}
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="mt-5 grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle>导入文件历史</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>文件</Th>
+                  <Th>类型</Th>
+                  <Th>行数</Th>
+                  <Th>状态</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {overview.importedFiles.slice(0, 5).map((file) => (
+                  <tr key={file.id}>
+                    <Td>
+                      <div className="font-medium">{file.fileName}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">{shortDate(file.createdAt)}</div>
+                    </Td>
+                    <Td>{file.fileType}</Td>
+                    <Td>{file.rowCount}</Td>
+                    <Td>
+                      <Badge tone={file.status === "PARSED" ? "success" : "danger"}>{file.status === "PARSED" ? "已解析" : "失败"}</Badge>
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>评论洞察</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {overview.commentInsights.slice(0, 3).map((insight) => (
+              <div key={insight.id} className="rounded-md border border-border p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone={insight.sentiment === "NEGATIVE" ? "danger" : insight.sentiment === "POSITIVE" ? "success" : "info"}>
+                    {sentimentLabels[insight.sentiment]}
+                  </Badge>
+                  {insight.keywords.map((keyword) => (
+                    <Badge key={keyword}>{keyword}</Badge>
+                  ))}
+                </div>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{insight.summary}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="mt-5 grid gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>A/B 假设与实验</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>假设</Th>
+                  <Th>变量</Th>
+                  <Th>指标</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {overview.abHypotheses.slice(0, 5).map((hypothesis) => (
+                  <tr key={hypothesis.id}>
+                    <Td>
+                      <div className="font-medium">{hypothesis.title}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">{hypothesis.rationale}</div>
+                    </Td>
+                    <Td>
+                      <div className="text-xs text-muted-foreground">A：{hypothesis.variantA}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">B：{hypothesis.variantB}</div>
+                    </Td>
+                    <Td>{hypothesis.successMetric}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {overview.experiments.slice(0, 4).map((experiment) => (
+                <Badge key={experiment.id} tone={experiment.status === "COMPLETED" ? "success" : experiment.status === "RUNNING" ? "info" : "warning"}>
+                  {experiment.name} · {experimentStatusLabels[experiment.status]}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>建议回流状态</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>建议</Th>
+                  <Th>目标</Th>
+                  <Th>状态</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {overview.recommendations.slice(0, 6).map((recommendation) => (
+                  <tr key={recommendation.id}>
+                    <Td>
+                      <div className="font-medium">{recommendation.title}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">{recommendation.rationale}</div>
+                    </Td>
+                    <Td>{moduleLabels[recommendation.targetModule]}</Td>
+                    <Td>
+                      <Badge tone={recommendationStatusTones[recommendation.status]}>
+                        {recommendationStatusLabels[recommendation.status]}
+                      </Badge>
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
           </CardContent>
         </Card>
       </section>

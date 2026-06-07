@@ -3,7 +3,7 @@ import { writeAuditLog } from "@/server/audit/audit-service";
 import { ApiError } from "@/server/errors";
 import { enqueueAndProcessAgentJob } from "@/server/queue/agent-queue";
 import { getWorkspaceScoped, nextId, store } from "@/server/services/mock-store";
-import type { MetricRecord, Platform } from "@/types/domain";
+import type { ImportedMetricFile, MetricImportFileType, MetricRecord, Platform, Recommendation } from "@/types/domain";
 
 export type MetricImportFormat = "RECORDS" | "JSON" | "CSV" | "TSV" | "EXCEL";
 
@@ -25,6 +25,8 @@ export interface MetricImportPayload {
   fileType?: MetricImportFormat;
   fileName?: string;
 }
+
+const fallbackImportFileName = "manual-metric-import";
 
 const platformAliases: Record<string, Platform> = {
   all: "ALL",
@@ -100,6 +102,18 @@ function parsePlatform(value: unknown): Platform {
     return upper;
   }
   rejectImport(`导入平台不受支持：${String(value ?? "")}`);
+}
+
+function inferImportFileType(payload: MetricImportPayload): MetricImportFileType {
+  if (payload.fileType) {
+    return payload.fileType;
+  }
+  if (payload.records?.length) {
+    return "RECORDS";
+  }
+
+  const rawText = payload.rawText ?? payload.fileContent ?? "";
+  return rawText.trim().startsWith("[") || rawText.trim().startsWith("{") ? "JSON" : "CSV";
 }
 
 function getField(row: Record<string, unknown>, aliases: readonly string[]) {
@@ -249,7 +263,12 @@ export function getAnalyticsOverview(workspaceId: string) {
       engagement: record.likes + record.comments + record.shares,
       conversions: record.conversions
     })),
-    reports: getWorkspaceScoped(store.analyticsReports, workspaceId)
+    importedFiles: getWorkspaceScoped(store.importedMetricFiles, workspaceId),
+    reports: getWorkspaceScoped(store.analyticsReports, workspaceId),
+    commentInsights: getWorkspaceScoped(store.commentInsights, workspaceId),
+    experiments: getWorkspaceScoped(store.experiments, workspaceId),
+    abHypotheses: getWorkspaceScoped(store.abHypotheses, workspaceId),
+    recommendations: getWorkspaceScoped(store.recommendations, workspaceId)
   };
 }
 
@@ -263,29 +282,56 @@ export function importMetricData(input: {
   importPayload: MetricImportPayload;
 }) {
   const records = parseMetricImport(input.importPayload);
+  const now = new Date().toISOString();
+  const fileType = inferImportFileType(input.importPayload);
+  const importedFile: ImportedMetricFile = {
+    id: nextId("import_file"),
+    workspaceId: input.workspaceId,
+    fileName: input.importPayload.fileName ?? `${fallbackImportFileName}.${fileType.toLowerCase()}`,
+    fileType,
+    sourceType: "USER_UPLOAD",
+    rowCount: records.length,
+    status: "PARSED",
+    createdAt: now,
+    updatedAt: now
+  };
   const imported: MetricRecord[] = records.map((record) => ({
     id: nextId("metric"),
     workspaceId: input.workspaceId,
+    importedMetricFileId: importedFile.id,
     title: record.title,
     platform: parsePlatform(record.platform),
-    publishedAt: record.publishedAt ?? new Date().toISOString(),
+    publishedAt: record.publishedAt ?? now,
     views: parseNumber(record.views, "views"),
     likes: parseNumber(record.likes, "likes"),
     comments: parseNumber(record.comments, "comments"),
     shares: parseNumber(record.shares, "shares"),
     conversions: parseNumber(record.conversions, "conversions")
   }));
+  importedFile.parsedData = imported.map((record) => ({
+    title: record.title,
+    platform: record.platform,
+    publishedAt: record.publishedAt,
+    views: record.views,
+    likes: record.likes,
+    comments: record.comments,
+    shares: record.shares,
+    conversions: record.conversions
+  }));
+  store.importedMetricFiles.unshift(importedFile);
   store.metricRecords.unshift(...imported);
   writeAuditLog({
     workspaceId: input.workspaceId,
     userId: input.userId,
     action: "analytics.import",
     entityType: "ImportedMetricFile",
+    entityId: importedFile.id,
     summary: `导入 ${imported.length} 条指标数据`,
     metadata: {
       sourceType: "USER_UPLOAD",
-      fileName: input.importPayload.fileName,
-      fileType: input.importPayload.fileType ?? (input.importPayload.records ? "RECORDS" : undefined)
+      fileName: importedFile.fileName,
+      fileType: importedFile.fileType,
+      metricIds: imported.map((record) => record.id)
     }
   });
   return imported;
@@ -316,30 +362,65 @@ export async function generateAnalyticsReport(input: { workspaceId: string; user
 }
 
 export function recommendationsToTopics(input: { workspaceId: string; userId: string }) {
-  const report = getWorkspaceScoped(store.analyticsReports, input.workspaceId)[0];
-  if (!report) {
+  let recommendations = getWorkspaceScoped(store.recommendations, input.workspaceId).filter(
+    (recommendation) => recommendation.status === "OPEN" && recommendation.targetModule === "TOPIC"
+  );
+
+  if (!recommendations.length) {
+    const report = getWorkspaceScoped(store.analyticsReports, input.workspaceId)[0];
+    recommendations = report
+      ? report.recommendations.map<Recommendation>((recommendation) => ({
+          id: nextId("recommendation"),
+          workspaceId: input.workspaceId,
+          sourceType: "ANALYTICS_REPORT",
+          title: recommendation,
+          rationale: "由历史周报字符串建议补建的运行时推荐记录。",
+          targetModule: "TOPIC",
+          status: "OPEN",
+          sourceReportId: report.id,
+          sourceAgentRunId: report.sourceAgentRunId,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }))
+      : [];
+    store.recommendations.unshift(...recommendations);
+  }
+
+  if (!recommendations.length) {
     return [];
   }
-  const topics = report.recommendations.map((recommendation) => ({
+  const now = new Date().toISOString();
+  const topics = recommendations.map((recommendation) => ({
     id: nextId("topic"),
     workspaceId: input.workspaceId,
-    title: `复盘回流：${recommendation}`,
+    title: `复盘回流：${recommendation.title}`,
     angle: "由数据复盘建议回流到选题池，等待编辑评估。",
     audience: "内容团队负责人",
     status: "PENDING" as const,
     targetPlatforms: ["XIAOHONGSHU", "WECHAT"] as Platform[],
     score: 73,
     riskLevel: "LOW" as const,
-    outline: ["数据发现", "内容假设", "执行计划"],
-    createdAt: new Date().toISOString()
+    outline: ["数据发现", recommendation.rationale, "执行计划"],
+    sourceAgentRunId: recommendation.sourceAgentRunId,
+    createdAt: now
   }));
   store.topics.unshift(...topics);
+  recommendations.forEach((recommendation, index) => {
+    recommendation.status = "CONVERTED";
+    recommendation.generatedTopicIds = [...(recommendation.generatedTopicIds ?? []), topics[index].id];
+    recommendation.updatedAt = now;
+  });
   writeAuditLog({
     workspaceId: input.workspaceId,
     userId: input.userId,
     action: "analytics.recommendations.to_topics",
     entityType: "Recommendation",
-    summary: `将 ${topics.length} 条复盘建议回流到选题池`
+    entityId: recommendations[0]?.id,
+    summary: `将 ${topics.length} 条复盘建议回流到选题池`,
+    metadata: {
+      recommendationIds: recommendations.map((recommendation) => recommendation.id),
+      topicIds: topics.map((topic) => topic.id)
+    }
   });
   return topics;
 }
