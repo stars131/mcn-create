@@ -165,6 +165,18 @@ export interface ContentDraft {
   updatedAt: string;
 }
 
+export interface ContentVersion {
+  id: string;
+  workspaceId: string;
+  contentDraftId: string;
+  version: number;
+  content: string;
+  changeNote?: string;
+  createdById?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CalendarItem {
   id: string;
   workspaceId: string;

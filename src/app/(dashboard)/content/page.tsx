@@ -5,7 +5,7 @@ import { PageHeading } from "@/components/ui/page-heading";
 import { ContentStatusBadge, RiskBadge } from "@/components/ui/status-badge";
 import { platformLabels } from "@/lib/constants/navigation";
 import { getCurrentWorkspaceId } from "@/server/auth/session";
-import { listContents } from "@/server/services/content-service";
+import { listContents, listContentVersions } from "@/server/services/content-service";
 import { store } from "@/server/services/mock-store";
 import { listPersonas } from "@/server/services/persona-service";
 import { listTopics } from "@/server/services/topic-service";
@@ -18,6 +18,7 @@ export default function ContentPage() {
   const activeTopic = topics[0];
   const activePersona = personas[0];
   const activeContent = contents[0];
+  const activeVersions = activeContent ? listContentVersions(workspaceId, activeContent.id) : [];
   const activeBrief = activeTopic
     ? store.topicBriefs.find((brief) => brief.workspaceId === workspaceId && brief.topicId === activeTopic.id)
     : undefined;
@@ -185,10 +186,32 @@ export default function ContentPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>版本对比预留</CardTitle>
+              <CardTitle>版本记录</CardTitle>
             </CardHeader>
-            <CardContent className="text-sm leading-6 text-muted-foreground">
-              当前保留 ContentVersion 数据结构和版本号，后续可接入逐段 diff 与评论审阅。
+            <CardContent className="space-y-3">
+              {activeVersions.length > 0 ? (
+                activeVersions.slice(0, 3).map((version) => (
+                  <div key={version.id} className="rounded-md bg-muted p-3 text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <Badge tone="neutral">v{version.version}</Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(version.createdAt).toLocaleDateString("zh-CN", {
+                          month: "2-digit",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit"
+                        })}
+                      </span>
+                    </div>
+                    <div className="mt-2 font-medium leading-5">{version.changeNote ?? "版本快照"}</div>
+                    <p className="mt-2 line-clamp-3 text-xs leading-5 text-muted-foreground">
+                      {version.content}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">暂无版本记录。</p>
+              )}
             </CardContent>
           </Card>
         </div>

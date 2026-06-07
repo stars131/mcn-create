@@ -5,6 +5,7 @@ import type {
   AuditLog,
   CalendarItem,
   ContentDraft,
+  ContentVersion,
   CreditLedger,
   DataSource,
   HotCluster,
@@ -35,6 +36,7 @@ export interface MockStore {
   personas: PersonaProfile[];
   personaVersions: PersonaVersion[];
   contentDrafts: ContentDraft[];
+  contentVersions: ContentVersion[];
   calendarItems: CalendarItem[];
   dataSources: DataSource[];
   metricRecords: MetricRecord[];
@@ -86,6 +88,8 @@ const trend = [
 
 const seedContentDraftText =
   "很多团队的问题不是不会生成，而是生成之后没人知道这篇内容是否符合品牌。先做一份可审阅的人设记忆：语气、禁用表达、目标受众、风格样例。再把热点、选题、草稿、日历和复盘串起来，内容产能才会稳定。";
+const seedContentDraftV1Text =
+  "很多团队不是缺少 AI 工具，而是缺少一套能被审阅、复盘和协作的内容流程。先把人设、选题、草稿和日历串起来，再谈生成效率。";
 
 const initialStore: MockStore = {
   users: [
@@ -343,6 +347,30 @@ const initialStore: MockStore = {
       riskLevel: "LOW",
       riskItems: ["未发现高风险承诺", "建议补充案例来源说明"],
       createdAt: iso(-1),
+      updatedAt: iso()
+    }
+  ],
+  contentVersions: [
+    {
+      id: "content_version_001",
+      workspaceId: defaultWorkspace.id,
+      contentDraftId: "content_001",
+      version: 1,
+      content: seedContentDraftV1Text,
+      changeNote: "AI 初稿生成",
+      createdById: "user_owner",
+      createdAt: iso(-1),
+      updatedAt: iso(-1)
+    },
+    {
+      id: "content_version_002",
+      workspaceId: defaultWorkspace.id,
+      contentDraftId: "content_001",
+      version: 2,
+      content: seedContentDraftText,
+      changeNote: "人工补充人设记忆和复盘链路",
+      createdById: "user_owner",
+      createdAt: iso(),
       updatedAt: iso()
     }
   ],

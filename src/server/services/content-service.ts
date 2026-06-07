@@ -1,6 +1,10 @@
 import { ContentAgent, RiskCheckAgent } from "@/server/agents";
 import { writeAuditLog } from "@/server/audit/audit-service";
 import { ApiError } from "@/server/errors";
+import {
+  listContentVersions as listStoredContentVersions,
+  recordContentVersion
+} from "@/server/services/content-version-service";
 import { getWorkspaceScoped, nextId, store } from "@/server/services/mock-store";
 import type { ContentDraft, ContentStatus, Platform } from "@/types/domain";
 
@@ -16,6 +20,11 @@ export function getContent(workspaceId: string, id: string) {
     throw new ApiError("内容草稿不存在", 404);
   }
   return content;
+}
+
+export function listContentVersions(workspaceId: string, id: string) {
+  getContent(workspaceId, id);
+  return listStoredContentVersions(workspaceId, id);
 }
 
 export async function generateContent(input: {
@@ -48,9 +57,15 @@ export function updateContent(input: {
   patch: Partial<Pick<ContentDraft, "title" | "content" | "status">>;
 }) {
   const content = getContent(input.workspaceId, input.id);
+  const previousVersion = content.currentVersion;
   Object.assign(content, input.patch, {
     currentVersion: content.currentVersion + 1,
     updatedAt: new Date().toISOString()
+  });
+  const version = recordContentVersion({
+    content,
+    createdById: input.userId,
+    changeNote: "人工编辑内容草稿"
   });
   writeAuditLog({
     workspaceId: input.workspaceId,
@@ -58,14 +73,19 @@ export function updateContent(input: {
     action: "content.update",
     entityType: "ContentDraft",
     entityId: content.id,
-    summary: `更新内容草稿：${content.title}`
+    summary: `更新内容草稿：${content.title}`,
+    metadata: {
+      versionId: version.id,
+      previousVersion,
+      nextVersion: content.currentVersion
+    }
   });
   return content;
 }
 
 export function adaptContent(input: { workspaceId: string; userId: string; id: string; platform: Platform }) {
   const content = getContent(input.workspaceId, input.id);
-  const adapted = {
+  const adapted: ContentDraft = {
     ...content,
     id: nextId("content"),
     platform: input.platform,
@@ -78,13 +98,24 @@ export function adaptContent(input: { workspaceId: string; userId: string; id: s
     updatedAt: new Date().toISOString()
   };
   store.contentDrafts.unshift(adapted);
+  const version = recordContentVersion({
+    content: adapted,
+    createdById: input.userId,
+    changeNote: `平台适配初稿：${input.platform}`
+  });
   writeAuditLog({
     workspaceId: input.workspaceId,
     userId: input.userId,
     action: "content.adapt",
     entityType: "PlatformAdaptation",
     entityId: adapted.id,
-    summary: `生成平台适配版本：${adapted.title}`
+    summary: `生成平台适配版本：${adapted.title}`,
+    metadata: {
+      sourceContentDraftId: content.id,
+      versionId: version.id,
+      currentVersion: adapted.currentVersion,
+      platform: input.platform
+    }
   });
   return adapted;
 }

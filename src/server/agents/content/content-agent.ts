@@ -1,6 +1,7 @@
 import { getPromptTemplate } from "@/server/ai/prompts/templates";
 import { BaseAgent } from "@/server/agents/core/base-agent";
 import { contentAgentInputSchema, contentAgentOutputSchema } from "@/server/agents/core/schemas";
+import { recordContentVersion } from "@/server/services/content-version-service";
 import { nextId, store } from "@/server/services/mock-store";
 import type { AgentRun, ContentDraft } from "@/types/domain";
 import type { z } from "zod";
@@ -75,5 +76,10 @@ export class ContentAgent extends BaseAgent<Input, Output> {
     };
     this.createdDraft = draft;
     store.contentDrafts.unshift(draft);
+    recordContentVersion({
+      content: draft,
+      createdById: this.userId,
+      changeNote: "AI 生成内容初稿"
+    });
   }
 }
