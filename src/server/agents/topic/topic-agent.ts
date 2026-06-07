@@ -2,6 +2,7 @@ import { getPromptTemplate } from "@/server/ai/prompts/templates";
 import { BaseAgent } from "@/server/agents/core/base-agent";
 import { topicAgentInputSchema, topicAgentOutputSchema } from "@/server/agents/core/schemas";
 import { nextId, store } from "@/server/services/mock-store";
+import { createInitialTopicRuntimeRecords } from "@/server/services/topic-runtime";
 import type { AgentRun, Topic } from "@/types/domain";
 import type { z } from "zod";
 
@@ -61,7 +62,9 @@ export class TopicAgent extends BaseAgent<Input, Output> {
   }
 
   async persistResult(output: Output, run: AgentRun) {
+    const input = run.input as Input;
     output.topics.forEach((topic) => {
+      const createdAt = new Date().toISOString();
       const record: Topic = {
         id: nextId("topic"),
         workspaceId: this.workspaceId,
@@ -71,12 +74,20 @@ export class TopicAgent extends BaseAgent<Input, Output> {
         status: "PENDING",
         targetPlatforms: topic.targetPlatforms,
         score: topic.score,
+        hotItemId: input.hotItemId,
+        personaId: input.personaId,
         riskLevel: topic.riskLevel,
         outline: topic.outline,
         sourceAgentRunId: run.id,
-        createdAt: new Date().toISOString()
+        createdAt
       } as Topic;
       store.topics.unshift(record);
+      createInitialTopicRuntimeRecords(record, {
+        userId: this.userId,
+        reason: "Topic Agent 生成候选选题",
+        now: createdAt,
+        scoreRationale: "Topic Agent 基于热点、人设、业务目标和平台适配生成评分拆解。"
+      });
     });
   }
 }

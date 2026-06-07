@@ -32,6 +32,12 @@ test("opens the dashboard and serves core mock workflow data", async ({ page, re
   await expect(page.getByRole("heading", { name: "热点中心" })).toBeVisible();
   await expect(page.getByRole("button", { name: "刷新热点" })).toBeVisible();
 
+  await page.goto("/topics");
+  await expect(page.getByRole("heading", { name: "选题池" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "切入角度资产" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "评分拆解" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "状态流转" })).toBeVisible();
+
   const hotspots = await request.get("/api/hotspots", {
     headers: { Cookie: ownerCookie }
   });
@@ -40,6 +46,17 @@ test("opens the dashboard and serves core mock workflow data", async ({ page, re
   expect(hotspots.headers()["x-frame-options"]).toBe("DENY");
   const hotspotPayload = await hotspots.json();
   expect(hotspotPayload.data.length).toBeGreaterThan(0);
+
+  const topicRuntime = await request.get("/api/topics/topic_001/runtime", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(topicRuntime.ok()).toBeTruthy();
+  const topicRuntimePayload = await topicRuntime.json();
+  expect(topicRuntimePayload.data.angles.length).toBeGreaterThan(0);
+  expect(topicRuntimePayload.data.scores.length).toBeGreaterThan(0);
+  expect(topicRuntimePayload.data.statusHistory.map((history: { toStatus: string }) => history.toStatus)).toContain(
+    "ADOPTED"
+  );
 
   const agentRuns = await request.get("/api/agent-runs", {
     headers: { Cookie: ownerCookie }

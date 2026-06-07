@@ -127,6 +127,9 @@ describe("analytics import", () => {
     const beforeHypotheses = store.abHypotheses.length;
     const beforeRecommendations = store.recommendations.length;
     const beforeTopics = store.topics.length;
+    const beforeAngleIds = new Set(store.topicAngles.map((angle) => angle.id));
+    const beforeScoreIds = new Set(store.topicScores.map((score) => score.id));
+    const beforeStatusHistoryIds = new Set(store.topicStatusHistories.map((history) => history.id));
     const beforeAgentRunIds = new Set(store.agentRuns.map((run) => run.id));
     const beforeStepIds = new Set(store.agentSteps.map((step) => step.id));
     const beforeOutputIds = new Set(store.agentOutputs.map((output) => output.id));
@@ -159,6 +162,12 @@ describe("analytics import", () => {
       expect(topics.some((topic) => topic.sourceAgentRunId === sourceReport.sourceAgentRunId)).toBe(true);
       expect(openTopicRecommendations.every((recommendation) => recommendation.status === "CONVERTED")).toBe(true);
       expect(openTopicRecommendations.every((recommendation) => recommendation.generatedTopicIds?.length === 1)).toBe(true);
+      expect(store.topicAngles.filter((angle) => !beforeAngleIds.has(angle.id))).toHaveLength(topics.length);
+      expect(store.topicScores.filter((score) => !beforeScoreIds.has(score.id))).toHaveLength(topics.length);
+      expect(store.topicStatusHistories.filter((history) => !beforeStatusHistoryIds.has(history.id))).toHaveLength(
+        topics.length
+      );
+      expect(store.auditLogs[0].metadata?.topicScoreIds).toHaveLength(topics.length);
     } finally {
       store.analyticsReports.splice(0, store.analyticsReports.length - beforeReports);
       store.commentInsights.splice(0, store.commentInsights.length - beforeInsights);
@@ -166,6 +175,9 @@ describe("analytics import", () => {
       store.abHypotheses.splice(0, store.abHypotheses.length - beforeHypotheses);
       store.recommendations.splice(0, store.recommendations.length - beforeRecommendations);
       store.topics.splice(0, store.topics.length - beforeTopics);
+      store.topicAngles = store.topicAngles.filter((angle) => beforeAngleIds.has(angle.id));
+      store.topicScores = store.topicScores.filter((score) => beforeScoreIds.has(score.id));
+      store.topicStatusHistories = store.topicStatusHistories.filter((history) => beforeStatusHistoryIds.has(history.id));
       store.agentRuns = store.agentRuns.filter((run) => beforeAgentRunIds.has(run.id));
       store.agentSteps = store.agentSteps.filter((step) => beforeStepIds.has(step.id));
       store.agentOutputs = store.agentOutputs.filter((output) => beforeOutputIds.has(output.id));

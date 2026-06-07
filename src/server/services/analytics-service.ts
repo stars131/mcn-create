@@ -3,7 +3,15 @@ import { writeAuditLog } from "@/server/audit/audit-service";
 import { ApiError } from "@/server/errors";
 import { enqueueAndProcessAgentJob } from "@/server/queue/agent-queue";
 import { getWorkspaceScoped, nextId, store } from "@/server/services/mock-store";
-import type { ImportedMetricFile, MetricImportFileType, MetricRecord, Platform, Recommendation } from "@/types/domain";
+import { createInitialTopicRuntimeRecords } from "@/server/services/topic-runtime";
+import type {
+  ImportedMetricFile,
+  MetricImportFileType,
+  MetricRecord,
+  Platform,
+  Recommendation,
+  Topic
+} from "@/types/domain";
 
 export type MetricImportFormat = "RECORDS" | "JSON" | "CSV" | "TSV" | "EXCEL";
 
@@ -390,7 +398,7 @@ export function recommendationsToTopics(input: { workspaceId: string; userId: st
     return [];
   }
   const now = new Date().toISOString();
-  const topics = recommendations.map((recommendation) => ({
+  const topics = recommendations.map<Topic>((recommendation) => ({
     id: nextId("topic"),
     workspaceId: input.workspaceId,
     title: `复盘回流：${recommendation.title}`,
@@ -405,6 +413,14 @@ export function recommendationsToTopics(input: { workspaceId: string; userId: st
     createdAt: now
   }));
   store.topics.unshift(...topics);
+  const runtimeRecords = topics.map((topic) =>
+    createInitialTopicRuntimeRecords(topic, {
+      userId: input.userId,
+      reason: "数据复盘建议回流到选题池",
+      now,
+      scoreRationale: "由数据分析建议转化，默认按业务价值和执行可行性生成评分拆解。"
+    })
+  );
   recommendations.forEach((recommendation, index) => {
     recommendation.status = "CONVERTED";
     recommendation.generatedTopicIds = [...(recommendation.generatedTopicIds ?? []), topics[index].id];
@@ -419,7 +435,10 @@ export function recommendationsToTopics(input: { workspaceId: string; userId: st
     summary: `将 ${topics.length} 条复盘建议回流到选题池`,
     metadata: {
       recommendationIds: recommendations.map((recommendation) => recommendation.id),
-      topicIds: topics.map((topic) => topic.id)
+      topicIds: topics.map((topic) => topic.id),
+      topicAngleIds: runtimeRecords.map((record) => record.angle.id),
+      topicScoreIds: runtimeRecords.map((record) => record.score.id),
+      topicStatusHistoryIds: runtimeRecords.map((record) => record.statusHistory.id)
     }
   });
   return topics;

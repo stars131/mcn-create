@@ -6,6 +6,9 @@ import { store } from "@/server/services/mock-store";
 describe("Agent framework", () => {
   it("generates structured topics from a hotspot", async () => {
     const beforeTopicIds = new Set(store.topics.map((topic) => topic.id));
+    const beforeAngleIds = new Set(store.topicAngles.map((angle) => angle.id));
+    const beforeScoreIds = new Set(store.topicScores.map((score) => score.id));
+    const beforeStatusHistoryIds = new Set(store.topicStatusHistories.map((history) => history.id));
     const beforeAgentRunIds = new Set(store.agentRuns.map((run) => run.id));
     const beforeStepIds = new Set(store.agentSteps.map((step) => step.id));
     const beforeOutputIds = new Set(store.agentOutputs.map((output) => output.id));
@@ -21,10 +24,22 @@ describe("Agent framework", () => {
         targetPlatforms: ["XIAOHONGSHU"]
       });
 
+      const createdTopics = store.topics.filter((topic) => !beforeTopicIds.has(topic.id));
       expect(output.topics.length).toBeGreaterThan(0);
       expect(store.topics.length).toBeGreaterThan(beforeTopicIds.size);
+      expect(createdTopics.every((topic) => topic.hotItemId === "hot_001" && topic.personaId === "persona_001")).toBe(
+        true
+      );
+      expect(store.topicAngles.filter((angle) => !beforeAngleIds.has(angle.id))).toHaveLength(createdTopics.length);
+      expect(store.topicScores.filter((score) => !beforeScoreIds.has(score.id))).toHaveLength(createdTopics.length);
+      expect(store.topicStatusHistories.filter((history) => !beforeStatusHistoryIds.has(history.id))).toHaveLength(
+        createdTopics.length
+      );
     } finally {
       store.topics = store.topics.filter((topic) => beforeTopicIds.has(topic.id));
+      store.topicAngles = store.topicAngles.filter((angle) => beforeAngleIds.has(angle.id));
+      store.topicScores = store.topicScores.filter((score) => beforeScoreIds.has(score.id));
+      store.topicStatusHistories = store.topicStatusHistories.filter((history) => beforeStatusHistoryIds.has(history.id));
       store.agentRuns = store.agentRuns.filter((run) => beforeAgentRunIds.has(run.id));
       store.agentSteps = store.agentSteps.filter((step) => beforeStepIds.has(step.id));
       store.agentOutputs = store.agentOutputs.filter((output) => beforeOutputIds.has(output.id));

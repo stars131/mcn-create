@@ -98,6 +98,42 @@ export interface Topic {
   createdAt: string;
 }
 
+export interface TopicAngle {
+  id: string;
+  workspaceId: string;
+  topicId: string;
+  title: string;
+  hook: string;
+  outline: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TopicScore {
+  id: string;
+  workspaceId: string;
+  topicId: string;
+  relevance: number;
+  competition: number;
+  businessValue: number;
+  executionDifficulty: number;
+  rationale: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TopicStatusHistory {
+  id: string;
+  workspaceId: string;
+  topicId: string;
+  fromStatus?: TopicStatus;
+  toStatus: TopicStatus;
+  changedById?: string;
+  reason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface TopicBrief {
   id: string;
   workspaceId: string;

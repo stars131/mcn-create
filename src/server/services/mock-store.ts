@@ -38,7 +38,10 @@ import type {
   TeamMember,
   ToneExample,
   Topic,
+  TopicAngle,
   TopicBrief,
+  TopicScore,
+  TopicStatusHistory,
   UsageEvent,
   User,
   WebhookEndpoint,
@@ -54,6 +57,9 @@ export interface MockStore {
   hotItems: HotItem[];
   hotClusters: HotCluster[];
   topics: Topic[];
+  topicAngles: TopicAngle[];
+  topicScores: TopicScore[];
+  topicStatusHistories: TopicStatusHistory[];
   topicBriefs: TopicBrief[];
   personas: PersonaProfile[];
   personaVersions: PersonaVersion[];
@@ -261,6 +267,98 @@ const initialStore: MockStore = {
       riskLevel: "LOW",
       outline: ["热点判断", "平台差异", "模板化改写", "风险复核"],
       createdAt: iso(-2)
+    }
+  ],
+  topicAngles: [
+    {
+      id: "topic_angle_001",
+      workspaceId: defaultWorkspace.id,
+      topicId: "topic_001",
+      title: "先做人设记忆，而不是先买更多 AI 工具",
+      hook: "为什么同一团队用同一套 AI 工具，内容还是越写越散？",
+      outline: ["内容跑偏的真实场景", "人设记忆的三层字段", "如何接入选题、审核和复盘"],
+      createdAt: iso(-1),
+      updatedAt: iso(-1)
+    },
+    {
+      id: "topic_angle_002",
+      workspaceId: defaultWorkspace.id,
+      topicId: "topic_002",
+      title: "同一热点的三平台拆解方法",
+      hook: "不是把一篇稿子复制到三个平台，而是先保留 brief，再按平台重写结构。",
+      outline: ["共用核心 brief", "小红书图文结构", "抖音口播结构", "公众号长文结构"],
+      createdAt: iso(-2),
+      updatedAt: iso(-2)
+    }
+  ],
+  topicScores: [
+    {
+      id: "topic_score_001",
+      workspaceId: defaultWorkspace.id,
+      topicId: "topic_001",
+      relevance: 93,
+      competition: 42,
+      businessValue: 88,
+      executionDifficulty: 36,
+      rationale: "与人设记忆、团队协作和合规审阅强相关，适合作为 ContentOS 的核心教育选题。",
+      createdAt: iso(-1),
+      updatedAt: iso(-1)
+    },
+    {
+      id: "topic_score_002",
+      workspaceId: defaultWorkspace.id,
+      topicId: "topic_002",
+      relevance: 89,
+      competition: 51,
+      businessValue: 84,
+      executionDifficulty: 45,
+      rationale: "多平台改写是高频需求，执行难度适中，需要补充平台差异和风险复核。",
+      createdAt: iso(-2),
+      updatedAt: iso(-2)
+    }
+  ],
+  topicStatusHistories: [
+    {
+      id: "topic_status_001",
+      workspaceId: defaultWorkspace.id,
+      topicId: "topic_001",
+      toStatus: "PENDING",
+      changedById: "user_owner",
+      reason: "热点 Agent 生成候选选题",
+      createdAt: iso(-1),
+      updatedAt: iso(-1)
+    },
+    {
+      id: "topic_status_002",
+      workspaceId: defaultWorkspace.id,
+      topicId: "topic_001",
+      fromStatus: "PENDING",
+      toStatus: "ADOPTED",
+      changedById: "user_owner",
+      reason: "选题适合人设记忆教育场景，进入内容计划",
+      createdAt: iso(-1),
+      updatedAt: iso(-1)
+    },
+    {
+      id: "topic_status_003",
+      workspaceId: defaultWorkspace.id,
+      topicId: "topic_002",
+      toStatus: "PENDING",
+      changedById: "user_editor",
+      reason: "热点 Agent 生成候选选题",
+      createdAt: iso(-2),
+      updatedAt: iso(-2)
+    },
+    {
+      id: "topic_status_004",
+      workspaceId: defaultWorkspace.id,
+      topicId: "topic_002",
+      fromStatus: "PENDING",
+      toStatus: "WRITING",
+      changedById: "user_editor",
+      reason: "已生成 brief，进入写作中",
+      createdAt: iso(-1),
+      updatedAt: iso(-1)
     }
   ],
   topicBriefs: [
