@@ -5,6 +5,8 @@ import type {
   AuditLog,
   CalendarItem,
   ContentDraft,
+  ContentReview,
+  ContentRiskCheck,
   ContentVersion,
   CreditLedger,
   DataSource,
@@ -13,7 +15,9 @@ import type {
   MetricRecord,
   PersonaProfile,
   PersonaVersion,
+  PlatformAdaptation,
   Platform,
+  PublishPlan,
   TeamMember,
   Topic,
   TopicBrief,
@@ -37,6 +41,10 @@ export interface MockStore {
   personaVersions: PersonaVersion[];
   contentDrafts: ContentDraft[];
   contentVersions: ContentVersion[];
+  platformAdaptations: PlatformAdaptation[];
+  contentReviews: ContentReview[];
+  contentRiskChecks: ContentRiskCheck[];
+  publishPlans: PublishPlan[];
   calendarItems: CalendarItem[];
   dataSources: DataSource[];
   metricRecords: MetricRecord[];
@@ -370,6 +378,57 @@ const initialStore: MockStore = {
       content: seedContentDraftText,
       changeNote: "人工补充人设记忆和复盘链路",
       createdById: "user_owner",
+      createdAt: iso(),
+      updatedAt: iso()
+    }
+  ],
+  platformAdaptations: [
+    {
+      id: "adaptation_001",
+      workspaceId: defaultWorkspace.id,
+      contentDraftId: "content_001",
+      platform: "DOUYIN",
+      title: "小团队别急着买更多 AI 工具（DOUYIN 版）",
+      body: `${seedContentDraftText}\n\n平台适配：抖音口播版需要更强开场钩子、短句节奏和明确 CTA。`,
+      checklist: ["强化前三秒开场", "保留人工审核提示", "结尾引导领取清单"],
+      createdAt: iso(),
+      updatedAt: iso()
+    }
+  ],
+  contentReviews: [
+    {
+      id: "content_review_001",
+      workspaceId: defaultWorkspace.id,
+      contentDraftId: "content_001",
+      reviewerId: "user_owner",
+      status: "IN_REVIEW",
+      comment: "等待补充案例来源后再发布。",
+      createdAt: iso(),
+      updatedAt: iso()
+    }
+  ],
+  contentRiskChecks: [
+    {
+      id: "content_risk_001",
+      workspaceId: defaultWorkspace.id,
+      contentDraftId: "content_001",
+      riskLevel: "LOW",
+      riskItems: ["未发现高风险承诺", "建议补充案例来源说明"],
+      rewriteSuggestions: ["在结尾补充“仅基于授权数据与人工审核”的说明。"],
+      sourceAgentRunId: "run_002",
+      createdAt: iso(),
+      updatedAt: iso()
+    }
+  ],
+  publishPlans: [
+    {
+      id: "publish_plan_001",
+      workspaceId: defaultWorkspace.id,
+      contentDraftId: "content_001",
+      platform: "XIAOHONGSHU",
+      scheduledAt: iso(1),
+      ownerId: "user_owner",
+      status: "PLANNED",
       createdAt: iso(),
       updatedAt: iso()
     }

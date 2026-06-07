@@ -5,7 +5,14 @@ import { PageHeading } from "@/components/ui/page-heading";
 import { ContentStatusBadge, RiskBadge } from "@/components/ui/status-badge";
 import { platformLabels } from "@/lib/constants/navigation";
 import { getCurrentWorkspaceId } from "@/server/auth/session";
-import { listContents, listContentVersions } from "@/server/services/content-service";
+import {
+  listContentReviews,
+  listContentRiskChecks,
+  listContents,
+  listContentVersions,
+  listPlatformAdaptations,
+  listPublishPlans
+} from "@/server/services/content-service";
 import { store } from "@/server/services/mock-store";
 import { listPersonas } from "@/server/services/persona-service";
 import { listTopics } from "@/server/services/topic-service";
@@ -19,6 +26,13 @@ export default function ContentPage() {
   const activePersona = personas[0];
   const activeContent = contents[0];
   const activeVersions = activeContent ? listContentVersions(workspaceId, activeContent.id) : [];
+  const activeRiskChecks = activeContent ? listContentRiskChecks(workspaceId, activeContent.id) : [];
+  const activeReviews = activeContent ? listContentReviews(workspaceId, activeContent.id) : [];
+  const activeAdaptations = activeContent ? listPlatformAdaptations(workspaceId, activeContent.id) : [];
+  const activePublishPlans = activeContent ? listPublishPlans(workspaceId, activeContent.id) : [];
+  const latestRiskCheck = activeRiskChecks[0];
+  const latestReview = activeReviews[0];
+  const nextPublishPlan = activePublishPlans[0];
   const activeBrief = activeTopic
     ? store.topicBriefs.find((brief) => brief.workspaceId === workspaceId && brief.topicId === activeTopic.id)
     : undefined;
@@ -142,21 +156,36 @@ export default function ContentPage() {
               <p>当前草稿应继续保持人设一致性，避免绝对化增长承诺。</p>
               <p>建议先生成抖音口播版，再扩写公众号长文版，复用同一 brief。</p>
               {activeContent ? (
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <ActionButton
-                    endpoint={`/api/contents/${activeContent.id}/adapt`}
-                    body={{ platform: "DOUYIN" }}
-                    label="抖音版"
-                    pendingLabel="改写中"
-                    icon="copyPlus"
-                  />
-                  <ActionButton
-                    endpoint={`/api/contents/${activeContent.id}/adapt`}
-                    body={{ platform: "WECHAT" }}
-                    label="公众号版"
-                    pendingLabel="改写中"
-                    icon="copyPlus"
-                  />
+                <div className="space-y-3 pt-1">
+                  <div className="flex flex-wrap gap-2">
+                    <ActionButton
+                      endpoint={`/api/contents/${activeContent.id}/adapt`}
+                      body={{ platform: "DOUYIN" }}
+                      label="抖音版"
+                      pendingLabel="改写中"
+                      icon="copyPlus"
+                    />
+                    <ActionButton
+                      endpoint={`/api/contents/${activeContent.id}/adapt`}
+                      body={{ platform: "WECHAT" }}
+                      label="公众号版"
+                      pendingLabel="改写中"
+                      icon="copyPlus"
+                    />
+                  </div>
+                  {activeAdaptations.length > 0 ? (
+                    <div className="space-y-2">
+                      {activeAdaptations.slice(0, 2).map((adaptation) => (
+                        <div key={adaptation.id} className="rounded-md bg-muted px-3 py-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <Badge tone="info">{platformLabels[adaptation.platform]}</Badge>
+                            <span className="text-xs text-muted-foreground">适配记录</span>
+                          </div>
+                          <div className="mt-2 text-xs leading-5 text-muted-foreground">{adaptation.title}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </CardContent>
@@ -169,17 +198,61 @@ export default function ContentPage() {
             <CardContent>
               {activeContent ? (
                 <>
-                  <RiskBadge level={activeContent.riskLevel} />
+                  <RiskBadge level={latestRiskCheck?.riskLevel ?? activeContent.riskLevel} />
                   <div className="mt-3 space-y-2">
-                    {activeContent.riskItems.map((item) => (
+                    {(latestRiskCheck?.riskItems ?? activeContent.riskItems).map((item) => (
                       <div key={item} className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
                         {item}
                       </div>
                     ))}
                   </div>
+                  {latestRiskCheck?.rewriteSuggestions.length ? (
+                    <div className="mt-3 rounded-md border border-amber-100 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
+                      {latestRiskCheck.rewriteSuggestions[0]}
+                    </div>
+                  ) : null}
                 </>
               ) : (
                 <p className="text-sm text-muted-foreground">生成内容后会展示风险检查结果。</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>审核与发布</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {activeContent ? (
+                <>
+                  <div className="rounded-md bg-muted p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-muted-foreground">最近审核</span>
+                      <ContentStatusBadge status={latestReview?.status ?? activeContent.status} />
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                      {latestReview?.comment ?? "尚无人工审核记录。"}
+                    </p>
+                  </div>
+                  <div className="rounded-md bg-muted p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-muted-foreground">下一次排期</span>
+                      {nextPublishPlan ? <Badge tone="info">{platformLabels[nextPublishPlan.platform]}</Badge> : null}
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                      {nextPublishPlan
+                        ? new Date(nextPublishPlan.scheduledAt).toLocaleString("zh-CN", {
+                            month: "2-digit",
+                            day: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit"
+                          })
+                        : "尚未创建发布计划。"}
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">生成内容后可进行审核和排期。</p>
               )}
             </CardContent>
           </Card>

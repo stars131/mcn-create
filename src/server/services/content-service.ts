@@ -6,7 +6,7 @@ import {
   recordContentVersion
 } from "@/server/services/content-version-service";
 import { getWorkspaceScoped, nextId, store } from "@/server/services/mock-store";
-import type { ContentDraft, ContentStatus, Platform } from "@/types/domain";
+import type { ContentDraft, ContentReview, ContentStatus, Platform, PlatformAdaptation, PublishPlan } from "@/types/domain";
 
 export function listContents(workspaceId: string) {
   return getWorkspaceScoped(store.contentDrafts, workspaceId).sort(
@@ -25,6 +25,34 @@ export function getContent(workspaceId: string, id: string) {
 export function listContentVersions(workspaceId: string, id: string) {
   getContent(workspaceId, id);
   return listStoredContentVersions(workspaceId, id);
+}
+
+export function listContentRiskChecks(workspaceId: string, id: string) {
+  getContent(workspaceId, id);
+  return store.contentRiskChecks
+    .filter((check) => check.workspaceId === workspaceId && check.contentDraftId === id)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export function listContentReviews(workspaceId: string, id: string) {
+  getContent(workspaceId, id);
+  return store.contentReviews
+    .filter((review) => review.workspaceId === workspaceId && review.contentDraftId === id)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export function listPlatformAdaptations(workspaceId: string, id: string) {
+  getContent(workspaceId, id);
+  return store.platformAdaptations
+    .filter((adaptation) => adaptation.workspaceId === workspaceId && adaptation.contentDraftId === id)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export function listPublishPlans(workspaceId: string, id: string) {
+  getContent(workspaceId, id);
+  return store.publishPlans
+    .filter((plan) => plan.workspaceId === workspaceId && plan.contentDraftId === id)
+    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
 }
 
 export async function generateContent(input: {
@@ -98,6 +126,19 @@ export function adaptContent(input: { workspaceId: string; userId: string; id: s
     updatedAt: new Date().toISOString()
   };
   store.contentDrafts.unshift(adapted);
+  const now = new Date().toISOString();
+  const adaptation: PlatformAdaptation = {
+    id: nextId("adaptation"),
+    workspaceId: input.workspaceId,
+    contentDraftId: content.id,
+    platform: input.platform,
+    title: adapted.title,
+    body: adapted.content,
+    checklist: ["确认平台开场节奏", "复核 CTA 与禁用表达", "保留人工审核记录"],
+    createdAt: now,
+    updatedAt: now
+  };
+  store.platformAdaptations.unshift(adaptation);
   const version = recordContentVersion({
     content: adapted,
     createdById: input.userId,
@@ -108,10 +149,12 @@ export function adaptContent(input: { workspaceId: string; userId: string; id: s
     userId: input.userId,
     action: "content.adapt",
     entityType: "PlatformAdaptation",
-    entityId: adapted.id,
+    entityId: adaptation.id,
     summary: `生成平台适配版本：${adapted.title}`,
     metadata: {
       sourceContentDraftId: content.id,
+      adaptationId: adaptation.id,
+      adaptedContentDraftId: adapted.id,
       versionId: version.id,
       currentVersion: adapted.currentVersion,
       platform: input.platform
@@ -134,16 +177,32 @@ export function reviewContent(input: {
   comment?: string;
 }) {
   const content = getContent(input.workspaceId, input.id);
+  const now = new Date().toISOString();
   content.status = input.status;
-  content.updatedAt = new Date().toISOString();
+  content.updatedAt = now;
+  const review: ContentReview = {
+    id: nextId("content_review"),
+    workspaceId: input.workspaceId,
+    contentDraftId: content.id,
+    reviewerId: input.userId,
+    status: input.status,
+    comment: input.comment,
+    createdAt: now,
+    updatedAt: now
+  };
+  store.contentReviews.unshift(review);
   writeAuditLog({
     workspaceId: input.workspaceId,
     userId: input.userId,
     action: "content.review",
     entityType: "ContentReview",
-    entityId: content.id,
+    entityId: review.id,
     summary: `内容审核状态变更为 ${input.status}`,
-    metadata: { comment: input.comment }
+    metadata: {
+      contentDraftId: content.id,
+      status: input.status,
+      comment: input.comment
+    }
   });
   return content;
 }
@@ -156,27 +215,48 @@ export function scheduleContent(input: {
   platform?: Platform;
 }) {
   const content = getContent(input.workspaceId, input.id);
+  const now = new Date().toISOString();
+  const scheduledAt = input.scheduledAt ?? new Date(Date.now() + 86400000).toISOString();
+  const platform = input.platform ?? content.platform;
+  const publishPlan: PublishPlan = {
+    id: nextId("publish_plan"),
+    workspaceId: input.workspaceId,
+    contentDraftId: content.id,
+    platform,
+    scheduledAt,
+    ownerId: input.userId,
+    status: "PLANNED",
+    createdAt: now,
+    updatedAt: now
+  };
   const item = {
     id: nextId("cal"),
     workspaceId: input.workspaceId,
     topicId: content.topicId,
     contentDraftId: content.id,
     title: content.title,
-    platform: input.platform ?? content.platform,
-    scheduledAt: input.scheduledAt ?? new Date(Date.now() + 86400000).toISOString(),
+    platform,
+    scheduledAt,
     ownerName: "林澈",
     status: "PLANNED" as const
   };
   content.status = "SCHEDULED";
-  content.updatedAt = new Date().toISOString();
+  content.updatedAt = now;
+  store.publishPlans.unshift(publishPlan);
   store.calendarItems.unshift(item);
   writeAuditLog({
     workspaceId: input.workspaceId,
     userId: input.userId,
     action: "content.schedule",
     entityType: "PublishPlan",
-    entityId: item.id,
-    summary: `内容加入日历：${content.title}`
+    entityId: publishPlan.id,
+    summary: `内容加入日历：${content.title}`,
+    metadata: {
+      contentDraftId: content.id,
+      calendarItemId: item.id,
+      platform,
+      scheduledAt
+    }
   });
   return item;
 }

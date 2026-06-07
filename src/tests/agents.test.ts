@@ -20,14 +20,40 @@ describe("Agent framework", () => {
   });
 
   it("classifies risky content with structured output", async () => {
-    const agent = new RiskCheckAgent("ws_demo", "user_owner");
-    const output = await agent.run({
-      content: "不要承诺稳赚，也不要绕过平台限制。",
-      contentDraftId: "content_001"
-    });
+    const content = store.contentDrafts.find((item) => item.id === "content_001");
+    expect(content).toBeTruthy();
+    const original = {
+      ...content!,
+      riskItems: [...content!.riskItems]
+    };
+    const beforeRiskIds = new Set(store.contentRiskChecks.map((check) => check.id));
+    const beforeAgentRunIds = new Set(store.agentRuns.map((run) => run.id));
+    const beforeAuditLogIds = new Set(store.auditLogs.map((log) => log.id));
 
-    expect(output.riskLevel).toBe("HIGH");
-    expect(output.riskItems.length).toBeGreaterThan(0);
+    try {
+      const agent = new RiskCheckAgent("ws_demo", "user_owner");
+      const output = await agent.run({
+        content: "不要承诺稳赚，也不要绕过平台限制。",
+        contentDraftId: "content_001"
+      });
+      const createdRun = store.agentRuns.find((run) => !beforeAgentRunIds.has(run.id) && run.agentType === "RISK");
+      const createdRiskCheck = store.contentRiskChecks.find((check) => !beforeRiskIds.has(check.id));
+
+      expect(output.riskLevel).toBe("HIGH");
+      expect(output.riskItems.length).toBeGreaterThan(0);
+      expect(createdRiskCheck).toMatchObject({
+        contentDraftId: "content_001",
+        riskLevel: "HIGH",
+        riskItems: output.riskItems,
+        rewriteSuggestions: output.rewriteSuggestions,
+        sourceAgentRunId: createdRun?.id
+      });
+    } finally {
+      Object.assign(content!, original);
+      store.contentRiskChecks = store.contentRiskChecks.filter((check) => beforeRiskIds.has(check.id));
+      store.agentRuns = store.agentRuns.filter((run) => beforeAgentRunIds.has(run.id));
+      store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
+    }
   });
 
   it("returns the persisted content draft from content generation", async () => {

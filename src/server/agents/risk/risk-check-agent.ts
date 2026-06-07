@@ -1,7 +1,7 @@
 import { getPromptTemplate } from "@/server/ai/prompts/templates";
 import { BaseAgent } from "@/server/agents/core/base-agent";
 import { riskAgentInputSchema, riskAgentOutputSchema } from "@/server/agents/core/schemas";
-import { store } from "@/server/services/mock-store";
+import { nextId, store } from "@/server/services/mock-store";
 import type { AgentRun } from "@/types/domain";
 import type { z } from "zod";
 
@@ -41,9 +41,21 @@ export class RiskCheckAgent extends BaseAgent<Input, Output> {
       (item) => item.workspaceId === this.workspaceId && item.id === input.contentDraftId
     );
     if (draft) {
+      const now = new Date().toISOString();
       draft.riskLevel = output.riskLevel;
       draft.riskItems = output.riskItems;
-      draft.updatedAt = new Date().toISOString();
+      draft.updatedAt = now;
+      store.contentRiskChecks.unshift({
+        id: nextId("content_risk"),
+        workspaceId: this.workspaceId,
+        contentDraftId: draft.id,
+        riskLevel: output.riskLevel,
+        riskItems: output.riskItems,
+        rewriteSuggestions: output.rewriteSuggestions,
+        sourceAgentRunId: run.id,
+        createdAt: now,
+        updatedAt: now
+      });
     }
   }
 }

@@ -28,6 +28,7 @@ export type AuthorizationStatus =
 
 export type TopicStatus = "PENDING" | "ADOPTED" | "WRITING" | "PUBLISHED" | "DROPPED";
 export type ContentStatus = "DRAFT" | "IN_REVIEW" | "APPROVED" | "REJECTED" | "SCHEDULED" | "PUBLISHED";
+export type PublishStatus = "PLANNED" | "READY" | "EXPORTED" | "PUBLISHED" | "FAILED";
 export type AgentType = "HOTSPOT" | "TOPIC" | "PERSONA" | "CONTENT" | "ANALYTICS" | "RISK";
 export type AgentStatus = "PENDING" | "RUNNING" | "SUCCESS" | "FAILED";
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
@@ -177,6 +178,54 @@ export interface ContentVersion {
   updatedAt: string;
 }
 
+export interface PlatformAdaptation {
+  id: string;
+  workspaceId: string;
+  contentDraftId: string;
+  platform: Platform;
+  title: string;
+  body: string;
+  checklist?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContentReview {
+  id: string;
+  workspaceId: string;
+  contentDraftId: string;
+  reviewerId?: string;
+  status: ContentStatus;
+  comment?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContentRiskCheck {
+  id: string;
+  workspaceId: string;
+  contentDraftId: string;
+  riskLevel: RiskLevel;
+  riskItems: string[];
+  rewriteSuggestions: string[];
+  sourceAgentRunId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PublishPlan {
+  id: string;
+  workspaceId: string;
+  contentDraftId: string;
+  platform: Platform;
+  scheduledAt: string;
+  ownerId?: string;
+  status: PublishStatus;
+  exportUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CalendarItem {
   id: string;
   workspaceId: string;
@@ -186,7 +235,7 @@ export interface CalendarItem {
   platform: Platform;
   scheduledAt: string;
   ownerName: string;
-  status: "PLANNED" | "READY" | "EXPORTED" | "PUBLISHED" | "FAILED";
+  status: PublishStatus;
 }
 
 export interface DataSource {
