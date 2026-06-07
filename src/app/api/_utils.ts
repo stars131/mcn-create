@@ -13,15 +13,32 @@ export function ok<T>(data: T, init?: ResponseInit) {
   return NextResponse.json({ data }, init);
 }
 
-export function fail(error: unknown, status = 400) {
-  const responseStatus =
-    error instanceof ApiError ? error.status : error instanceof z.ZodError ? 422 : status;
-  const message =
-    error instanceof z.ZodError
-      ? "请求参数不符合接口要求"
-      : error instanceof Error
-        ? error.message
-        : "请求处理失败";
+function getErrorStatus(error: unknown, fallbackStatus: number) {
+  if (error instanceof ApiError) {
+    return error.status;
+  }
+  if (error instanceof z.ZodError) {
+    return 422;
+  }
+  return fallbackStatus;
+}
+
+function getErrorMessage(error: unknown, responseStatus: number) {
+  if (error instanceof z.ZodError) {
+    return "请求参数不符合接口要求";
+  }
+  if (error instanceof ApiError) {
+    return error.message;
+  }
+  if (responseStatus >= 500) {
+    return "请求处理失败";
+  }
+  return error instanceof Error ? error.message : "请求处理失败";
+}
+
+export function fail(error: unknown, status = 500) {
+  const responseStatus = getErrorStatus(error, status);
+  const message = getErrorMessage(error, responseStatus);
   return NextResponse.json({ error: message }, { status: responseStatus });
 }
 
