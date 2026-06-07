@@ -3,13 +3,16 @@ import { ActionButton } from "@/components/ui/action-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
+import { Table, Td, Th } from "@/components/ui/table";
+import { platformLabels } from "@/lib/constants/navigation";
 import { getCurrentWorkspaceId } from "@/server/auth/session";
-import { listPersonaVersions, listPersonas } from "@/server/services/persona-service";
+import { getPersonaMemoryDetail, listPersonas } from "@/server/services/persona-service";
 
 export default function PersonaPage() {
   const workspaceId = getCurrentWorkspaceId();
   const persona = listPersonas(workspaceId)[0];
-  const versions = persona ? listPersonaVersions(workspaceId, persona.id) : [];
+  const detail = persona ? getPersonaMemoryDetail(workspaceId, persona.id) : null;
+  const versions = detail?.versions ?? [];
 
   return (
     <>
@@ -52,9 +55,9 @@ export default function PersonaPage() {
               <div>
                 <div className="text-xs text-muted-foreground">目标受众</div>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {persona.targetAudiences.map((audience) => (
-                    <Badge key={audience} tone="info">
-                      {audience}
+                  {(detail?.targetAudiences ?? []).map((audience) => (
+                    <Badge key={audience.id} tone="info">
+                      {audience.name}
                     </Badge>
                   ))}
                 </div>
@@ -86,9 +89,9 @@ export default function PersonaPage() {
                 <div>
                   <h3 className="text-sm font-semibold">禁用表达</h3>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {persona.forbiddenExpressions.map((word) => (
-                      <Badge key={word} tone="danger">
-                        {word}
+                    {(detail?.forbiddenExpressions ?? []).map((item) => (
+                      <Badge key={item.id} tone="danger">
+                        {item.expression}
                       </Badge>
                     ))}
                   </div>
@@ -97,12 +100,89 @@ export default function PersonaPage() {
               <div className="mt-4">
                 <h3 className="text-sm font-semibold">风格样例</h3>
                 <div className="mt-2 space-y-2">
-                  {persona.toneExamples.map((example) => (
-                    <div key={example} className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
-                      {example}
+                  {(detail?.toneExamples ?? []).map((example) => (
+                    <div key={example.id} className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+                      <div className="font-medium text-foreground">{example.title}</div>
+                      <div className="mt-1">{example.content}</div>
                     </div>
                   ))}
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="xl:col-span-2">
+            <CardHeader>
+              <CardTitle>记忆片段与规则</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <thead>
+                  <tr>
+                    <Th>类型</Th>
+                    <Th>内容</Th>
+                    <Th>来源 / 严重度</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(detail?.memoryChunks ?? []).slice(0, 4).map((chunk) => (
+                    <tr key={chunk.id}>
+                      <Td>
+                        <Badge tone="info">Memory</Badge>
+                      </Td>
+                      <Td className="max-w-[620px] text-sm text-muted-foreground">{chunk.content}</Td>
+                      <Td>{chunk.sourceType}</Td>
+                    </tr>
+                  ))}
+                  {(detail?.rules ?? []).slice(0, 6).map((rule) => (
+                    <tr key={rule.id}>
+                      <Td>
+                        <Badge>{rule.type}</Badge>
+                      </Td>
+                      <Td className="max-w-[620px] text-sm text-muted-foreground">{rule.rule}</Td>
+                      <Td>
+                        <Badge tone={rule.severity === "high" ? "danger" : rule.severity === "medium" ? "warning" : "neutral"}>
+                          {rule.severity}
+                        </Badge>
+                      </Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <Card className="xl:col-span-2">
+            <CardHeader>
+              <CardTitle>禁用表达与受众画像</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 xl:grid-cols-2">
+              <div className="space-y-3">
+                {(detail?.forbiddenExpressions ?? []).map((item) => (
+                  <div key={item.id} className="rounded-md border border-red-100 bg-red-50 p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone="danger">{item.expression}</Badge>
+                      {item.replacement ? <Badge>{item.replacement}</Badge> : null}
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-red-800">{item.reason}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-3">
+                {(detail?.targetAudiences ?? []).map((audience) => (
+                  <div key={audience.id} className="rounded-md border border-border p-3">
+                    <div className="font-medium">{audience.name}</div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {audience.channels.map((channel) => (
+                        <Badge key={channel} tone="info">
+                          {platformLabels[channel]}
+                        </Badge>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-sm text-muted-foreground">痛点：{audience.painPoints.join(" / ")}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">目标：{audience.goals.join(" / ")}</p>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>

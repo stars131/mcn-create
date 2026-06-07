@@ -152,6 +152,63 @@ export interface PersonaVersion {
   updatedAt: string;
 }
 
+export interface PersonaMemoryChunk {
+  id: string;
+  workspaceId: string;
+  personaId: string;
+  sourceType: SourceType;
+  sourceId?: string;
+  content: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PersonaRule {
+  id: string;
+  workspaceId: string;
+  personaId: string;
+  type: string;
+  rule: string;
+  severity: "low" | "medium" | "high";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ForbiddenExpression {
+  id: string;
+  workspaceId: string;
+  personaId?: string;
+  expression: string;
+  reason: string;
+  replacement?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ToneExample {
+  id: string;
+  workspaceId: string;
+  personaId: string;
+  title: string;
+  content: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TargetAudience {
+  id: string;
+  workspaceId: string;
+  personaId: string;
+  name: string;
+  painPoints: string[];
+  goals: string[];
+  channels: Platform[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ContentDraft {
   id: string;
   workspaceId: string;

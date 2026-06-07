@@ -24,14 +24,19 @@ import type {
   HotItem,
   ImportedMetricFile,
   MetricRecord,
+  ForbiddenExpression,
+  PersonaMemoryChunk,
   PersonaProfile,
+  PersonaRule,
   PersonaVersion,
   PlatformAdaptation,
   Platform,
   MediaAsset,
   PublishPlan,
   Recommendation,
+  TargetAudience,
   TeamMember,
+  ToneExample,
   Topic,
   TopicBrief,
   UsageEvent,
@@ -52,6 +57,11 @@ export interface MockStore {
   topicBriefs: TopicBrief[];
   personas: PersonaProfile[];
   personaVersions: PersonaVersion[];
+  personaMemoryChunks: PersonaMemoryChunk[];
+  personaRules: PersonaRule[];
+  forbiddenExpressions: ForbiddenExpression[];
+  toneExamples: ToneExample[];
+  targetAudiences: TargetAudience[];
   contentDrafts: ContentDraft[];
   contentVersions: ContentVersion[];
   contentBlocks: ContentBlock[];
@@ -362,6 +372,138 @@ const initialStore: MockStore = {
       reviewerId: "user_owner",
       approvedAt: iso(),
       createdAt: iso(),
+      updatedAt: iso()
+    }
+  ],
+  personaMemoryChunks: [
+    {
+      id: "persona_memory_001",
+      workspaceId: defaultWorkspace.id,
+      personaId: "persona_001",
+      sourceType: "USER_UPLOAD",
+      sourceId: "seed_persona_case_001",
+      content: "历史内容强调工作流、合规来源、人工审核和数据复盘，不把 AI 描述成全自动代运营。",
+      metadata: {
+        importedBy: "user_owner",
+        version: 3,
+        tags: ["历史内容", "合规边界", "工作流"]
+      },
+      createdAt: iso(-4),
+      updatedAt: iso()
+    },
+    {
+      id: "persona_memory_002",
+      workspaceId: defaultWorkspace.id,
+      personaId: "persona_001",
+      sourceType: "USER_UPLOAD",
+      sourceId: "seed_persona_case_002",
+      content: "评论区反复追问如何避免内容跑偏，适合用人设记忆、禁用表达和审核流程作为解释框架。",
+      metadata: {
+        importedBy: "user_owner",
+        version: 3,
+        tags: ["评论反馈", "人设一致性"]
+      },
+      createdAt: iso(-3),
+      updatedAt: iso()
+    }
+  ],
+  personaRules: [
+    {
+      id: "persona_rule_001",
+      workspaceId: defaultWorkspace.id,
+      personaId: "persona_001",
+      type: "voice",
+      rule: "先界定业务问题，再给流程、判断标准和人工审核边界。",
+      severity: "high",
+      createdAt: iso(-4),
+      updatedAt: iso()
+    },
+    {
+      id: "persona_rule_002",
+      workspaceId: defaultWorkspace.id,
+      personaId: "persona_001",
+      type: "structure",
+      rule: "优先使用问题场景开头、三段式流程、结尾检查清单的结构。",
+      severity: "medium",
+      createdAt: iso(-4),
+      updatedAt: iso()
+    }
+  ],
+  forbiddenExpressions: [
+    {
+      id: "forbidden_expression_001",
+      workspaceId: defaultWorkspace.id,
+      personaId: "persona_001",
+      expression: "稳赚",
+      reason: "容易形成绝对化收益承诺，触发高风险内容场景。",
+      replacement: "可验证的增长假设",
+      createdAt: iso(-4),
+      updatedAt: iso()
+    },
+    {
+      id: "forbidden_expression_002",
+      workspaceId: defaultWorkspace.id,
+      personaId: "persona_001",
+      expression: "全自动代运营",
+      reason: "产品定位不是替代运营团队，必须强调人工审核和合规数据来源。",
+      replacement: "辅助内容决策与执行",
+      createdAt: iso(-4),
+      updatedAt: iso()
+    },
+    {
+      id: "forbidden_expression_003",
+      workspaceId: defaultWorkspace.id,
+      personaId: "persona_001",
+      expression: "绕过平台限制",
+      reason: "违反合规原则，平台能力必须通过合法授权或用户上传数据接入。",
+      replacement: "遵守平台规则",
+      createdAt: iso(-4),
+      updatedAt: iso()
+    }
+  ],
+  toneExamples: [
+    {
+      id: "tone_example_001",
+      workspaceId: defaultWorkspace.id,
+      personaId: "persona_001",
+      title: "工作流优先",
+      content: "先把选题和人设放在同一个系统里，再谈生成效率。",
+      tags: ["克制", "流程", "业务问题"],
+      createdAt: iso(-4),
+      updatedAt: iso()
+    },
+    {
+      id: "tone_example_002",
+      workspaceId: defaultWorkspace.id,
+      personaId: "persona_001",
+      title: "人工审核边界",
+      content: "AI 可以提速，但发布前必须有人审、可追踪、可复盘。",
+      tags: ["合规", "审核", "复盘"],
+      createdAt: iso(-4),
+      updatedAt: iso()
+    }
+  ],
+  targetAudiences: [
+    {
+      id: "target_audience_001",
+      workspaceId: defaultWorkspace.id,
+      personaId: "persona_001",
+      name: "职业 IP 主理人",
+      painPoints: ["内容越做越散", "热点追不上但又怕跑偏", "缺少复盘依据"],
+      goals: ["保持人设一致", "稳定选题质量", "减少人工返工"],
+      channels: ["XIAOHONGSHU", "DOUYIN", "WECHAT"],
+      createdAt: iso(-4),
+      updatedAt: iso()
+    },
+    {
+      id: "target_audience_002",
+      workspaceId: defaultWorkspace.id,
+      personaId: "persona_001",
+      name: "小品牌内容负责人",
+      painPoints: ["团队协作成本高", "发布前缺少风险审核", "跨平台改写重复劳动"],
+      goals: ["统一内容流程", "沉淀品牌记忆", "用复盘指导下一轮选题"],
+      channels: ["WECHAT", "XIAOHONGSHU", "VIDEO_ACCOUNT"],
+      createdAt: iso(-4),
       updatedAt: iso()
     }
   ],
