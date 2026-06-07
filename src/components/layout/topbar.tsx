@@ -1,4 +1,5 @@
 import { Search, ShieldCheck } from "lucide-react";
+import { LogoutButton } from "@/components/auth/logout-button";
 import { WorkspaceSwitcher } from "@/components/layout/workspace-switcher";
 import { getCurrentUser, getCurrentWorkspaceId } from "@/server/auth/session";
 import { store } from "@/server/services/mock-store";
@@ -31,6 +32,7 @@ export function Topbar() {
           <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
             {user.name.slice(0, 1)}
           </div>
+          <LogoutButton />
         </div>
       </div>
     </header>

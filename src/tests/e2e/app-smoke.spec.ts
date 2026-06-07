@@ -47,6 +47,25 @@ test("opens the dashboard and serves core mock workflow data", async ({ page, re
   expect(agentRuns.ok()).toBeTruthy();
 });
 
+test("logs out and clears access to protected pages", async ({ page }) => {
+  await loginAsOwner(page);
+
+  const logoutResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/auth/logout") && response.request().method() === "POST"
+  );
+  await page.getByRole("button", { name: "退出登录" }).click();
+  const logoutResponse = await logoutResponsePromise;
+  expect(logoutResponse.ok()).toBeTruthy();
+  await expect(page).toHaveURL(/\/login$/);
+
+  const cookies = await page.context().cookies();
+  expect(cookies.some((cookie) => cookie.name === "contentos_session")).toBe(false);
+  expect(cookies.some((cookie) => cookie.name === "contentos_workspace")).toBe(false);
+
+  await page.goto("/dashboard");
+  await expect(page).toHaveURL(/\/login\?next=%2Fdashboard$/);
+});
+
 test("enforces API tenant isolation and role permissions", async ({ request }) => {
   const me = await request.get("/api/me", {
     headers: { Cookie: ownerCookie }
