@@ -1,5 +1,6 @@
 import { PersonaAgent } from "@/server/agents";
 import { writeAuditLog } from "@/server/audit/audit-service";
+import { ApiError } from "@/server/errors";
 import { getWorkspaceScoped, nextId, store } from "@/server/services/mock-store";
 import type { PersonaProfile } from "@/types/domain";
 
@@ -10,7 +11,7 @@ export function listPersonas(workspaceId: string) {
 export function getPersona(workspaceId: string, id: string) {
   const persona = store.personas.find((item) => item.workspaceId === workspaceId && item.id === id);
   if (!persona) {
-    throw new Error("人设不存在");
+    throw new ApiError("人设不存在", 404);
   }
   return persona;
 }

@@ -1,5 +1,6 @@
 import { ContentAgent, RiskCheckAgent } from "@/server/agents";
 import { writeAuditLog } from "@/server/audit/audit-service";
+import { ApiError } from "@/server/errors";
 import { getWorkspaceScoped, nextId, store } from "@/server/services/mock-store";
 import type { ContentDraft, ContentStatus, Platform } from "@/types/domain";
 
@@ -12,7 +13,7 @@ export function listContents(workspaceId: string) {
 export function getContent(workspaceId: string, id: string) {
   const content = store.contentDrafts.find((item) => item.workspaceId === workspaceId && item.id === id);
   if (!content) {
-    throw new Error("内容草稿不存在");
+    throw new ApiError("内容草稿不存在", 404);
   }
   return content;
 }
@@ -35,7 +36,7 @@ export async function generateContent(input: {
     cta: input.cta ?? "引导读者领取工作流清单"
   });
   if (!agent.createdDraft) {
-    throw new Error("内容草稿生成失败");
+    throw new ApiError("内容草稿生成失败", 500);
   }
   return agent.createdDraft;
 }

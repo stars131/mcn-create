@@ -1,4 +1,5 @@
 import { writeAuditLog } from "@/server/audit/audit-service";
+import { ApiError } from "@/server/errors";
 import { getWorkspaceScoped, nextId, store } from "@/server/services/mock-store";
 import type { CalendarItem, Platform } from "@/types/domain";
 
@@ -11,7 +12,7 @@ export function listCalendarItems(workspaceId: string) {
 export function getCalendarItem(workspaceId: string, id: string) {
   const item = store.calendarItems.find((record) => record.workspaceId === workspaceId && record.id === id);
   if (!item) {
-    throw new Error("日历项不存在");
+    throw new ApiError("日历项不存在", 404);
   }
   return item;
 }

@@ -1,5 +1,6 @@
 import { AnalyticsAgent } from "@/server/agents";
 import { writeAuditLog } from "@/server/audit/audit-service";
+import { ApiError } from "@/server/errors";
 import { enqueueAndProcessAgentJob } from "@/server/queue/agent-queue";
 import { getWorkspaceScoped, nextId, store } from "@/server/services/mock-store";
 import type { MetricRecord, Platform } from "@/types/domain";
@@ -75,11 +76,15 @@ function normalizeKey(key: string) {
   return key.trim().toLowerCase().replace(/[\s_-]+/g, "");
 }
 
+function rejectImport(message: string): never {
+  throw new ApiError(message, 422);
+}
+
 function parseNumber(value: unknown, fieldName: string) {
   const normalized = typeof value === "number" ? value.toString() : String(value ?? "").replace(/,/g, "").trim();
   const parsed = Number(normalized);
   if (!Number.isFinite(parsed) || parsed < 0) {
-    throw new Error(`导入字段 ${fieldName} 必须是非负数字`);
+    rejectImport(`导入字段 ${fieldName} 必须是非负数字`);
   }
   return Math.round(parsed);
 }
@@ -94,7 +99,7 @@ function parsePlatform(value: unknown): Platform {
   if (allowedPlatforms.includes(upper)) {
     return upper;
   }
-  throw new Error(`导入平台不受支持：${String(value ?? "")}`);
+  rejectImport(`导入平台不受支持：${String(value ?? "")}`);
 }
 
 function getField(row: Record<string, unknown>, aliases: readonly string[]) {
@@ -110,7 +115,7 @@ function getField(row: Record<string, unknown>, aliases: readonly string[]) {
 
 function coerceImportRow(row: unknown): Record<string, unknown> {
   if (!row || typeof row !== "object" || Array.isArray(row)) {
-    throw new Error("导入记录必须是对象");
+    rejectImport("导入记录必须是对象");
   }
   return Object.fromEntries(Object.entries(row));
 }
@@ -118,7 +123,7 @@ function coerceImportRow(row: unknown): Record<string, unknown> {
 function normalizeMetricRecord(row: Record<string, unknown>): MetricImportRecordInput {
   const title = getField(row, metricHeaderAliases.title);
   if (!title) {
-    throw new Error("导入记录缺少作品标题");
+    rejectImport("导入记录缺少作品标题");
   }
 
   return {
@@ -172,7 +177,7 @@ function parseDelimitedText(rawText: string, delimiter: "," | "\t") {
     .map((line) => line.trim())
     .filter(Boolean);
   if (lines.length < 2) {
-    throw new Error("导入表格至少需要表头和一行数据");
+    rejectImport("导入表格至少需要表头和一行数据");
   }
 
   const headers = parseCsvLine(lines[0], delimiter);
@@ -184,7 +189,12 @@ function parseDelimitedText(rawText: string, delimiter: "," | "\t") {
 }
 
 function parseJsonText(rawText: string) {
-  const parsed = JSON.parse(rawText) as unknown;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawText) as unknown;
+  } catch {
+    rejectImport("JSON 导入内容格式不正确");
+  }
   const rows = Array.isArray(parsed)
     ? parsed
     : typeof parsed === "object" && parsed && "records" in parsed
@@ -194,7 +204,7 @@ function parseJsonText(rawText: string) {
         : undefined;
 
   if (!Array.isArray(rows)) {
-    throw new Error("JSON 导入必须是数组，或包含 records/data 数组");
+    rejectImport("JSON 导入必须是数组，或包含 records/data 数组");
   }
 
   return rows.map((row) => normalizeMetricRecord(coerceImportRow(row)));
@@ -207,7 +217,7 @@ export function parseMetricImport(payload: MetricImportPayload) {
 
   const rawText = payload.rawText ?? payload.fileContent;
   if (!rawText?.trim()) {
-    throw new Error("导入内容不能为空");
+    rejectImport("导入内容不能为空");
   }
 
   const fileType = payload.fileType ?? (rawText.trim().startsWith("[") || rawText.trim().startsWith("{") ? "JSON" : "CSV");

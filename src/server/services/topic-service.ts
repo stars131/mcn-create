@@ -1,5 +1,6 @@
 import { TopicAgent } from "@/server/agents";
 import { writeAuditLog } from "@/server/audit/audit-service";
+import { ApiError } from "@/server/errors";
 import { getWorkspaceScoped, nextId, store } from "@/server/services/mock-store";
 import type { Platform, Topic, TopicStatus } from "@/types/domain";
 
@@ -12,7 +13,7 @@ export function listTopics(workspaceId: string, status?: TopicStatus | null) {
 export function getTopic(workspaceId: string, id: string) {
   const topic = store.topics.find((item) => item.workspaceId === workspaceId && item.id === id);
   if (!topic) {
-    throw new Error("选题不存在");
+    throw new ApiError("选题不存在", 404);
   }
   return topic;
 }
