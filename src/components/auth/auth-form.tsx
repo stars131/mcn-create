@@ -6,9 +6,14 @@ import { Button } from "@/components/ui/button";
 
 interface AuthFormProps {
   mode: "login" | "register";
+  nextPath?: string;
 }
 
-export function AuthForm({ mode }: AuthFormProps) {
+function getPostAuthPath(nextPath?: string) {
+  return nextPath?.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/dashboard";
+}
+
+export function AuthForm({ mode, nextPath }: AuthFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -33,7 +38,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         const body = await response.json().catch(() => null);
         throw new Error(body?.error ?? "认证失败");
       }
-      router.push("/dashboard");
+      router.push(getPostAuthPath(nextPath));
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "认证失败");

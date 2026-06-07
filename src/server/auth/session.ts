@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { ApiError } from "@/server/errors";
 import { store } from "@/server/services/mock-store";
 import type { User } from "@/types/domain";
 
@@ -7,8 +8,14 @@ export const workspaceCookieName = process.env.WORKSPACE_COOKIE_NAME ?? "content
 
 export function getCurrentUser() {
   const session = cookies().get(authCookieName)?.value;
-  const userId = session?.replace("mock:", "");
-  return store.users.find((user) => user.id === userId) ?? store.users[0];
+  const userId = session?.startsWith("mock:") ? session.slice("mock:".length) : null;
+  const user = store.users.find((item) => item.id === userId);
+
+  if (!user) {
+    throw new ApiError("未登录", 401);
+  }
+
+  return user;
 }
 
 export function canAccessWorkspace(user: User, workspaceId: string) {

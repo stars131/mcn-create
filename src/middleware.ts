@@ -15,7 +15,9 @@ type ContentOsMiddlewareGlobal = typeof globalThis & {
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS = 240;
 const MUTATING_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);
+const AUTH_COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? "contentos_session";
 const WORKSPACE_COOKIE_NAME = process.env.WORKSPACE_COOKIE_NAME ?? "contentos_workspace";
+const PUBLIC_PAGE_PATHS = new Set(["/login", "/register"]);
 
 function getClientKey(request: NextRequest) {
   const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
@@ -33,9 +35,13 @@ function applySecurityHeaders(response: NextResponse) {
 }
 
 function getMockUserId(request: NextRequest) {
-  const cookieName = process.env.AUTH_COOKIE_NAME ?? "contentos_session";
-  const session = request.cookies.get(cookieName)?.value;
-  return session?.startsWith("mock:") ? session.slice("mock:".length) : "user_owner";
+  const session = request.cookies.get(AUTH_COOKIE_NAME)?.value;
+  if (!session?.startsWith("mock:")) {
+    return null;
+  }
+
+  const userId = session.slice("mock:".length);
+  return store.users.some((user) => user.id === userId) ? userId : null;
 }
 
 function getWorkspaceRole(userId: string, workspaceId: string): RoleKey | null {
@@ -100,7 +106,7 @@ function inferPermission(request: NextRequest): PermissionAction | null {
   return null;
 }
 
-function authorizeApiRequest(request: NextRequest) {
+function authorizeApiRequest(request: NextRequest, userId: string) {
   const { pathname, searchParams } = request.nextUrl;
   if (!pathname.startsWith("/api/") || pathname.startsWith("/api/auth")) {
     return null;
@@ -109,7 +115,6 @@ function authorizeApiRequest(request: NextRequest) {
     return null;
   }
 
-  const userId = getMockUserId(request);
   const user = store.users.find((item) => item.id === userId);
   const workspacePathMatch = pathname.match(/^\/api\/workspaces\/([^/]+)/);
   const explicitWorkspaceId = workspacePathMatch?.[1] ?? searchParams.get("workspaceId");
@@ -195,7 +200,28 @@ function rateLimit(request: NextRequest) {
 }
 
 export function middleware(request: NextRequest) {
-  if (request.nextUrl.pathname.startsWith("/api/")) {
+  const { pathname } = request.nextUrl;
+  const userId = getMockUserId(request);
+
+  if (!pathname.startsWith("/api/")) {
+    if (PUBLIC_PAGE_PATHS.has(pathname)) {
+      if (userId) {
+        return applySecurityHeaders(NextResponse.redirect(new URL("/dashboard", request.url)));
+      }
+
+      return applySecurityHeaders(NextResponse.next());
+    }
+
+    if (!userId) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
+      return applySecurityHeaders(NextResponse.redirect(loginUrl));
+    }
+
+    return applySecurityHeaders(NextResponse.next());
+  }
+
+  if (pathname.startsWith("/api/")) {
     const limited = rateLimit(request);
     if (limited) {
       return limited;
@@ -205,7 +231,15 @@ export function middleware(request: NextRequest) {
       return applySecurityHeaders(NextResponse.json({ error: "跨站请求被拒绝" }, { status: 403 }));
     }
 
-    const denied = authorizeApiRequest(request);
+    if (pathname.startsWith("/api/auth/")) {
+      return applySecurityHeaders(NextResponse.next());
+    }
+
+    if (!userId) {
+      return applySecurityHeaders(NextResponse.json({ error: "未登录" }, { status: 401 }));
+    }
+
+    const denied = authorizeApiRequest(request, userId);
     if (denied) {
       return denied;
     }

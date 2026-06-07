@@ -2,7 +2,20 @@ import Link from "next/link";
 import { AuthForm } from "@/components/auth/auth-form";
 import { Card, CardContent } from "@/components/ui/card";
 
-export default function LoginPage() {
+interface LoginPageProps {
+  searchParams?: {
+    next?: string | string[];
+  };
+}
+
+function getNextPath(next?: string | string[]) {
+  const value = Array.isArray(next) ? next[0] : next;
+  return value?.startsWith("/") && !value.startsWith("//") ? value : undefined;
+}
+
+export default function LoginPage({ searchParams }: LoginPageProps) {
+  const nextPath = getNextPath(searchParams?.next);
+
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="grid w-full max-w-5xl gap-6 lg:grid-cols-[1fr_420px]">
@@ -27,7 +40,7 @@ export default function LoginPage() {
             <h2 className="text-lg font-semibold">登录</h2>
             <p className="mt-1 text-sm text-muted-foreground">MVP 默认账号已填入，可直接进入 Dashboard。</p>
             <div className="mt-6">
-              <AuthForm mode="login" />
+              <AuthForm mode="login" nextPath={nextPath} />
             </div>
             <p className="mt-4 text-sm text-muted-foreground">
               没有账号？{" "}
