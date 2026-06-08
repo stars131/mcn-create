@@ -141,7 +141,7 @@ export function CalendarBoard({ items, referenceDate }: { items: CalendarItem[];
         </CardHeader>
         <CardContent className="space-y-3">
           {filteredItems.map((item) => (
-            <div key={item.id} className="rounded-md border border-border p-3">
+            <div key={item.id} className="rounded-md border border-border p-3" aria-label={`发布计划：${item.title}`}>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-sm font-medium leading-5">{item.title}</div>
@@ -151,7 +151,7 @@ export function CalendarBoard({ items, referenceDate }: { items: CalendarItem[];
                 </div>
                 <Badge>{item.status}</Badge>
               </div>
-              <div className="mt-3">
+              <div className="mt-3 flex flex-wrap gap-2">
                 <ActionButton
                   endpoint={`/api/calendar/items/${item.id}`}
                   method="PATCH"
@@ -160,6 +160,17 @@ export function CalendarBoard({ items, referenceDate }: { items: CalendarItem[];
                   pendingLabel="调整中"
                   icon="chevronRight"
                 />
+                {item.status !== "PUBLISHED" ? (
+                  <ActionButton
+                    endpoint={`/api/calendar/items/${item.id}`}
+                    method="PATCH"
+                    body={{ status: "PUBLISHED" }}
+                    label="标记发布"
+                    pendingLabel="发布中"
+                    icon="checkCircle"
+                    variant="primary"
+                  />
+                ) : null}
               </div>
             </div>
           ))}

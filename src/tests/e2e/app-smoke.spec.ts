@@ -283,6 +283,44 @@ test("creates a manual publish plan on the calendar", async ({ page }) => {
   await expect(page.getByText("公众号 · 06-26 09:45")).toBeVisible();
 });
 
+test("marks a linked calendar item as published and creates analytics records", async ({ page, request }) => {
+  const beforeAnalytics = await request.get("/api/analytics/overview", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(beforeAnalytics.ok()).toBeTruthy();
+  const beforeAnalyticsPayload = await beforeAnalytics.json();
+  const beforePublishedPostCount = beforeAnalyticsPayload.data.publishedPosts.length;
+
+  await loginAsOwner(page, "/calendar");
+  await expect(page.getByRole("heading", { name: "内容日历" })).toBeVisible();
+
+  const planCard = page.getByLabel("发布计划：小团队别急着买更多 AI 工具");
+  await expect(planCard).toBeVisible();
+
+  const publishResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/calendar/items/cal_001") && response.request().method() === "PATCH"
+  );
+  await planCard.getByRole("button", { name: "标记发布" }).click();
+  const publishResponse = await publishResponsePromise;
+  expect(publishResponse.ok()).toBeTruthy();
+  await expect(publishResponse.json()).resolves.toMatchObject({
+    data: {
+      id: "cal_001",
+      status: "PUBLISHED"
+    }
+  });
+
+  await expect(planCard).toContainText("PUBLISHED");
+
+  const afterAnalytics = await request.get("/api/analytics/overview", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(afterAnalytics.ok()).toBeTruthy();
+  const afterAnalyticsPayload = await afterAnalytics.json();
+  expect(afterAnalyticsPayload.data.publishedPosts.length).toBeGreaterThan(beforePublishedPostCount);
+  expect(afterAnalyticsPayload.data.postDailyMetrics.length).toBeGreaterThan(0);
+});
+
 test("creates a topic from the topic pool form", async ({ page }) => {
   const title = `E2E 手动选题 ${Date.now()}`;
   const angle = "E2E 用小团队复盘场景说明选题运行记录的价值。";
