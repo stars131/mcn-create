@@ -165,4 +165,62 @@ describe("workspace isolation", () => {
     expect(ownerMember?.role).toBe("OWNER");
     expect(store.auditLogs.length).toBe(beforeAudits);
   });
+
+  it("requires an owner actor to assign or adjust owner roles", () => {
+    const adminUser = {
+      id: "user_admin_test",
+      email: "admin-test@contentos.local",
+      name: "Admin Test",
+      currentWorkspaceId: "ws_demo",
+      role: "ADMIN" as const
+    };
+    const adminMember = {
+      id: "member_admin_test",
+      workspaceId: "ws_demo",
+      name: "Admin Test",
+      email: adminUser.email,
+      role: "ADMIN" as const,
+      title: "测试管理员",
+      joinedAt: new Date().toISOString()
+    };
+    const viewerMember = {
+      id: "member_viewer_test",
+      workspaceId: "ws_demo",
+      name: "Viewer Test",
+      email: "viewer-test@contentos.local",
+      role: "VIEWER" as const,
+      title: "测试成员",
+      joinedAt: new Date().toISOString()
+    };
+    const beforeAudits = store.auditLogs.length;
+
+    try {
+      store.users.push(adminUser);
+      store.teamMembers.push(adminMember, viewerMember);
+
+      expect(() =>
+        inviteMember({
+          workspaceId: "ws_demo",
+          userId: adminUser.id,
+          email: `owner-${crypto.randomUUID()}@contentos.local`,
+          role: "OWNER"
+        })
+      ).toThrow("只有 Owner 可以分配或调整 Owner 角色");
+      expect(() =>
+        updateMemberRole({
+          workspaceId: "ws_demo",
+          userId: adminUser.id,
+          memberId: viewerMember.id,
+          role: "OWNER"
+        })
+      ).toThrow("只有 Owner 可以分配或调整 Owner 角色");
+      expect(viewerMember.role).toBe("VIEWER");
+      expect(store.auditLogs.length).toBe(beforeAudits);
+    } finally {
+      store.users = store.users.filter((user) => user.id !== adminUser.id);
+      store.teamMembers = store.teamMembers.filter(
+        (member) => member.id !== adminMember.id && member.id !== viewerMember.id
+      );
+    }
+  });
 });

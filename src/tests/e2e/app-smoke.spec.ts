@@ -257,6 +257,27 @@ test("imports analytics metrics from an uploaded CSV file", async ({ page }) => 
   await expect(page.getByRole("status")).toHaveText("已导入 1 行");
 });
 
+test("invites a workspace member with an explicit role", async ({ page }) => {
+  const email = `e2e-invite-${Date.now()}@contentos.local`;
+
+  await loginAsOwner(page, "/team");
+  await expect(page.getByRole("heading", { name: "团队与权限" })).toBeVisible();
+  await page.getByLabel("成员邮箱").fill(email);
+  await page.getByLabel("成员角色").selectOption("EDITOR");
+  await page.getByLabel("成员职能").fill("E2E 内容编辑");
+
+  const inviteResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/workspaces/ws_demo/members") && response.request().method() === "POST"
+  );
+  await page.getByRole("button", { name: "邀请成员" }).click();
+  const inviteResponse = await inviteResponsePromise;
+  expect(inviteResponse.ok()).toBeTruthy();
+
+  await expect(page.getByRole("status")).toHaveText("邀请已发送");
+  const memberRow = page.locator("tr", { hasText: email }).filter({ hasText: "E2E 内容编辑" });
+  await expect(memberRow).toBeVisible();
+});
+
 test("logs out and clears access to protected pages", async ({ page }) => {
   await loginAsOwner(page);
 

@@ -2,7 +2,7 @@ import { writeAuditLog } from "@/server/audit/audit-service";
 import { ApiError } from "@/server/errors";
 import { defaultWorkspace, nextId, store } from "@/server/services/mock-store";
 import { createNotification } from "@/server/services/notification-service";
-import type { Invitation, RoleKey, TeamMember, Workspace } from "@/types/domain";
+import type { Invitation, RoleKey, TeamMember, User, Workspace } from "@/types/domain";
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
@@ -41,6 +41,24 @@ function createUniqueSlug(name: string) {
 
 function countWorkspaceOwners(workspaceId: string) {
   return store.teamMembers.filter((member) => member.workspaceId === workspaceId && member.role === "OWNER").length;
+}
+
+function getWorkspaceMemberRole(workspaceId: string, user: User) {
+  const member = store.teamMembers.find(
+    (item) => item.workspaceId === workspaceId && normalizeEmail(item.email) === normalizeEmail(user.email)
+  );
+  return member?.role ?? (user.currentWorkspaceId === workspaceId ? user.role : undefined);
+}
+
+function assertOwnerRoleChangeAllowed(workspaceId: string, user: User, nextRole: RoleKey, currentRole?: RoleKey) {
+  const touchesOwnerRole = nextRole === "OWNER" || currentRole === "OWNER";
+  if (!touchesOwnerRole) {
+    return;
+  }
+
+  if (getWorkspaceMemberRole(workspaceId, user) !== "OWNER") {
+    throw new ApiError("只有 Owner 可以分配或调整 Owner 角色", 403);
+  }
 }
 
 export function listWorkspaces(userEmail?: string) {
@@ -138,7 +156,8 @@ export function inviteMember(input: {
   userId: string;
 }) {
   getWorkspaceOrThrow(input.workspaceId);
-  getUserOrThrow(input.userId);
+  const actor = getUserOrThrow(input.userId);
+  assertOwnerRoleChangeAllowed(input.workspaceId, actor, input.role);
   const email = normalizeEmail(input.email);
   const existing = store.teamMembers.find(
     (member) => member.workspaceId === input.workspaceId && normalizeEmail(member.email) === email
@@ -201,7 +220,7 @@ export function updateMemberRole(input: {
   userId: string;
 }) {
   getWorkspaceOrThrow(input.workspaceId);
-  getUserOrThrow(input.userId);
+  const actor = getUserOrThrow(input.userId);
   const member = store.teamMembers.find(
     (item) => item.workspaceId === input.workspaceId && item.id === input.memberId
   );
@@ -209,6 +228,7 @@ export function updateMemberRole(input: {
     throw new ApiError("成员不存在", 404);
   }
 
+  assertOwnerRoleChangeAllowed(input.workspaceId, actor, input.role, member.role);
   if (member.role === "OWNER" && input.role !== "OWNER" && countWorkspaceOwners(input.workspaceId) <= 1) {
     throw new ApiError("至少保留一个 OWNER", 409);
   }

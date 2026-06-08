@@ -1,3 +1,4 @@
+import { TeamInviteForm } from "@/components/team/team-invite-form";
 import { ActionButton } from "@/components/ui/action-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,16 +28,7 @@ export default function TeamPage() {
         eyebrow="Team & RBAC"
         title="团队与权限"
         description="多租户 workspace 内使用 Owner、Admin、Editor、Analyst、Viewer 五级角色，并通过 RBAC 做权限校验。"
-        actions={
-          <ActionButton
-            endpoint={`/api/workspaces/${workspaceId}/members`}
-            body={{ email: `new-${Date.now()}@contentos.local`, role: "VIEWER", title: "受邀成员" }}
-            label="邀请成员"
-            pendingLabel="邀请中"
-            icon="userPlus"
-            variant="primary"
-          />
-        }
+        actions={<TeamInviteForm workspaceId={workspaceId} />}
       />
 
       <section className="grid gap-4 xl:grid-cols-[1fr_420px]">
