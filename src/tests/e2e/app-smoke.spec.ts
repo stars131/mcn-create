@@ -19,6 +19,9 @@ test("requires authentication for app pages and business APIs", async ({ page, r
   expect(anonymousHotspots.status()).toBe(401);
   await expect(anonymousHotspots.json()).resolves.toEqual({ error: "未登录" });
   expect(anonymousHotspots.headers()["x-content-type-options"]).toBe("nosniff");
+  expect(anonymousHotspots.headers()["ratelimit-limit"] ?? anonymousHotspots.headers()["x-ratelimit-limit"]).toBe("240");
+  expect(anonymousHotspots.headers()["ratelimit-remaining"] ?? anonymousHotspots.headers()["x-ratelimit-remaining"]).toBeDefined();
+  expect(anonymousHotspots.headers()["ratelimit-reset"] ?? anonymousHotspots.headers()["x-ratelimit-reset"]).toBeDefined();
 });
 
 test("opens the dashboard and serves core mock workflow data", async ({ page, request }) => {
