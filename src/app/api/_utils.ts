@@ -92,6 +92,9 @@ function inferPermission(request: NextRequest): PermissionAction | undefined {
   if (pathname.startsWith("/api/data-sources")) {
     return "data_source.manage";
   }
+  if (pathname.startsWith("/api/brand-profiles")) {
+    return method === "GET" ? "hotspot.read" : "persona.edit";
+  }
   if (pathname.startsWith("/api/hotspots")) {
     return method === "GET" ? "hotspot.read" : "agent.run";
   }

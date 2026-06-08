@@ -3,6 +3,7 @@ import { writeAuditLog } from "@/server/audit/audit-service";
 import { ApiError } from "@/server/errors";
 import { getWorkspaceScoped, nextId, store } from "@/server/services/mock-store";
 import type {
+  BrandProfile,
   ForbiddenExpression,
   PersonaMemoryChunk,
   PersonaProfile,
@@ -14,8 +15,35 @@ import type {
   ToneExample
 } from "@/types/domain";
 
+type BrandProfilePatch = Partial<Pick<BrandProfile, "name" | "industry" | "positioning" | "promise" | "metadata">>;
+
 export function listPersonas(workspaceId: string) {
   return getWorkspaceScoped(store.personas, workspaceId);
+}
+
+export function listBrandProfiles(workspaceId: string) {
+  return getWorkspaceScoped(store.brandProfiles, workspaceId)
+    .filter((profile) => !profile.deletedAt)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+export function getBrandProfile(workspaceId: string, id: string) {
+  const profile = store.brandProfiles.find(
+    (item) => item.workspaceId === workspaceId && item.id === id && !item.deletedAt
+  );
+  if (!profile) {
+    throw new ApiError("品牌档案不存在", 404);
+  }
+  return profile;
+}
+
+export function getPersonaBrandProfile(persona: PersonaProfile) {
+  if (!persona.brandProfileId) {
+    return undefined;
+  }
+  return store.brandProfiles.find(
+    (profile) => profile.workspaceId === persona.workspaceId && profile.id === persona.brandProfileId && !profile.deletedAt
+  );
 }
 
 export function getPersona(workspaceId: string, id: string) {
@@ -57,6 +85,7 @@ export function getPersonaMemoryDetail(workspaceId: string, personaId: string) {
   const persona = getPersona(workspaceId, personaId);
   return {
     persona,
+    brandProfile: getPersonaBrandProfile(persona),
     versions: listPersonaVersions(workspaceId, personaId),
     memoryChunks: listPersonaMemoryChunks(workspaceId, personaId),
     rules: listPersonaRules(workspaceId, personaId),
@@ -67,6 +96,129 @@ export function getPersonaMemoryDetail(workspaceId: string, personaId: string) {
 }
 
 const defaultAudienceChannels: Platform[] = ["XIAOHONGSHU", "WECHAT"];
+
+function normalizeRequiredText(value: string, fieldName: string) {
+  const normalized = value.trim();
+  if (!normalized) {
+    throw new ApiError(`${fieldName}不能为空`, 422);
+  }
+  return normalized;
+}
+
+function defaultBrandIndustry(name: string) {
+  return name === "ContentOS" ? "中文内容运营与创作者工具" : "内容运营与品牌内容";
+}
+
+function defaultBrandPositioning(name: string) {
+  return `${name} 的可审阅品牌记忆档案，用于约束人设、选题和内容生成。`;
+}
+
+function findBrandProfileByName(workspaceId: string, name: string) {
+  const normalizedName = name.trim().toLowerCase();
+  return store.brandProfiles.find(
+    (profile) =>
+      profile.workspaceId === workspaceId && !profile.deletedAt && profile.name.trim().toLowerCase() === normalizedName
+  );
+}
+
+export function createBrandProfile(input: {
+  workspaceId: string;
+  userId: string;
+  name: string;
+  industry?: string;
+  positioning?: string;
+  promise?: string;
+  metadata?: Record<string, unknown>;
+}) {
+  const name = normalizeRequiredText(input.name, "品牌名称");
+  const now = new Date().toISOString();
+  const profile: BrandProfile = {
+    id: nextId("brand_profile"),
+    workspaceId: input.workspaceId,
+    name,
+    industry: input.industry?.trim() || defaultBrandIndustry(name),
+    positioning: input.positioning?.trim() || defaultBrandPositioning(name),
+    promise: input.promise?.trim() || "保留人工审阅、合规来源和版本追踪，避免把内容系统包装成全自动代运营。",
+    metadata: input.metadata ?? {
+      sourceType: "USER_UPLOAD",
+      createdFrom: "brand_profile.create"
+    },
+    createdAt: now,
+    updatedAt: now
+  };
+  store.brandProfiles.unshift(profile);
+  writeAuditLog({
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    action: "brand_profile.create",
+    entityType: "BrandProfile",
+    entityId: profile.id,
+    summary: `创建品牌档案：${profile.name}`
+  });
+  return profile;
+}
+
+export function updateBrandProfile(input: {
+  workspaceId: string;
+  userId: string;
+  id: string;
+  patch: BrandProfilePatch;
+}) {
+  const profile = getBrandProfile(input.workspaceId, input.id);
+  if (input.patch.name !== undefined) {
+    profile.name = normalizeRequiredText(input.patch.name, "品牌名称");
+  }
+  if (input.patch.industry !== undefined) {
+    profile.industry = normalizeRequiredText(input.patch.industry, "行业");
+  }
+  if (input.patch.positioning !== undefined) {
+    profile.positioning = normalizeRequiredText(input.patch.positioning, "定位");
+  }
+  if (input.patch.promise !== undefined) {
+    profile.promise = input.patch.promise.trim() || undefined;
+  }
+  if (input.patch.metadata !== undefined) {
+    profile.metadata = input.patch.metadata;
+  }
+  profile.updatedAt = new Date().toISOString();
+  writeAuditLog({
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    action: "brand_profile.update",
+    entityType: "BrandProfile",
+    entityId: profile.id,
+    summary: `更新品牌档案：${profile.name}`
+  });
+  return profile;
+}
+
+function ensureBrandProfileForPersona(input: {
+  workspaceId: string;
+  userId: string;
+  brandName: string;
+  industry?: string;
+  positioning?: string;
+  promise?: string;
+}) {
+  const brandName = normalizeRequiredText(input.brandName, "品牌名称");
+  const existing = findBrandProfileByName(input.workspaceId, brandName);
+  if (existing) {
+    return existing;
+  }
+
+  return createBrandProfile({
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    name: brandName,
+    industry: input.industry,
+    positioning: input.positioning,
+    promise: input.promise,
+    metadata: {
+      sourceType: "USER_UPLOAD",
+      createdFrom: "persona.create"
+    }
+  });
+}
 
 function ensurePersonaRule(input: {
   persona: PersonaProfile;
@@ -239,6 +391,7 @@ function syncPersonaMemoryRecords(persona: PersonaProfile) {
 
 function snapshotPersona(persona: PersonaProfile): PersonaVersionSnapshot {
   return {
+    brandProfileId: persona.brandProfileId,
     brandName: persona.brandName,
     name: persona.name,
     voiceGuide: persona.voiceGuide,
@@ -277,15 +430,31 @@ function recordPersonaVersion(input: {
 export function createPersona(input: {
   workspaceId: string;
   userId: string;
-  brandName: string;
+  brandProfileId?: string;
+  brandName?: string;
+  brandIndustry?: string;
+  brandPositioning?: string;
+  brandPromise?: string;
   name: string;
   voiceGuide: string;
   coreAudience: string;
 }) {
+  const brandProfile = input.brandProfileId
+    ? getBrandProfile(input.workspaceId, input.brandProfileId)
+    : ensureBrandProfileForPersona({
+        workspaceId: input.workspaceId,
+        userId: input.userId,
+        brandName: input.brandName ?? "",
+        industry: input.brandIndustry,
+        positioning: input.brandPositioning,
+        promise: input.brandPromise
+      });
+  const brandName = brandProfile.name;
   const persona: PersonaProfile = {
     id: nextId("persona"),
     workspaceId: input.workspaceId,
-    brandName: input.brandName,
+    brandProfileId: brandProfile.id,
+    brandName,
     name: input.name,
     voiceGuide: input.voiceGuide,
     coreAudience: input.coreAudience,
@@ -300,8 +469,8 @@ export function createPersona(input: {
   store.personas.unshift(persona);
   addPersonaMemoryChunk({
     persona,
-    content: `${input.brandName} / ${input.name}：${input.voiceGuide}`,
-    metadata: { source: "persona.create", coreAudience: input.coreAudience }
+    content: `${brandName} / ${input.name}：${input.voiceGuide}`,
+    metadata: { source: "persona.create", brandProfileId: brandProfile.id, coreAudience: input.coreAudience }
   });
   syncPersonaMemoryRecords(persona);
   const version = recordPersonaVersion({
@@ -316,7 +485,7 @@ export function createPersona(input: {
     entityType: "PersonaProfile",
     entityId: persona.id,
     summary: `创建人设：${persona.name}`,
-    metadata: { versionId: version.id, version: version.version }
+    metadata: { versionId: version.id, version: version.version, brandProfileId: brandProfile.id }
   });
   return persona;
 }
@@ -328,6 +497,18 @@ export function updatePersona(input: {
   patch: Partial<PersonaProfile>;
 }) {
   const persona = getPersona(input.workspaceId, input.id);
+  if (input.patch.brandProfileId !== undefined) {
+    const brandProfile = getBrandProfile(input.workspaceId, input.patch.brandProfileId);
+    input.patch.brandName = brandProfile.name;
+  } else if (input.patch.brandName !== undefined) {
+    const brandProfile = ensureBrandProfileForPersona({
+      workspaceId: input.workspaceId,
+      userId: input.userId,
+      brandName: input.patch.brandName
+    });
+    input.patch.brandProfileId = brandProfile.id;
+    input.patch.brandName = brandProfile.name;
+  }
   Object.assign(persona, input.patch, { updatedAt: new Date().toISOString() });
   syncPersonaMemoryRecords(persona);
   writeAuditLog({
@@ -336,7 +517,8 @@ export function updatePersona(input: {
     action: "persona.update",
     entityType: "PersonaProfile",
     entityId: persona.id,
-    summary: `更新人设：${persona.name}`
+    summary: `更新人设：${persona.name}`,
+    metadata: { brandProfileId: persona.brandProfileId }
   });
   return persona;
 }

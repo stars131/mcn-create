@@ -12,6 +12,16 @@ describe("persona service", () => {
   it("lists seeded persona memory records as first-class runtime data", () => {
     const detail = getPersonaMemoryDetail("ws_demo", "persona_001");
 
+    expect(detail.persona.brandProfileId).toBe("brand_profile_001");
+    expect(detail.brandProfile).toMatchObject({
+      id: "brand_profile_001",
+      workspaceId: "ws_demo",
+      name: "ContentOS"
+    });
+    expect(detail.versions[0].snapshot).toMatchObject({
+      brandProfileId: "brand_profile_001",
+      brandName: "ContentOS"
+    });
     expect(detail.memoryChunks.length).toBeGreaterThan(0);
     expect(detail.rules.map((rule) => rule.type)).toContain("voice");
     expect(detail.forbiddenExpressions.map((item) => item.expression)).toContain("全自动代运营");
@@ -27,14 +37,7 @@ describe("persona service", () => {
     expect(baselinePersona).toBeTruthy();
     const baselineVersion = baselinePersona!.version;
     const baselineVoiceGuide = baselinePersona!.voiceGuide;
-    const createdPersona = createPersona({
-      workspaceId: "ws_demo",
-      userId: "user_owner",
-      brandName: "Target Brand",
-      name: "Target Persona",
-      voiceGuide: "Original target voice",
-      coreAudience: "Target audience"
-    });
+    const beforeBrandProfileIds = new Set(store.brandProfiles.map((profile) => profile.id));
     const beforeAgentRunIds = new Set(store.agentRuns.map((run) => run.id));
     const beforeStepIds = new Set(store.agentSteps.map((step) => step.id));
     const beforeOutputIds = new Set(store.agentOutputs.map((output) => output.id));
@@ -44,15 +47,41 @@ describe("persona service", () => {
     const beforeToneIds = new Set(store.toneExamples.map((item) => item.id));
     const beforeAudienceIds = new Set(store.targetAudiences.map((item) => item.id));
     const beforeAuditLogIds = new Set(store.auditLogs.map((log) => log.id));
+    const createdPersona = createPersona({
+      workspaceId: "ws_demo",
+      userId: "user_owner",
+      brandName: "Target Brand",
+      name: "Target Persona",
+      voiceGuide: "Original target voice",
+      coreAudience: "Target audience"
+    });
+    const createdBrandProfile = store.brandProfiles.find((profile) => !beforeBrandProfileIds.has(profile.id));
 
     try {
       const createdVersions = listPersonaVersions("ws_demo", createdPersona.id);
       const createdDetail = getPersonaMemoryDetail("ws_demo", createdPersona.id);
+      expect(createdBrandProfile).toMatchObject({
+        workspaceId: "ws_demo",
+        name: "Target Brand",
+        metadata: {
+          createdFrom: "persona.create"
+        }
+      });
+      expect(createdPersona).toMatchObject({
+        brandProfileId: createdBrandProfile?.id,
+        brandName: "Target Brand"
+      });
+      expect(createdDetail.brandProfile).toMatchObject({
+        id: createdBrandProfile?.id,
+        name: "Target Brand"
+      });
       expect(createdVersions).toHaveLength(1);
       expect(createdVersions[0]).toMatchObject({
         version: 1,
         status: "DRAFT",
         snapshot: {
+          brandProfileId: createdBrandProfile?.id,
+          brandName: "Target Brand",
           voiceGuide: "Original target voice",
           reviewStatus: "DRAFT"
         }
@@ -61,7 +90,8 @@ describe("persona service", () => {
         personaId: createdPersona.id,
         sourceType: "USER_UPLOAD",
         metadata: {
-          source: "persona.create"
+          source: "persona.create",
+          brandProfileId: createdBrandProfile?.id
         }
       });
       expect(createdDetail.rules[0]).toMatchObject({
@@ -72,6 +102,15 @@ describe("persona service", () => {
       expect(createdDetail.targetAudiences[0]).toMatchObject({
         personaId: createdPersona.id,
         name: "Target audience"
+      });
+      expect(store.auditLogs[0]).toMatchObject({
+        action: "persona.create",
+        entityType: "PersonaProfile",
+        entityId: createdPersona.id,
+        metadata: {
+          brandProfileId: createdBrandProfile?.id,
+          version: 1
+        }
       });
 
       const output = await importPersonaContent({
@@ -173,6 +212,7 @@ describe("persona service", () => {
       });
     } finally {
       store.personas = store.personas.filter((persona) => persona.id !== createdPersona.id);
+      store.brandProfiles = store.brandProfiles.filter((profile) => beforeBrandProfileIds.has(profile.id));
       store.personaVersions = store.personaVersions.filter((version) => version.personaId !== createdPersona.id);
       store.agentRuns = store.agentRuns.filter((run) => beforeAgentRunIds.has(run.id));
       store.agentSteps = store.agentSteps.filter((step) => beforeStepIds.has(step.id));

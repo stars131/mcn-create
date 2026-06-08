@@ -4,10 +4,17 @@ import { getRequestContext, ok, readJson, withApiHandler } from "@/app/api/_util
 import { createPersona, listPersonas } from "@/server/services/persona-service";
 
 const createSchema = z.object({
-  brandName: z.string().min(1),
+  brandProfileId: z.string().min(1).optional(),
+  brandName: z.string().min(1).optional(),
+  brandIndustry: z.string().min(1).optional(),
+  brandPositioning: z.string().min(1).optional(),
+  brandPromise: z.string().optional(),
   name: z.string().min(1),
   voiceGuide: z.string().min(1),
   coreAudience: z.string().min(1)
+}).refine((input) => input.brandProfileId || input.brandName, {
+  message: "brandProfileId or brandName is required",
+  path: ["brandName"]
 });
 
 export const GET = withApiHandler(async (request: NextRequest) => {

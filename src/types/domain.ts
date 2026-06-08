@@ -211,9 +211,23 @@ export interface TopicBrief {
   createdAt: string;
 }
 
+export interface BrandProfile {
+  id: string;
+  workspaceId: string;
+  name: string;
+  industry: string;
+  positioning: string;
+  promise?: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+}
+
 export interface PersonaProfile {
   id: string;
   workspaceId: string;
+  brandProfileId?: string;
   brandName: string;
   name: string;
   voiceGuide: string;
@@ -228,6 +242,7 @@ export interface PersonaProfile {
 }
 
 export interface PersonaVersionSnapshot {
+  brandProfileId?: string;
   brandName: string;
   name: string;
   voiceGuide: string;

@@ -13,6 +13,17 @@ export default function PersonaPage() {
   const persona = listPersonas(workspaceId)[0];
   const detail = persona ? getPersonaMemoryDetail(workspaceId, persona.id) : null;
   const versions = detail?.versions ?? [];
+  const brandProfile = detail?.brandProfile;
+  const brandMetadata = Object.entries(brandProfile?.metadata ?? {}).filter(([, value]) => value !== undefined);
+  const formatBrandMetadata = (value: unknown) => {
+    if (Array.isArray(value)) {
+      return value.join(" / ");
+    }
+    if (typeof value === "object" && value !== null) {
+      return JSON.stringify(value);
+    }
+    return String(value);
+  };
 
   return (
     <>
@@ -46,9 +57,44 @@ export default function PersonaPage() {
             <CardContent className="space-y-4">
               <div>
                 <div className="text-xs text-muted-foreground">品牌</div>
-                <div className="mt-1 text-lg font-semibold">{persona.brandName}</div>
+                <div className="mt-1 text-lg font-semibold">{brandProfile?.name ?? persona.brandName}</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {brandProfile ? <Badge tone="success">已绑定档案</Badge> : <Badge tone="warning">未绑定档案</Badge>}
+                  {persona.brandProfileId ? <Badge>{persona.brandProfileId}</Badge> : null}
+                </div>
               </div>
-              <div>
+              {brandProfile ? (
+                <>
+                  <div>
+                    <div className="text-xs text-muted-foreground">行业</div>
+                    <div className="mt-1 text-sm font-medium">{brandProfile.industry}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">定位</div>
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">{brandProfile.positioning}</p>
+                  </div>
+                  {brandProfile.promise ? (
+                    <div>
+                      <div className="text-xs text-muted-foreground">品牌承诺</div>
+                      <p className="mt-1 text-sm leading-6 text-muted-foreground">{brandProfile.promise}</p>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+              {brandMetadata.length > 0 ? (
+                <div>
+                  <div className="text-xs text-muted-foreground">档案元数据</div>
+                  <div className="mt-2 space-y-2">
+                    {brandMetadata.slice(0, 4).map(([key, value]) => (
+                      <div key={key} className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground">{key}</span>
+                        <span className="ml-2">{formatBrandMetadata(value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              <div className="border-t border-border pt-4">
                 <div className="text-xs text-muted-foreground">人设</div>
                 <div className="mt-1 font-medium">{persona.name}</div>
               </div>

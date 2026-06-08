@@ -42,6 +42,12 @@ test("opens the dashboard and serves core mock workflow data", async ({ page, re
   await expect(page.getByRole("heading", { name: "评分拆解" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "状态流转" })).toBeVisible();
 
+  await page.goto("/persona");
+  await expect(page.getByRole("heading", { name: "人设记忆层" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "品牌档案" })).toBeVisible();
+  await expect(page.getByText("已绑定档案")).toBeVisible();
+  await expect(page.getByText("中文内容运营与创作者工具")).toBeVisible();
+
   await page.goto("/data-sources");
   await expect(page.getByRole("heading", { name: "数据源与平台授权" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "授权账号" })).toBeVisible();
@@ -88,6 +94,31 @@ test("opens the dashboard and serves core mock workflow data", async ({ page, re
   expect(topicRuntimePayload.data.statusHistory.map((history: { toStatus: string }) => history.toStatus)).toContain(
     "ADOPTED"
   );
+
+  const brandProfiles = await request.get("/api/brand-profiles", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(brandProfiles.ok()).toBeTruthy();
+  const brandProfilePayload = await brandProfiles.json();
+  expect(brandProfilePayload.data).toContainEqual(
+    expect.objectContaining({
+      id: "brand_profile_001",
+      workspaceId: "ws_demo",
+      name: "ContentOS",
+      industry: "中文内容运营与创作者工具"
+    })
+  );
+
+  const brandProfile = await request.get("/api/brand-profiles/brand_profile_001", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(brandProfile.ok()).toBeTruthy();
+  await expect(brandProfile.json()).resolves.toMatchObject({
+    data: {
+      id: "brand_profile_001",
+      name: "ContentOS"
+    }
+  });
 
   const platformAuthorizations = await request.get("/api/data-sources/platform-authorizations", {
     headers: { Cookie: ownerCookie }

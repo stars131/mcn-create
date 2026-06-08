@@ -10,6 +10,7 @@ import type {
   ApiKey,
   AccountMetricDaily,
   AuditLog,
+  BrandProfile,
   CalendarItem,
   CommentInsight,
   ContentBlock,
@@ -78,6 +79,7 @@ export interface MockStore {
   topicScores: TopicScore[];
   topicStatusHistories: TopicStatusHistory[];
   topicBriefs: TopicBrief[];
+  brandProfiles: BrandProfile[];
   personas: PersonaProfile[];
   personaVersions: PersonaVersion[];
   personaMemoryChunks: PersonaMemoryChunk[];
@@ -537,10 +539,43 @@ const initialStore: MockStore = {
       createdAt: iso(-1)
     }
   ],
+  brandProfiles: [
+    {
+      id: "brand_profile_001",
+      workspaceId: defaultWorkspace.id,
+      name: "ContentOS",
+      industry: "中文内容运营与创作者工具",
+      positioning: "面向职业 IP、小品牌内容团队和小型 MCN 的创作决策与执行工作台",
+      promise: "用可审阅的品牌记忆、合规数据来源和多人协作流程稳定内容产能。",
+      metadata: {
+        sourceType: "MOCK",
+        brandKeywords: ["工作流", "人设记忆", "合规审计", "多平台改写"],
+        complianceBoundaries: ["不承诺全自动代运营", "不绕过平台规则", "不采集未授权平台数据"]
+      },
+      createdAt: iso(-10),
+      updatedAt: iso()
+    },
+    {
+      id: "brand_profile_002",
+      workspaceId: secondaryWorkspace.id,
+      name: "品牌客户 A",
+      industry: "私域品牌内容",
+      positioning: "围绕季度主题沉淀品牌资产的客户内容工作台",
+      promise: "把公众号长文、私域素材和复盘数据整理成可复用的内容流程。",
+      metadata: {
+        sourceType: "MOCK",
+        brandKeywords: ["私域", "季度主题", "内容资产"],
+        complianceBoundaries: ["仅使用客户授权素材", "保留人工审阅"]
+      },
+      createdAt: iso(-4),
+      updatedAt: iso(-1)
+    }
+  ],
   personas: [
     {
       id: "persona_001",
       workspaceId: defaultWorkspace.id,
+      brandProfileId: "brand_profile_001",
       brandName: "ContentOS",
       name: "务实型内容增长顾问",
       voiceGuide:
@@ -566,6 +601,7 @@ const initialStore: MockStore = {
       version: 1,
       summary: "初始人设版本：明确内容工作流与合规边界。",
       snapshot: {
+        brandProfileId: "brand_profile_001",
         brandName: "ContentOS",
         name: "务实型内容增长顾问",
         voiceGuide: "表达直接、具体、克制。先讲业务问题，再给流程和判断标准。",
@@ -589,6 +625,7 @@ const initialStore: MockStore = {
       version: 2,
       summary: "补充禁用表达和多账号团队受众画像。",
       snapshot: {
+        brandProfileId: "brand_profile_001",
         brandName: "ContentOS",
         name: "务实型内容增长顾问",
         voiceGuide: "表达直接、具体、克制。先讲业务问题，再给流程和判断标准。避免夸大承诺。",
@@ -615,6 +652,7 @@ const initialStore: MockStore = {
       version: 3,
       summary: "当前批准版本：加入人设一致性和平台限制边界。",
       snapshot: {
+        brandProfileId: "brand_profile_001",
         brandName: "ContentOS",
         name: "务实型内容增长顾问",
         voiceGuide:
