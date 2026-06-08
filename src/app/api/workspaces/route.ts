@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { getRequestContext, ok, readJson, withApiHandler } from "@/app/api/_utils";
-import { getCurrentUser } from "@/server/auth/session";
+import { getCurrentUser, workspaceCookieName } from "@/server/auth/session";
 import { createWorkspace, listWorkspaces } from "@/server/services/workspace-service";
 import type { NextRequest } from "next/server";
 
@@ -17,5 +17,13 @@ export const GET = withApiHandler(async () => {
 export const POST = withApiHandler(async (request: NextRequest) => {
   const { user } = getRequestContext(request, { permission: "workspace.manage" });
   const input = await readJson(request, createSchema);
-  return ok(createWorkspace({ ...input, userId: user.id }));
+  const workspace = createWorkspace({ ...input, userId: user.id });
+  const response = ok(workspace);
+  response.cookies.set(workspaceCookieName, workspace.id, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7
+  });
+  return response;
 });

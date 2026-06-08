@@ -13,6 +13,7 @@ import {
   FileUp,
   KeyRound,
   PlugZap,
+  Plus,
   RefreshCw,
   RotateCcw,
   SendToBack,
@@ -37,6 +38,7 @@ const actionIcons = {
   fileUp: FileUp,
   key: KeyRound,
   plug: PlugZap,
+  plus: Plus,
   refresh: RefreshCw,
   rotateCcw: RotateCcw,
   sendToBack: SendToBack,
@@ -80,6 +82,7 @@ export function ActionButton({
     try {
       const response = await fetch(endpoint, {
         method,
+        credentials: "same-origin",
         headers: { "content-type": "application/json" },
         body: body === undefined ? undefined : JSON.stringify(body)
       });

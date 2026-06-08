@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils/cn";
@@ -20,6 +20,10 @@ export function WorkspaceSwitcher({ currentWorkspaceId, workspaces }: WorkspaceS
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(currentWorkspaceId);
   const [pending, setPending] = useState(false);
   const selectedWorkspace = workspaces.find((workspace) => workspace.id === selectedWorkspaceId) ?? workspaces[0];
+
+  useEffect(() => {
+    setSelectedWorkspaceId(currentWorkspaceId);
+  }, [currentWorkspaceId]);
 
   async function switchWorkspace(workspaceId: string) {
     if (workspaceId === selectedWorkspaceId) {
