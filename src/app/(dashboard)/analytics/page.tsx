@@ -1,5 +1,6 @@
 import { BarChart3 } from "lucide-react";
 import { MetricChart } from "@/components/analytics/metric-chart";
+import { MetricImportUpload } from "@/components/analytics/metric-import-upload";
 import { ActionButton } from "@/components/ui/action-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -63,6 +64,7 @@ export default function AnalyticsPage() {
         description="支持 CSV / JSON / Excel 表格导入的轻量复盘，生成周报、异常解释、A/B 假设，并将建议回流选题池。"
         actions={
           <>
+            <MetricImportUpload />
             <ActionButton
               endpoint="/api/analytics/import"
               body={{

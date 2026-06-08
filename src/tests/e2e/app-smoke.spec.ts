@@ -57,6 +57,7 @@ test("opens the dashboard and serves core mock workflow data", async ({ page, re
 
   await page.goto("/analytics");
   await expect(page.getByRole("heading", { name: "数据分析" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "上传数据文件" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "发布作品日指标" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "账号日指标" })).toBeVisible();
 
@@ -233,6 +234,27 @@ test("opens the dashboard and serves core mock workflow data", async ({ page, re
       retryStatus: "SUCCESS"
     }
   });
+});
+
+test("imports analytics metrics from an uploaded CSV file", async ({ page }) => {
+  await loginAsOwner(page, "/analytics");
+  await expect(page.getByRole("heading", { name: "数据分析" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "上传数据文件" })).toBeVisible();
+
+  const analyticsImportResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/analytics/import") && response.request().method() === "POST"
+  );
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "e2e-metrics.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      "title,platform,views,likes,comments,shares,conversions,publishedAt\nE2E file upload,WECHAT,321,22,3,4,1,2026-06-08"
+    )
+  });
+  const analyticsImportResponse = await analyticsImportResponsePromise;
+  expect(analyticsImportResponse.ok()).toBeTruthy();
+  await expect(page.getByText("e2e-metrics.csv")).toBeVisible();
+  await expect(page.getByRole("status")).toHaveText("已导入 1 行");
 });
 
 test("logs out and clears access to protected pages", async ({ page }) => {
