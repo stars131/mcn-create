@@ -1,5 +1,6 @@
 import { ActionButton } from "@/components/ui/action-button";
 import { ContentEditorForm } from "@/components/content/content-editor-form";
+import { ContentGenerateForm } from "@/components/content/content-generate-form";
 import { ContentVersionCompare } from "@/components/content/content-version-compare";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,32 +57,40 @@ export default function ContentPage() {
         eyebrow="Content Studio"
         title="内容工作台"
         description="左侧承接选题 brief 与人设，中间编辑草稿，右侧展示 AI 建议、风险提示和平台适配入口。"
-        actions={
-          activeTopic ? (
-            <ActionButton
-              endpoint="/api/contents/generate"
-              body={{
-                topicId: activeTopic.id,
-                personaId: activePersona?.id,
-                platform: "XIAOHONGSHU",
-                format: "图文",
-                cta: "领取内容工作流检查表"
-              }}
-              label="生成内容草稿"
-              pendingLabel="生成中"
-              icon="wand"
-              variant="primary"
-            />
-          ) : null
-        }
       />
 
       <section className="grid min-h-[680px] gap-4 xl:grid-cols-[300px_1fr_320px]">
         <Card>
           <CardHeader>
-            <CardTitle>选题 brief / 人设 / 目标</CardTitle>
+            <CardTitle>生成内容草稿</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <ContentGenerateForm
+              topics={topics.map((topic) => ({
+                id: topic.id,
+                title: topic.title,
+                angle: topic.angle,
+                targetPlatforms: topic.targetPlatforms
+              }))}
+              personas={personas.map((persona) => ({
+                id: persona.id,
+                name: persona.name
+              }))}
+              briefs={store.topicBriefs
+                .filter((brief) => brief.workspaceId === workspaceId)
+                .map((brief) => ({
+                  topicId: brief.topicId,
+                  summary: brief.summary
+                }))}
+              templates={contentTemplates.map((template) => ({
+                id: template.id,
+                platform: template.platform,
+                format: template.format,
+                name: template.name
+              }))}
+              defaultTopicId={activeTopic?.id}
+              defaultPersonaId={activePersona?.id}
+            />
             <div>
               <div className="text-xs text-muted-foreground">选题</div>
               <div className="mt-1 text-sm font-semibold leading-6">{activeTopic?.title ?? "暂无选题"}</div>

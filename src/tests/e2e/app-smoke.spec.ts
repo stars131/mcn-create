@@ -334,6 +334,37 @@ test("edits a content draft and records a new version", async ({ page }) => {
   await expect(page.getByLabel("对比版本").locator("option:checked")).toContainText("v3");
 });
 
+test("generates a content draft from an explicit brief form", async ({ page }) => {
+  const cta = `E2E CTA ${Date.now()} 预约内容工作流体检`;
+
+  await loginAsOwner(page, "/content");
+  await expect(page.getByRole("heading", { name: "内容工作台" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "生成内容草稿" })).toBeVisible();
+
+  await page.getByLabel("选题 brief").selectOption("topic_002");
+  await page.getByLabel("目标平台").selectOption("DOUYIN");
+  await expect(page.getByLabel("内容体裁")).toHaveValue("口播稿");
+  await page.getByLabel("目标 CTA").fill(cta);
+
+  const generateResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/contents/generate") && response.request().method() === "POST"
+  );
+  await page.getByRole("button", { name: "生成内容草稿" }).click();
+  const generateResponse = await generateResponsePromise;
+  expect(generateResponse.ok()).toBeTruthy();
+  await expect(generateResponse.json()).resolves.toMatchObject({
+    data: {
+      platform: "DOUYIN",
+      format: "口播稿"
+    }
+  });
+
+  await expect(page.getByRole("status")).toHaveText("内容草稿已生成");
+  await expect(page.getByLabel("内容标题")).toHaveValue("一条热点如何拆成小红书、抖音和公众号三个版本，别再只靠灵感更新");
+  await expect(page.getByLabel("内容正文")).toHaveValue(new RegExp(cta));
+  await expect(page.getByText("待执行风险检查").first()).toBeVisible();
+});
+
 test("imports analytics metrics from an uploaded CSV file", async ({ page }) => {
   await loginAsOwner(page, "/analytics");
   await expect(page.getByRole("heading", { name: "数据分析" })).toBeVisible();
