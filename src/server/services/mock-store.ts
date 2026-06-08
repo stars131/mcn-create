@@ -21,6 +21,7 @@ import type {
   ContentVersion,
   CreditLedger,
   DataSource,
+  ErrorLog,
   Experiment,
   HotCluster,
   HotItem,
@@ -116,6 +117,7 @@ export interface MockStore {
   agentOutputs: AgentOutput[];
   agentFeedback: AgentFeedback[];
   auditLogs: AuditLog[];
+  errorLogs: ErrorLog[];
   notifications: Notification[];
   usageEvents: UsageEvent[];
   creditLedger: CreditLedger[];
@@ -1550,6 +1552,7 @@ const initialStore: MockStore = {
       createdAt: iso()
     }
   ],
+  errorLogs: [],
   notifications: [
     {
       id: "notification_001",

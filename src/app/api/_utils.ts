@@ -4,6 +4,7 @@ import { getCurrentUser, getCurrentWorkspaceId } from "@/server/auth/session";
 import type { PermissionAction } from "@/lib/constants/rbac";
 import { hasPermission } from "@/server/rbac/permissions";
 import { ApiError } from "@/server/errors";
+import { recordErrorLog } from "@/server/observability/error-log-service";
 import { store } from "@/server/services/mock-store";
 import type { RoleKey, User } from "@/types/domain";
 
@@ -36,9 +37,16 @@ function getErrorMessage(error: unknown, responseStatus: number) {
   return error instanceof Error ? error.message : "请求处理失败";
 }
 
-export function fail(error: unknown, status = 500) {
+function getErrorResponse(error: unknown, status = 500) {
   const responseStatus = getErrorStatus(error, status);
-  const message = getErrorMessage(error, responseStatus);
+  return {
+    message: getErrorMessage(error, responseStatus),
+    status: responseStatus
+  };
+}
+
+export function fail(error: unknown, status = 500) {
+  const { message, status: responseStatus } = getErrorResponse(error, status);
   return NextResponse.json({ error: message }, { status: responseStatus });
 }
 
@@ -140,6 +148,22 @@ export function getRequestContext(
   return { user, workspaceId, role };
 }
 
+function getErrorLogRequestContext(args: unknown[]) {
+  const request = args[0] as Partial<NextRequest> | undefined;
+  const nextUrl = request?.nextUrl;
+  const headers = request?.headers;
+  const requestId = headers?.get("x-request-id") ?? headers?.get("x-correlation-id") ?? undefined;
+  const session = headers?.get("cookie")?.match(/(?:^|;\s*)contentos_session=([^;]+)/)?.[1];
+
+  return {
+    method: typeof request?.method === "string" ? request.method : "UNKNOWN",
+    requestId,
+    route: nextUrl ? `${nextUrl.pathname}${nextUrl.search}` : "unknown",
+    userId: session?.startsWith("mock:") ? session.slice("mock:".length) : undefined,
+    workspaceId: nextUrl?.searchParams.get("workspaceId") ?? undefined
+  };
+}
+
 export function withApiHandler<TArgs extends unknown[]>(
   handler: (...args: TArgs) => Promise<Response> | Response
 ) {
@@ -147,6 +171,17 @@ export function withApiHandler<TArgs extends unknown[]>(
     try {
       return await handler(...args);
     } catch (error) {
+      const { message, status } = getErrorResponse(error);
+      const request = getErrorLogRequestContext(args);
+      recordErrorLog({
+        ...request,
+        status,
+        publicMessage: message,
+        error,
+        metadata: {
+          handler: "withApiHandler"
+        }
+      });
       return fail(error);
     }
   };

@@ -727,6 +727,22 @@ export interface AuditLog {
   createdAt: string;
 }
 
+export interface ErrorLog {
+  id: string;
+  workspaceId?: string;
+  userId?: string;
+  requestId: string;
+  route: string;
+  method: string;
+  status: number;
+  publicMessage: string;
+  errorName: string;
+  errorMessage: string;
+  stack?: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
 export interface Notification {
   id: string;
   workspaceId: string;
