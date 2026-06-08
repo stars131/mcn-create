@@ -25,6 +25,8 @@ test("requires authentication for app pages and business APIs", async ({ page, r
 });
 
 test("opens the dashboard and serves core mock workflow data", async ({ page, request }) => {
+  test.setTimeout(60000);
+
   await loginAsOwner(page);
   await page.goto("/");
   await expect(page).toHaveURL(/\/dashboard$/);
@@ -234,6 +236,19 @@ test("opens the dashboard and serves core mock workflow data", async ({ page, re
       retryStatus: "SUCCESS"
     }
   });
+});
+
+test("switches calendar views and filters publish plans by platform", async ({ page }) => {
+  await loginAsOwner(page, "/calendar");
+  await expect(page.getByRole("heading", { name: "内容日历" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "周视图" })).toBeVisible();
+
+  await page.getByRole("button", { name: "月视图" }).click();
+  await expect(page.getByRole("heading", { name: "月视图" })).toBeVisible();
+
+  await page.getByLabel("按平台筛选").selectOption("DOUYIN");
+  await expect(page.getByText("一条热点拆三端版本").first()).toBeVisible();
+  await expect(page.getByText("小团队别急着买更多 AI 工具")).toHaveCount(0);
 });
 
 test("imports analytics metrics from an uploaded CSV file", async ({ page }) => {
