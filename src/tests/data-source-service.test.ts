@@ -4,6 +4,7 @@ import { store } from "@/server/services/mock-store";
 import {
   createDataSource,
   deleteAuthorizationData,
+  getPlatformAuthorizationOverview,
   syncDataSource,
   updateDataSource
 } from "@/server/services/data-source-service";
@@ -43,6 +44,8 @@ describe("data source service", () => {
 
   it("updates only allowed fields inside the active workspace", () => {
     let createdId: string | undefined;
+    const beforeAccountIds = new Set(store.platformAccounts.map((account) => account.id));
+    const beforeAuthorizationIds = new Set(store.platformAuthorizations.map((authorization) => authorization.id));
 
     try {
       const source = createDataSource({
@@ -64,6 +67,12 @@ describe("data source service", () => {
 
       expect(updated.name).toBe("Renamed Source");
       expect(updated.workspaceId).toBe("ws_demo");
+      expect(
+        store.platformAccounts.find((account) => !beforeAccountIds.has(account.id) && account.platform === "DOUYIN")
+      ).toMatchObject({
+        displayName: "Renamed Source",
+        status: "MOCKED"
+      });
       expect(() =>
         updateDataSource({
           workspaceId: "ws_brand",
@@ -77,11 +86,17 @@ describe("data source service", () => {
         store.dataSources = store.dataSources.filter((source) => source.id !== createdId);
         store.auditLogs = store.auditLogs.filter((log) => log.entityId !== createdId);
       }
+      store.platformAccounts = store.platformAccounts.filter((account) => beforeAccountIds.has(account.id));
+      store.platformAuthorizations = store.platformAuthorizations.filter((authorization) =>
+        beforeAuthorizationIds.has(authorization.id)
+      );
     }
   });
 
   it("revokes authorization data and prevents syncing revoked sources", async () => {
     let createdId: string | undefined;
+    const beforeAccountIds = new Set(store.platformAccounts.map((account) => account.id));
+    const beforeAuthorizationIds = new Set(store.platformAuthorizations.map((authorization) => authorization.id));
 
     try {
       const source = createDataSource({
@@ -93,6 +108,26 @@ describe("data source service", () => {
         authorizationStatus: "CONNECTED"
       });
       createdId = source.id;
+      const account = store.platformAccounts.find(
+        (item) => !beforeAccountIds.has(item.id) && item.workspaceId === "ws_demo"
+      );
+      const authorization = store.platformAuthorizations.find(
+        (item) => !beforeAuthorizationIds.has(item.id) && item.workspaceId === "ws_demo"
+      );
+
+      expect(account).toMatchObject({
+        platform: "XIAOHONGSHU",
+        displayName: "OAuth Source",
+        status: "CONNECTED"
+      });
+      expect(authorization).toMatchObject({
+        platformAccountId: account?.id,
+        authorizationStatus: "CONNECTED",
+        scopes: expect.arrayContaining(["read_metrics", "read_comments"]),
+        tokenRef: expect.stringContaining(source.id)
+      });
+      expect(getPlatformAuthorizationOverview("ws_demo").authorizations[0]).not.toHaveProperty("tokenRef");
+      expect(getPlatformAuthorizationOverview("ws_demo").authorizations[0]).toHaveProperty("hasTokenRef");
 
       await expect(
         deleteAuthorizationData({ workspaceId: "ws_private", userId: "user_owner", id: source.id })
@@ -103,6 +138,14 @@ describe("data source service", () => {
       ).resolves.toEqual({ ok: true });
       expect(source.authorizationStatus).toBe("REVOKED");
       expect(source.notes).toBe("授权数据已删除，保留最小审计记录。");
+      expect(account).toMatchObject({
+        status: "REVOKED"
+      });
+      expect(authorization).toMatchObject({
+        authorizationStatus: "REVOKED",
+        tokenRef: undefined
+      });
+      expect(authorization?.revokedAt).toBeTruthy();
       expect(() => syncDataSource({ workspaceId: "ws_demo", userId: "user_owner", id: source.id })).toThrow(
         "数据源授权已撤销，无法同步"
       );
@@ -111,6 +154,10 @@ describe("data source service", () => {
         store.dataSources = store.dataSources.filter((source) => source.id !== createdId);
         store.auditLogs = store.auditLogs.filter((log) => log.entityId !== createdId);
       }
+      store.platformAccounts = store.platformAccounts.filter((account) => beforeAccountIds.has(account.id));
+      store.platformAuthorizations = store.platformAuthorizations.filter((authorization) =>
+        beforeAuthorizationIds.has(authorization.id)
+      );
     }
   });
 });

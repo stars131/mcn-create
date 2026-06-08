@@ -30,6 +30,8 @@ import type {
   PersonaRule,
   PersonaVersion,
   PlatformAdaptation,
+  PlatformAccount,
+  PlatformAuthorization,
   Platform,
   MediaAsset,
   PublishPlan,
@@ -79,6 +81,8 @@ export interface MockStore {
   publishPlans: PublishPlan[];
   calendarItems: CalendarItem[];
   dataSources: DataSource[];
+  platformAccounts: PlatformAccount[];
+  platformAuthorizations: PlatformAuthorization[];
   importedMetricFiles: ImportedMetricFile[];
   metricRecords: MetricRecord[];
   analyticsReports: AnalyticsReport[];
@@ -895,6 +899,78 @@ const initialStore: MockStore = {
       authorizationStatus: "CONNECTED",
       lastSyncedAt: iso(-1),
       notes: "支持 CSV/JSON 手动导入，后续可接官方授权 API。"
+    }
+  ],
+  platformAccounts: [
+    {
+      id: "platform_account_001",
+      workspaceId: defaultWorkspace.id,
+      platform: "XIAOHONGSHU",
+      handle: "contentos_lab",
+      displayName: "ContentOS 小红书账号",
+      accountUrl: "https://www.xiaohongshu.com/user/profile/contentos_lab",
+      status: "CONNECTED",
+      createdAt: iso(-4),
+      updatedAt: iso()
+    },
+    {
+      id: "platform_account_002",
+      workspaceId: defaultWorkspace.id,
+      platform: "DOUYIN",
+      handle: "contentos_ai",
+      displayName: "ContentOS 抖音号",
+      accountUrl: "https://www.douyin.com/user/contentos_ai",
+      status: "MOCKED",
+      createdAt: iso(-3),
+      updatedAt: iso()
+    },
+    {
+      id: "platform_account_003",
+      workspaceId: secondaryWorkspace.id,
+      platform: "WECHAT",
+      handle: "brand_client_a",
+      displayName: "品牌客户 A 公众号",
+      status: "CONNECTED",
+      createdAt: iso(-2),
+      updatedAt: iso()
+    }
+  ],
+  platformAuthorizations: [
+    {
+      id: "platform_auth_001",
+      workspaceId: defaultWorkspace.id,
+      platformAccountId: "platform_account_001",
+      platform: "XIAOHONGSHU",
+      authorizationStatus: "CONNECTED",
+      scopes: ["read_metrics", "read_comments", "read_profile"],
+      tokenRef: "vault://mock/xiaohongshu/contentos_lab",
+      lastSyncedAt: iso(),
+      createdAt: iso(-4),
+      updatedAt: iso()
+    },
+    {
+      id: "platform_auth_002",
+      workspaceId: defaultWorkspace.id,
+      platformAccountId: "platform_account_002",
+      platform: "DOUYIN",
+      authorizationStatus: "MOCKED",
+      scopes: ["read_hotspots", "read_metrics", "publish_plan"],
+      tokenRef: "mock://douyin/contentos_ai",
+      lastSyncedAt: iso(-1),
+      createdAt: iso(-3),
+      updatedAt: iso(-1)
+    },
+    {
+      id: "platform_auth_003",
+      workspaceId: secondaryWorkspace.id,
+      platformAccountId: "platform_account_003",
+      platform: "WECHAT",
+      authorizationStatus: "CONNECTED",
+      scopes: ["read_metrics", "read_comments"],
+      tokenRef: "vault://mock/wechat/brand_client_a",
+      lastSyncedAt: iso(-2),
+      createdAt: iso(-2),
+      updatedAt: iso(-2)
     }
   ],
   importedMetricFiles: [

@@ -5,7 +5,7 @@ import { PageHeading } from "@/components/ui/page-heading";
 import { Table, Td, Th } from "@/components/ui/table";
 import { platformLabels } from "@/lib/constants/navigation";
 import { getCurrentWorkspaceId } from "@/server/auth/session";
-import { listDataSources } from "@/server/services/data-source-service";
+import { getPlatformAuthorizationOverview, listDataSources } from "@/server/services/data-source-service";
 
 const statusTone = {
   CONNECTED: "success",
@@ -18,6 +18,7 @@ const statusTone = {
 export default function DataSourcesPage() {
   const workspaceId = getCurrentWorkspaceId();
   const sources = listDataSources(workspaceId);
+  const authorizationOverview = getPlatformAuthorizationOverview(workspaceId);
 
   return (
     <>
@@ -61,53 +62,102 @@ export default function DataSourcesPage() {
                 </tr>
               </thead>
               <tbody>
-                {sources.map((source) => (
-                  <tr key={source.id}>
-                    <Td>
-                      <div className="font-medium">{source.name}</div>
-                      <div className="mt-1 text-xs text-muted-foreground">{source.notes}</div>
-                    </Td>
-                    <Td>{platformLabels[source.platform]}</Td>
-                    <Td>{source.sourceType}</Td>
-                    <Td>
-                      <Badge tone={statusTone[source.authorizationStatus]}>{source.authorizationStatus}</Badge>
-                    </Td>
-                    <Td>{source.lastSyncedAt ? new Date(source.lastSyncedAt).toLocaleString("zh-CN") : "-"}</Td>
-                    <Td>
-                      <div className="flex flex-wrap gap-2">
-                        <ActionButton
-                          endpoint={`/api/data-sources/${source.id}/sync`}
-                          label="同步"
-                          pendingLabel="同步中"
-                          icon="database"
-                        />
-                        <ActionButton
-                          endpoint={`/api/data-sources/${source.id}`}
-                          method="DELETE"
-                          label="删授权"
-                          pendingLabel="删除中"
-                          icon="shieldX"
-                          variant="danger"
-                        />
-                      </div>
-                    </Td>
-                  </tr>
-                ))}
+                {sources.map((source) => {
+                  const account = authorizationOverview.accounts.find(
+                    (item) => item.platform === source.platform && item.displayName === source.name
+                  );
+
+                  return (
+                    <tr key={source.id}>
+                      <Td>
+                        <div className="font-medium">{source.name}</div>
+                        <div className="mt-1 text-xs text-muted-foreground">{source.notes}</div>
+                        {account ? (
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            关联账号：{account.displayName}（@{account.handle}）
+                          </div>
+                        ) : null}
+                      </Td>
+                      <Td>{platformLabels[source.platform]}</Td>
+                      <Td>{source.sourceType}</Td>
+                      <Td>
+                        <Badge tone={statusTone[source.authorizationStatus]}>{source.authorizationStatus}</Badge>
+                      </Td>
+                      <Td>{source.lastSyncedAt ? new Date(source.lastSyncedAt).toLocaleString("zh-CN") : "-"}</Td>
+                      <Td>
+                        <div className="flex flex-wrap gap-2">
+                          <ActionButton
+                            endpoint={`/api/data-sources/${source.id}/sync`}
+                            label="同步"
+                            pendingLabel="同步中"
+                            icon="database"
+                          />
+                          <ActionButton
+                            endpoint={`/api/data-sources/${source.id}`}
+                            method="DELETE"
+                            label="删授权"
+                            pendingLabel="删除中"
+                            icon="shieldX"
+                            variant="danger"
+                          />
+                        </div>
+                      </Td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </Table>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>合规边界</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm leading-6 text-muted-foreground">
-            <p>所有平台数据源都必须记录 sourceType、platform、authorizationStatus 和 lastSyncedAt。</p>
-            <p>删除授权数据只删除可撤销授权和缓存数据，审计日志保留最小必要记录。</p>
-            <p>抖音、小红书、B 站、公众号、微博、快手的真实接入只通过官方 API 或用户授权完成。</p>
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>授权账号</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {authorizationOverview.accounts.map((account) => (
+                  <div key={account.id} className="border-b border-border pb-4 last:border-0 last:pb-0">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-medium">{account.displayName}</div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          @{account.handle} · {platformLabels[account.platform]}
+                        </div>
+                      </div>
+                      <Badge tone={statusTone[account.status]}>{account.status}</Badge>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-1">
+                      {(account.authorization?.scopes ?? []).map((scope) => (
+                        <Badge key={scope}>{scope}</Badge>
+                      ))}
+                    </div>
+                    <div className="mt-3 text-xs leading-5 text-muted-foreground">
+                      {account.authorization?.lastSyncedAt
+                        ? `最近同步：${new Date(account.authorization.lastSyncedAt).toLocaleString("zh-CN")}`
+                        : "等待首次同步"}
+                    </div>
+                    {account.authorization?.hasTokenRef ? (
+                      <div className="mt-1 text-xs leading-5 text-muted-foreground">授权凭据已托管在后端引用中。</div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>合规边界</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm leading-6 text-muted-foreground">
+              <p>所有平台数据源都必须记录 sourceType、platform、authorizationStatus 和 lastSyncedAt。</p>
+              <p>删除授权数据只删除可撤销授权和缓存数据，审计日志保留最小必要记录。</p>
+              <p>抖音、小红书、B 站、公众号、微博、快手的真实接入只通过官方 API 或用户授权完成。</p>
+            </CardContent>
+          </Card>
+        </div>
       </section>
     </>
   );

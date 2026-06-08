@@ -38,6 +38,10 @@ test("opens the dashboard and serves core mock workflow data", async ({ page, re
   await expect(page.getByRole("heading", { name: "评分拆解" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "状态流转" })).toBeVisible();
 
+  await page.goto("/data-sources");
+  await expect(page.getByRole("heading", { name: "数据源与平台授权" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "授权账号" })).toBeVisible();
+
   const hotspots = await request.get("/api/hotspots", {
     headers: { Cookie: ownerCookie }
   });
@@ -57,6 +61,15 @@ test("opens the dashboard and serves core mock workflow data", async ({ page, re
   expect(topicRuntimePayload.data.statusHistory.map((history: { toStatus: string }) => history.toStatus)).toContain(
     "ADOPTED"
   );
+
+  const platformAuthorizations = await request.get("/api/data-sources/platform-authorizations", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(platformAuthorizations.ok()).toBeTruthy();
+  const platformAuthorizationPayload = await platformAuthorizations.json();
+  expect(platformAuthorizationPayload.data.accounts.length).toBeGreaterThan(0);
+  expect(platformAuthorizationPayload.data.authorizations[0]).toHaveProperty("hasTokenRef");
+  expect(platformAuthorizationPayload.data.authorizations[0]).not.toHaveProperty("tokenRef");
 
   const agentRuns = await request.get("/api/agent-runs", {
     headers: { Cookie: ownerCookie }

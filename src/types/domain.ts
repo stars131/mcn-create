@@ -393,6 +393,32 @@ export interface DataSource {
   notes: string;
 }
 
+export interface PlatformAccount {
+  id: string;
+  workspaceId: string;
+  platform: Platform;
+  handle: string;
+  displayName: string;
+  accountUrl?: string;
+  status: AuthorizationStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlatformAuthorization {
+  id: string;
+  workspaceId: string;
+  platformAccountId: string;
+  platform: Platform;
+  authorizationStatus: AuthorizationStatus;
+  scopes: string[];
+  tokenRef?: string;
+  lastSyncedAt?: string;
+  revokedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface MetricRecord {
   id: string;
   workspaceId: string;
