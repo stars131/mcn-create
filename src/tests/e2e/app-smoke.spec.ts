@@ -296,6 +296,35 @@ test("imports analytics metrics from an uploaded CSV file", async ({ page }) => 
   await expect(page.getByRole("status")).toHaveText("已导入 1 行");
 });
 
+test("creates a managed platform data source from the form", async ({ page }) => {
+  const sourceName = `E2E 小红书授权 ${Date.now()}`;
+
+  await loginAsOwner(page, "/data-sources");
+  await expect(page.getByRole("heading", { name: "数据源与平台授权" })).toBeVisible();
+
+  await page.getByLabel("数据源名称").fill(sourceName);
+  await page.getByLabel("来源类型").selectOption("USER_AUTHORIZED");
+  await page.getByLabel("平台").selectOption("XIAOHONGSHU");
+  await page.getByLabel("授权状态").selectOption("CONNECTED");
+  await page.getByLabel("备注").fill("E2E 通过表单创建的用户授权数据源");
+
+  const createResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/data-sources") && response.request().method() === "POST"
+  );
+  await page.getByRole("button", { name: "新增数据源" }).click();
+  const createResponse = await createResponsePromise;
+  expect(createResponse.ok()).toBeTruthy();
+
+  await expect(page.getByRole("status")).toHaveText("数据源已创建");
+  const sourceRow = page.locator("tr", { hasText: sourceName });
+  await expect(sourceRow).toBeVisible();
+  await expect(sourceRow).toContainText("USER_AUTHORIZED");
+  await expect(sourceRow).toContainText("CONNECTED");
+  await expect(sourceRow).toContainText("E2E 通过表单创建的用户授权数据源");
+  await expect(page.getByRole("heading", { name: "授权账号" })).toBeVisible();
+  await expect(page.getByText(sourceName).last()).toBeVisible();
+});
+
 test("invites a workspace member with an explicit role", async ({ page }) => {
   const email = `e2e-invite-${Date.now()}@contentos.local`;
 

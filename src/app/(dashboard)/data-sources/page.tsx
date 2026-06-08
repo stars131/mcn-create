@@ -1,3 +1,4 @@
+import { DataSourceCreateForm } from "@/components/data-sources/data-source-create-form";
 import { ActionButton } from "@/components/ui/action-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -111,6 +112,15 @@ export default function DataSourcesPage() {
         </Card>
 
         <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>新增数据源</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DataSourceCreateForm />
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>授权账号</CardTitle>
