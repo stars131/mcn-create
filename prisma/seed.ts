@@ -365,6 +365,24 @@ async function main() {
     }
   });
 
+  await prisma.systemSetting.deleteMany({
+    where: {
+      workspaceId: null,
+      key: "data_retention_policy"
+    }
+  });
+  await prisma.systemSetting.create({
+    data: {
+      key: "data_retention_policy",
+      value: {
+        metricDays: 365,
+        auditDays: 730,
+        authorizationCacheDays: 30,
+        errorLogDays: 90
+      }
+    }
+  });
+
   const prompts = [
     ["HOTSPOT", "hotspot-summary", "输入热点原始数据，输出热点簇、趋势原因、风险、切入角度。"],
     ["TOPIC", "topic-generation", "输入热点、人设、历史内容和目标平台，输出候选选题。"],

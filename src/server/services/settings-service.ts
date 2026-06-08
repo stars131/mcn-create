@@ -7,6 +7,9 @@ export type PublicApiKey = Omit<ApiKey, "keyHash"> & {
   keyPreview: string;
 };
 export type PublicWebhookEndpoint = Omit<WebhookEndpoint, "secretHash">;
+export type TypedSystemSetting<TValue> = Omit<SystemSetting, "value"> & {
+  value: TValue;
+};
 
 function normalizeName(name: string) {
   const normalized = name.trim();
@@ -103,6 +106,20 @@ export function listSystemSettings(workspaceId: string) {
   return store.systemSettings
     .filter((setting) => setting.workspaceId === undefined || setting.workspaceId === workspaceId)
     .sort((a, b) => a.key.localeCompare(b.key));
+}
+
+export function getSystemSetting<TValue = unknown>(
+  workspaceId: string,
+  key: string
+): TypedSystemSetting<TValue> | undefined {
+  const normalizedKey = normalizeName(key);
+  const scopedSetting = store.systemSettings.find(
+    (setting) => setting.workspaceId === workspaceId && setting.key === normalizedKey
+  );
+  const globalSetting = store.systemSettings.find(
+    (setting) => setting.workspaceId === undefined && setting.key === normalizedKey
+  );
+  return (scopedSetting ?? globalSetting) as TypedSystemSetting<TValue> | undefined;
 }
 
 export function upsertSystemSetting(input: {

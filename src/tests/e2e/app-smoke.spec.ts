@@ -325,6 +325,9 @@ test("exposes API key, webhook, and usage reserves with RBAC", async ({ page, re
   await expect(page.getByRole("heading", { name: "Webhook", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "用量与额度", exact: true })).toBeVisible();
   await expect(page.getByText("最近用量事件")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "品牌设置", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "数据保留策略", exact: true })).toBeVisible();
+  await expect(page.getByText("错误日志", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "系统设置", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "通知中心", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "API 错误日志", exact: true })).toBeVisible();

@@ -10,22 +10,38 @@ import { getCurrentUser, getCurrentWorkspaceId } from "@/server/auth/session";
 import { listPublicErrorLogs } from "@/server/observability/error-log-service";
 import { store } from "@/server/services/mock-store";
 import { listNotifications } from "@/server/services/notification-service";
+import { listBrandProfiles } from "@/server/services/persona-service";
 import {
+  getSystemSetting,
   getUsageSummary,
   listApiKeys,
   listSystemSettings,
   listWebhookEndpoints
 } from "@/server/services/settings-service";
 
+type DataRetentionPolicy = {
+  metricDays?: number;
+  auditDays?: number;
+  authorizationCacheDays?: number;
+  errorLogDays?: number;
+};
+
+function formatRetentionDays(days?: number) {
+  return typeof days === "number" ? `${days} 天` : "-";
+}
+
 export default function SettingsPage() {
   const user = getCurrentUser();
   const workspaceId = getCurrentWorkspaceId();
   const workspace = store.workspaces.find((item) => item.id === workspaceId);
+  const brandProfiles = listBrandProfiles(workspaceId);
+  const activeBrand = brandProfiles[0];
   const logs = listAuditLogs(workspaceId);
   const apiKeys = listApiKeys(workspaceId);
   const webhooks = listWebhookEndpoints(workspaceId);
   const usageSummary = getUsageSummary(workspaceId);
   const systemSettings = listSystemSettings(workspaceId);
+  const dataRetentionPolicy = getSystemSetting<DataRetentionPolicy>(workspaceId, "data_retention_policy")?.value;
   const notifications = listNotifications(workspaceId, user.id);
   const errorLogs = listPublicErrorLogs(workspaceId, 6);
 
@@ -37,7 +53,7 @@ export default function SettingsPage() {
         description="集中管理 workspace、品牌、AI 模型、数据保留策略、审计日志、API Key 和 webhook 预留。"
       />
 
-      <section className="grid gap-4 xl:grid-cols-3">
+      <section className="grid gap-4 xl:grid-cols-4">
         <Card>
           <CardHeader>
             <CardTitle>Workspace 设置</CardTitle>
@@ -55,6 +71,29 @@ export default function SettingsPage() {
               <span className="text-muted-foreground">计划</span>
               <Badge tone="info">{workspace?.currentPlan ?? "MVP Team"}</Badge>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>品牌设置</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">当前品牌</span>
+              <span className="truncate font-medium">{activeBrand?.name ?? "未配置"}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">行业</span>
+              <span className="truncate font-medium">{activeBrand?.industry ?? "-"}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">档案数</span>
+              <Badge tone="info">{brandProfiles.length}</Badge>
+            </div>
+            <p className="line-clamp-2 text-muted-foreground">
+              {activeBrand?.positioning ?? "品牌档案会约束人设、选题和内容生成。"}
+            </p>
           </CardContent>
         </Card>
 
@@ -140,35 +179,68 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>通知中心</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {notifications.slice(0, 5).map((notification) => (
-              <div key={notification.id} className="rounded-md border border-border p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-medium">{notification.title}</div>
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">{notification.body}</p>
-                  </div>
-                  {notification.readAt ? <Badge tone="neutral">已读</Badge> : <Badge tone="warning">未读</Badge>}
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>数据保留策略</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-md bg-muted px-3 py-2">
+                  <div className="text-xs text-muted-foreground">指标数据</div>
+                  <div className="mt-1 font-semibold">{formatRetentionDays(dataRetentionPolicy?.metricDays)}</div>
                 </div>
-                {!notification.readAt ? (
-                  <div className="mt-3">
-                    <ActionButton
-                      endpoint={`/api/notifications/${notification.id}`}
-                      method="PATCH"
-                      label="标为已读"
-                      pendingLabel="更新中"
-                      icon="checkCircle"
-                    />
+                <div className="rounded-md bg-muted px-3 py-2">
+                  <div className="text-xs text-muted-foreground">审计日志</div>
+                  <div className="mt-1 font-semibold">{formatRetentionDays(dataRetentionPolicy?.auditDays)}</div>
+                </div>
+                <div className="rounded-md bg-muted px-3 py-2">
+                  <div className="text-xs text-muted-foreground">授权缓存</div>
+                  <div className="mt-1 font-semibold">
+                    {formatRetentionDays(dataRetentionPolicy?.authorizationCacheDays)}
                   </div>
-                ) : null}
+                </div>
+                <div className="rounded-md bg-muted px-3 py-2">
+                  <div className="text-xs text-muted-foreground">错误日志</div>
+                  <div className="mt-1 font-semibold">{formatRetentionDays(dataRetentionPolicy?.errorLogDays)}</div>
+                </div>
               </div>
-            ))}
-          </CardContent>
-        </Card>
+              <p className="text-xs leading-5 text-muted-foreground">
+                策略来自 SystemSetting，可通过设置 API 写入 workspace 覆盖值。
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>通知中心</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {notifications.slice(0, 5).map((notification) => (
+                <div key={notification.id} className="rounded-md border border-border p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-medium">{notification.title}</div>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{notification.body}</p>
+                    </div>
+                    {notification.readAt ? <Badge tone="neutral">已读</Badge> : <Badge tone="warning">未读</Badge>}
+                  </div>
+                  {!notification.readAt ? (
+                    <div className="mt-3">
+                      <ActionButton
+                        endpoint={`/api/notifications/${notification.id}`}
+                        method="PATCH"
+                        label="标为已读"
+                        pendingLabel="更新中"
+                        icon="checkCircle"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
       </section>
 
       <section className="mt-5 grid gap-4 xl:grid-cols-[1fr_420px]">

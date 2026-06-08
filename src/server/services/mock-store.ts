@@ -1654,7 +1654,8 @@ const initialStore: MockStore = {
       value: {
         metricDays: 365,
         auditDays: 730,
-        authorizationCacheDays: 30
+        authorizationCacheDays: 30,
+        errorLogDays: 90
       },
       createdAt: iso(-10),
       updatedAt: iso(-1)

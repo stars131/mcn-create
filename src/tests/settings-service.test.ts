@@ -5,6 +5,7 @@ import { store } from "@/server/services/mock-store";
 import {
   createApiKey,
   createWebhookEndpoint,
+  getSystemSetting,
   getUsageSummary,
   listSystemSettings,
   recordCreditLedger,
@@ -133,6 +134,11 @@ describe("settings service", () => {
       expect(initialSettings.map((setting) => setting.key)).toEqual(
         expect.arrayContaining(["ai_provider_policy", "data_retention_policy", "risk_review_policy"])
       );
+      const globalRetention = getSystemSetting<{ errorLogDays: number }>("ws_demo", "data_retention_policy");
+      expect(globalRetention?.workspaceId).toBeUndefined();
+      expect(globalRetention?.value).toMatchObject({
+        errorLogDays: 90
+      });
 
       const setting = upsertSystemSetting({
         workspaceId: "ws_demo",
@@ -143,10 +149,24 @@ describe("settings service", () => {
           requireAuditLog: true
         }
       });
+      const retentionOverride = upsertSystemSetting({
+        workspaceId: "ws_demo",
+        userId: "user_owner",
+        key: "data_retention_policy",
+        value: {
+          metricDays: 180,
+          auditDays: 365,
+          authorizationCacheDays: 14,
+          errorLogDays: 30
+        }
+      });
 
       expect(listSystemSettings("ws_demo")).toContainEqual(setting);
+      expect(getSystemSetting<{ metricDays: number; errorLogDays: number }>("ws_demo", "data_retention_policy")).toEqual(
+        retentionOverride
+      );
       expect(listSystemSettings("ws_brand").some((item) => item.id === setting.id)).toBe(false);
-      expect(store.auditLogs[0]).toMatchObject({
+      expect(store.auditLogs.find((log) => log.entityId === setting.id)).toMatchObject({
         action: "system_setting.upsert",
         entityType: "SystemSetting",
         entityId: setting.id,
