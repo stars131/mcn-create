@@ -1,5 +1,5 @@
 import { History } from "lucide-react";
-import { ActionButton } from "@/components/ui/action-button";
+import { PersonaImportForm } from "@/components/persona/persona-import-form";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
@@ -31,21 +31,6 @@ export default function PersonaPage() {
         eyebrow="Persona Memory"
         title="人设记忆层"
         description="人设不是聊天框，而是沉入系统底层的品牌记忆：可审阅、可编辑、可版本化，并参与选题和内容生成。"
-        actions={
-          persona ? (
-            <ActionButton
-              endpoint={`/api/personas/${persona.id}/import-content`}
-              body={{
-                importedContent: "历史内容强调工作流、合规来源、人工审核和数据复盘。",
-                brandNotes: "默认禁止全自动代运营、一键爆款等表达。"
-              }}
-              label="导入历史内容"
-              pendingLabel="提取中"
-              icon="upload"
-              variant="primary"
-            />
-          ) : null
-        }
       />
 
       {persona ? (
@@ -154,6 +139,15 @@ export default function PersonaPage() {
                   ))}
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="xl:col-span-2">
+            <CardHeader>
+              <CardTitle>历史内容导入</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PersonaImportForm personaId={persona.id} />
             </CardContent>
           </Card>
 

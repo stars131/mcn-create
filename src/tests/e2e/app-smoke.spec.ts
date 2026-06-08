@@ -251,6 +251,30 @@ test("switches calendar views and filters publish plans by platform", async ({ p
   await expect(page.getByText("小团队别急着买更多 AI 工具")).toHaveCount(0);
 });
 
+test("imports historical content into persona memory", async ({ page }) => {
+  const importedContent = `E2E 历史内容 ${Date.now()} 强调克制表达、人工审核和复盘证据。`;
+
+  await loginAsOwner(page, "/persona");
+  await expect(page.getByRole("heading", { name: "人设记忆层" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "历史内容导入" })).toBeVisible();
+
+  await page.getByLabel("历史内容").fill(importedContent);
+  await page.getByLabel("品牌备注").fill("E2E 品牌备注：禁止全自动代运营和一键爆款承诺");
+
+  const importResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/personas/persona_001/import-content") && response.request().method() === "POST"
+  );
+  await page.getByRole("button", { name: "导入历史内容" }).click();
+  const importResponse = await importResponsePromise;
+  expect(importResponse.ok()).toBeTruthy();
+
+  await expect(page.getByRole("status")).toHaveText("历史内容已导入");
+  await expect(page.getByText(importedContent)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "人设版本管理" })).toBeVisible();
+  await expect(page.getByText("v4")).toBeVisible();
+  await expect(page.getByText("REVIEWING").first()).toBeVisible();
+});
+
 test("edits a content draft and records a new version", async ({ page }) => {
   await loginAsOwner(page, "/content");
   await expect(page.getByRole("heading", { name: "内容工作台" })).toBeVisible();
