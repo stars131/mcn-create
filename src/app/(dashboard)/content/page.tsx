@@ -1,4 +1,5 @@
 import { ActionButton } from "@/components/ui/action-button";
+import { ContentEditorForm } from "@/components/content/content-editor-form";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
@@ -133,10 +134,13 @@ export default function ContentPage() {
                   <Badge>{activeContent.format}</Badge>
                   <Badge tone="neutral">v{activeContent.currentVersion}</Badge>
                 </div>
-                <h2 className="text-xl font-semibold tracking-normal">{activeContent.title}</h2>
-                <div className="min-h-[420px] whitespace-pre-wrap rounded-md border border-border bg-white p-4 text-sm leading-7">
-                  {activeContent.content}
-                </div>
+                <ContentEditorForm
+                  contentDraftId={activeContent.id}
+                  initialTitle={activeContent.title}
+                  initialContent={activeContent.content}
+                  initialStatus={activeContent.status}
+                  initialVersion={activeContent.currentVersion}
+                />
                 {activeBlocks.length > 0 ? (
                   <div className="rounded-md border border-border bg-muted/50 p-3">
                     <div className="mb-3 text-xs font-semibold text-muted-foreground">结构化内容块</div>

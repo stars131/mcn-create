@@ -251,6 +251,30 @@ test("switches calendar views and filters publish plans by platform", async ({ p
   await expect(page.getByText("小团队别急着买更多 AI 工具")).toHaveCount(0);
 });
 
+test("edits a content draft and records a new version", async ({ page }) => {
+  await loginAsOwner(page, "/content");
+  await expect(page.getByRole("heading", { name: "内容工作台" })).toBeVisible();
+
+  await expect(page.getByText("当前版本 v2")).toBeVisible();
+  await page.getByLabel("内容标题").fill("E2E 编辑后的内容标题");
+  await page.getByLabel("内容正文").fill("E2E 编辑后的内容正文");
+  await page.getByLabel("内容状态").selectOption("IN_REVIEW");
+
+  const saveResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/contents/content_001") && response.request().method() === "PATCH"
+  );
+  await page.getByRole("button", { name: "保存草稿" }).click();
+  const saveResponse = await saveResponsePromise;
+  expect(saveResponse.ok()).toBeTruthy();
+
+  await expect(page.getByRole("status")).toHaveText("已保存");
+  await expect(page.getByLabel("内容标题")).toHaveValue("E2E 编辑后的内容标题");
+  await expect(page.getByLabel("内容正文")).toHaveValue("E2E 编辑后的内容正文");
+  await expect(page.getByLabel("内容状态")).toHaveValue("IN_REVIEW");
+  await expect(page.getByText("当前版本 v3")).toBeVisible();
+  await expect(page.getByText("v3").first()).toBeVisible();
+});
+
 test("imports analytics metrics from an uploaded CSV file", async ({ page }) => {
   await loginAsOwner(page, "/analytics");
   await expect(page.getByRole("heading", { name: "数据分析" })).toBeVisible();
