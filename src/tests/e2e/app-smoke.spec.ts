@@ -256,6 +256,9 @@ test("edits a content draft and records a new version", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "内容工作台" })).toBeVisible();
 
   await expect(page.getByText("当前版本 v2")).toBeVisible();
+  await expect(page.getByText("版本对比")).toBeVisible();
+  await expect(page.getByLabel("基准版本")).toHaveValue("content_version_001");
+  await expect(page.getByLabel("对比版本")).toHaveValue("content_version_002");
   await page.getByLabel("内容标题").fill("E2E 编辑后的内容标题");
   await page.getByLabel("内容正文").fill("E2E 编辑后的内容正文");
   await page.getByLabel("内容状态").selectOption("IN_REVIEW");
@@ -273,6 +276,8 @@ test("edits a content draft and records a new version", async ({ page }) => {
   await expect(page.getByLabel("内容状态")).toHaveValue("IN_REVIEW");
   await expect(page.getByText("当前版本 v3")).toBeVisible();
   await expect(page.getByText("v3").first()).toBeVisible();
+  await expect(page.getByLabel("基准版本")).toHaveValue("content_version_002");
+  await expect(page.getByLabel("对比版本").locator("option:checked")).toContainText("v3");
 });
 
 test("imports analytics metrics from an uploaded CSV file", async ({ page }) => {

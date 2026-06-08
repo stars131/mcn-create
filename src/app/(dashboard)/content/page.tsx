@@ -1,5 +1,6 @@
 import { ActionButton } from "@/components/ui/action-button";
 import { ContentEditorForm } from "@/components/content/content-editor-form";
+import { ContentVersionCompare } from "@/components/content/content-version-compare";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
@@ -335,25 +336,28 @@ export default function ContentPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {activeVersions.length > 0 ? (
-                activeVersions.slice(0, 3).map((version) => (
-                  <div key={version.id} className="rounded-md bg-muted p-3 text-sm">
-                    <div className="flex items-center justify-between gap-2">
-                      <Badge tone="neutral">v{version.version}</Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(version.createdAt).toLocaleDateString("zh-CN", {
-                          month: "2-digit",
-                          day: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit"
-                        })}
-                      </span>
+                <>
+                  <ContentVersionCompare versions={activeVersions} />
+                  {activeVersions.slice(0, 3).map((version) => (
+                    <div key={version.id} className="rounded-md bg-muted p-3 text-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <Badge tone="neutral">v{version.version}</Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(version.createdAt).toLocaleDateString("zh-CN", {
+                            month: "2-digit",
+                            day: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit"
+                          })}
+                        </span>
+                      </div>
+                      <div className="mt-2 font-medium leading-5">{version.changeNote ?? "版本快照"}</div>
+                      <p className="mt-2 line-clamp-3 text-xs leading-5 text-muted-foreground">
+                        {version.content}
+                      </p>
                     </div>
-                    <div className="mt-2 font-medium leading-5">{version.changeNote ?? "版本快照"}</div>
-                    <p className="mt-2 line-clamp-3 text-xs leading-5 text-muted-foreground">
-                      {version.content}
-                    </p>
-                  </div>
-                ))
+                  ))}
+                </>
               ) : (
                 <p className="text-sm text-muted-foreground">暂无版本记录。</p>
               )}
