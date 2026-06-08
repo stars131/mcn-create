@@ -7,6 +7,105 @@ import {
 } from "@/server/services/analytics-service";
 import { manualMetricImportAdapter } from "@/server/analytics/metric-import-adapter";
 import { store } from "@/server/services/mock-store";
+import { strToU8, zipSync } from "fflate";
+
+function xmlEscape(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function createWorkbookFixture(rows: (string | number)[][]) {
+  const sharedStrings: string[] = [];
+  const sharedStringIndexes = new Map<string, number>();
+
+  const getSharedStringIndex = (value: string) => {
+    const existing = sharedStringIndexes.get(value);
+    if (existing !== undefined) {
+      return existing;
+    }
+    const index = sharedStrings.length;
+    sharedStrings.push(value);
+    sharedStringIndexes.set(value, index);
+    return index;
+  };
+
+  const toColumnName = (columnIndex: number) => {
+    let value = columnIndex + 1;
+    let name = "";
+    while (value > 0) {
+      const remainder = (value - 1) % 26;
+      name = String.fromCharCode(65 + remainder) + name;
+      value = Math.floor((value - 1) / 26);
+    }
+    return name;
+  };
+
+  const sheetRows = rows
+    .map((row, rowIndex) => {
+      const cells = row
+        .map((cell, columnIndex) => {
+          const reference = `${toColumnName(columnIndex)}${rowIndex + 1}`;
+          if (typeof cell === "number") {
+            return `<c r="${reference}"><v>${cell}</v></c>`;
+          }
+          return `<c r="${reference}" t="s"><v>${getSharedStringIndex(cell)}</v></c>`;
+        })
+        .join("");
+      return `<row r="${rowIndex + 1}">${cells}</row>`;
+    })
+    .join("");
+
+  const files = {
+    "[Content_Types].xml": strToU8(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>
+</Types>`
+    ),
+    "_rels/.rels": strToU8(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`
+    ),
+    "xl/workbook.xml": strToU8(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="metrics" sheetId="1" r:id="rId1"/>
+  </sheets>
+</workbook>`
+    ),
+    "xl/_rels/workbook.xml.rels": strToU8(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+</Relationships>`
+    ),
+    "xl/worksheets/sheet1.xml": strToU8(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <sheetData>${sheetRows}</sheetData>
+</worksheet>`
+    ),
+    "xl/sharedStrings.xml": strToU8(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${sharedStrings.length}" uniqueCount="${sharedStrings.length}">
+  ${sharedStrings.map((value) => `<si><t>${xmlEscape(value)}</t></si>`).join("")}
+</sst>`
+    )
+  };
+
+  return Buffer.from(zipSync(files)).toString("base64");
+}
 
 describe("analytics import", () => {
   it("normalizes manual upload payloads through the import adapter", () => {
@@ -105,6 +204,32 @@ describe("analytics import", () => {
       likes: 980,
       conversions: 28
     });
+  });
+
+  it("parses real XLSX workbook uploads", () => {
+    const fileContent = createWorkbookFixture([
+      ["作品", "平台", "曝光", "点赞", "评论", "分享", "转化", "发布时间"],
+      ["XLSX 上传样例", "小红书", 9820, 710, 45, 88, 31, "2026-06-08"]
+    ]);
+
+    const records = parseMetricImport({
+      fileType: "EXCEL",
+      fileName: "metrics.xlsx",
+      fileContent
+    });
+
+    expect(records).toEqual([
+      {
+        title: "XLSX 上传样例",
+        platform: "XIAOHONGSHU",
+        views: 9820,
+        likes: 710,
+        comments: 45,
+        shares: 88,
+        conversions: 31,
+        publishedAt: "2026-06-08"
+      }
+    ]);
   });
 
   it("persists imported metrics and writes an audit log", () => {
