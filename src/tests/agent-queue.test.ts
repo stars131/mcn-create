@@ -50,6 +50,8 @@ describe("agent queue", () => {
     const beforeJobs = listQueuedJobs().length;
     const beforeReports = store.analyticsReports.length;
     const beforeTopics = store.topics.length;
+    const beforeSignalIds = new Set(store.hotSignals.map((signal) => signal.id));
+    const beforeSnapshotIds = new Set(store.hotTrendSnapshots.map((snapshot) => snapshot.id));
     const beforeAgentRunIds = new Set(store.agentRuns.map((run) => run.id));
     const beforeStepIds = new Set(store.agentSteps.map((step) => step.id));
     const beforeOutputIds = new Set(store.agentOutputs.map((output) => output.id));
@@ -77,6 +79,8 @@ describe("agent queue", () => {
     } finally {
       store.analyticsReports.splice(0, store.analyticsReports.length - beforeReports);
       store.topics.splice(0, store.topics.length - beforeTopics);
+      store.hotSignals = store.hotSignals.filter((signal) => beforeSignalIds.has(signal.id));
+      store.hotTrendSnapshots = store.hotTrendSnapshots.filter((snapshot) => beforeSnapshotIds.has(snapshot.id));
       store.agentRuns = store.agentRuns.filter((run) => beforeAgentRunIds.has(run.id));
       store.agentSteps = store.agentSteps.filter((step) => beforeStepIds.has(step.id));
       store.agentOutputs = store.agentOutputs.filter((output) => beforeOutputIds.has(output.id));

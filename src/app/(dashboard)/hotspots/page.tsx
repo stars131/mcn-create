@@ -7,12 +7,13 @@ import { Table, Td, Th } from "@/components/ui/table";
 import { TrendChart } from "@/components/dashboard/trend-chart";
 import { platformLabels } from "@/lib/constants/navigation";
 import { getCurrentWorkspaceId } from "@/server/auth/session";
-import { listHotClusters, listHotspots } from "@/server/services/hotspot-service";
+import { getHotspotRuntimeOverview, listHotClusters, listHotspots } from "@/server/services/hotspot-service";
 
 export default function HotspotsPage() {
   const workspaceId = getCurrentWorkspaceId();
   const hotspots = listHotspots({ workspaceId });
   const clusters = listHotClusters(workspaceId);
+  const runtime = getHotspotRuntimeOverview(workspaceId);
   const mainHotspot = hotspots[0];
 
   return (
@@ -123,6 +124,121 @@ export default function HotspotsPage() {
             </CardContent>
           </Card>
         </div>
+      </section>
+
+      <section className="mt-5 grid gap-4 xl:grid-cols-[1fr_1fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle>早期信号</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>信号</Th>
+                  <Th>类型</Th>
+                  <Th>置信度</Th>
+                  <Th>时间</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {runtime.signals.slice(0, 5).map((signal) => (
+                  <tr key={signal.id}>
+                    <Td>
+                      <div className="font-medium">{signal.title}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {signal.hotItemId ?? signal.clusterId ?? "全局信号"}
+                      </div>
+                    </Td>
+                    <Td>{signal.signalType}</Td>
+                    <Td>{Math.round(signal.confidence * 100)}%</Td>
+                    <Td>{new Date(signal.detectedAt).toLocaleString("zh-CN")}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>趋势快照</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>对象</Th>
+                  <Th>热度</Th>
+                  <Th>增速</Th>
+                  <Th>指标</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {runtime.trendSnapshots.slice(0, 5).map((snapshot) => (
+                  <tr key={snapshot.id}>
+                    <Td>{snapshot.hotItemId ?? snapshot.clusterId ?? "全局快照"}</Td>
+                    <Td className="font-semibold">{snapshot.heatScore}</Td>
+                    <Td>{snapshot.growthScore}</Td>
+                    <Td className="text-xs text-muted-foreground">{JSON.stringify(snapshot.metrics)}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="mt-5 grid gap-4 xl:grid-cols-[1fr_1fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle>竞品账号</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {runtime.competitorAccounts.map((account) => (
+              <div key={account.id} className="rounded-md border border-border p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium">{account.displayName}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      @{account.handle} · {platformLabels[account.platform]}
+                    </div>
+                  </div>
+                  <Badge tone="info">{account.sourceType}</Badge>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1">
+                  {account.tags.map((tag) => (
+                    <Badge key={tag}>{tag}</Badge>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>关键词监控</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {runtime.keywordWatches.map((watch) => (
+              <div key={watch.id} className="rounded-md border border-border p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium">{watch.keyword}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">{watch.industry}</div>
+                  </div>
+                  <Badge tone={watch.enabled ? "success" : "neutral"}>{watch.enabled ? "启用" : "停用"}</Badge>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1">
+                  {watch.platforms.map((platform) => (
+                    <Badge key={platform}>{platformLabels[platform]}</Badge>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       </section>
     </>
   );

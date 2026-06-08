@@ -31,6 +31,10 @@ test("opens the dashboard and serves core mock workflow data", async ({ page, re
   await page.goto("/hotspots");
   await expect(page.getByRole("heading", { name: "热点中心" })).toBeVisible();
   await expect(page.getByRole("button", { name: "刷新热点" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "早期信号" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "趋势快照" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "竞品账号" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "关键词监控" })).toBeVisible();
 
   await page.goto("/topics");
   await expect(page.getByRole("heading", { name: "选题池" })).toBeVisible();
@@ -63,6 +67,16 @@ test("opens the dashboard and serves core mock workflow data", async ({ page, re
   expect(hotspots.headers()["x-frame-options"]).toBe("DENY");
   const hotspotPayload = await hotspots.json();
   expect(hotspotPayload.data.length).toBeGreaterThan(0);
+
+  const hotspotRuntime = await request.get("/api/hotspots/runtime", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(hotspotRuntime.ok()).toBeTruthy();
+  const hotspotRuntimePayload = await hotspotRuntime.json();
+  expect(hotspotRuntimePayload.data.signals.length).toBeGreaterThan(0);
+  expect(hotspotRuntimePayload.data.trendSnapshots.length).toBeGreaterThan(0);
+  expect(hotspotRuntimePayload.data.competitorAccounts.length).toBeGreaterThan(0);
+  expect(hotspotRuntimePayload.data.keywordWatches.length).toBeGreaterThan(0);
 
   const topicRuntime = await request.get("/api/topics/topic_001/runtime", {
     headers: { Cookie: ownerCookie }

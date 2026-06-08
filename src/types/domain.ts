@@ -96,6 +96,56 @@ export interface HotCluster {
   suggestedAngles: string[];
 }
 
+export interface HotSignal {
+  id: string;
+  workspaceId: string;
+  hotItemId?: string;
+  clusterId?: string;
+  signalType: string;
+  title: string;
+  confidence: number;
+  detectedAt: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HotTrendSnapshot {
+  id: string;
+  workspaceId: string;
+  hotItemId?: string;
+  clusterId?: string;
+  capturedAt: string;
+  heatScore: number;
+  growthScore: number;
+  metrics: Record<string, number>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CompetitorAccount {
+  id: string;
+  workspaceId: string;
+  platform: Platform;
+  handle: string;
+  displayName: string;
+  tags: string[];
+  sourceType: SourceType;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface KeywordWatch {
+  id: string;
+  workspaceId: string;
+  keyword: string;
+  industry: string;
+  platforms: Platform[];
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Topic {
   id: string;
   workspaceId: string;

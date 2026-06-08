@@ -23,10 +23,14 @@ import type {
   Experiment,
   HotCluster,
   HotItem,
+  HotSignal,
+  HotTrendSnapshot,
   ImportedMetricFile,
   Invitation,
   MetricRecord,
+  CompetitorAccount,
   ForbiddenExpression,
+  KeywordWatch,
   Notification,
   PersonaMemoryChunk,
   PersonaProfile,
@@ -65,6 +69,10 @@ export interface MockStore {
   invitations: Invitation[];
   hotItems: HotItem[];
   hotClusters: HotCluster[];
+  hotSignals: HotSignal[];
+  hotTrendSnapshots: HotTrendSnapshot[];
+  competitorAccounts: CompetitorAccount[];
+  keywordWatches: KeywordWatch[];
   topics: Topic[];
   topicAngles: TopicAngle[];
   topicScores: TopicScore[];
@@ -277,6 +285,119 @@ const initialStore: MockStore = {
       growthScore: 67,
       riskLevel: "LOW",
       suggestedAngles: ["创作者版内容驾驶舱", "从选题到复盘的闭环", "AI 只是协作层而不是代运营"]
+    }
+  ],
+  hotSignals: [
+    {
+      id: "hot_signal_001",
+      workspaceId: defaultWorkspace.id,
+      hotItemId: "hot_001",
+      clusterId: "cluster_001",
+      signalType: "growth_spike",
+      title: "小团队 AI 排期内容增速高于同类话题",
+      confidence: 0.86,
+      detectedAt: iso(),
+      metadata: {
+        sourceType: "MOCK",
+        growthScore: 71,
+        reason: "短时间内收藏和分享模拟指标连续上升"
+      },
+      createdAt: iso(),
+      updatedAt: iso()
+    },
+    {
+      id: "hot_signal_002",
+      workspaceId: defaultWorkspace.id,
+      hotItemId: "hot_002",
+      clusterId: "cluster_001",
+      signalType: "persona_fit",
+      title: "创始人 IP 内容跑偏与人设记忆高度匹配",
+      confidence: 0.82,
+      detectedAt: iso(-1),
+      metadata: {
+        sourceType: "MOCK",
+        matchedKeywords: ["人设一致性", "内容越做越散"]
+      },
+      createdAt: iso(-1),
+      updatedAt: iso(-1)
+    }
+  ],
+  hotTrendSnapshots: [
+    {
+      id: "hot_trend_snapshot_001",
+      workspaceId: defaultWorkspace.id,
+      hotItemId: "hot_001",
+      capturedAt: iso(),
+      heatScore: 92,
+      growthScore: 71,
+      metrics: {
+        mentions: 128,
+        shares: 420,
+        saves: 980
+      },
+      createdAt: iso(),
+      updatedAt: iso()
+    },
+    {
+      id: "hot_trend_snapshot_002",
+      workspaceId: defaultWorkspace.id,
+      clusterId: "cluster_001",
+      capturedAt: iso(),
+      heatScore: 90,
+      growthScore: 67,
+      metrics: {
+        itemCount: 3,
+        averageHeat: 86,
+        averageGrowth: 64
+      },
+      createdAt: iso(),
+      updatedAt: iso()
+    }
+  ],
+  competitorAccounts: [
+    {
+      id: "competitor_001",
+      workspaceId: defaultWorkspace.id,
+      platform: "XIAOHONGSHU",
+      handle: "workflow_creator_lab",
+      displayName: "工作流创作者实验室",
+      tags: ["内容运营", "AI 工具", "小团队"],
+      sourceType: "PUBLIC_COMPLIANT",
+      createdAt: iso(-6),
+      updatedAt: iso(-1)
+    },
+    {
+      id: "competitor_002",
+      workspaceId: defaultWorkspace.id,
+      platform: "DOUYIN",
+      handle: "ip_growth_ops",
+      displayName: "IP 增长运营手记",
+      tags: ["职业 IP", "人设一致性"],
+      sourceType: "PUBLIC_COMPLIANT",
+      createdAt: iso(-5),
+      updatedAt: iso(-1)
+    }
+  ],
+  keywordWatches: [
+    {
+      id: "keyword_watch_001",
+      workspaceId: defaultWorkspace.id,
+      keyword: "人设记忆",
+      industry: "内容运营",
+      platforms: ["XIAOHONGSHU", "DOUYIN", "WECHAT"],
+      enabled: true,
+      createdAt: iso(-8),
+      updatedAt: iso(-1)
+    },
+    {
+      id: "keyword_watch_002",
+      workspaceId: defaultWorkspace.id,
+      keyword: "多平台改写",
+      industry: "知识内容",
+      platforms: ["BILIBILI", "DOUYIN", "WECHAT"],
+      enabled: true,
+      createdAt: iso(-7),
+      updatedAt: iso(-1)
     }
   ],
   topics: [
