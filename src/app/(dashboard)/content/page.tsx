@@ -1,6 +1,7 @@
 import { ActionButton } from "@/components/ui/action-button";
 import { ContentEditorForm } from "@/components/content/content-editor-form";
 import { ContentGenerateForm } from "@/components/content/content-generate-form";
+import { ContentScheduleForm } from "@/components/content/content-schedule-form";
 import { ContentVersionCompare } from "@/components/content/content-version-compare";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -182,14 +183,8 @@ export default function ContentPage() {
                     pendingLabel="提交中"
                     icon="checkCircle"
                   />
-                  <ActionButton
-                    endpoint={`/api/contents/${activeContent.id}/schedule`}
-                    body={{ platform: activeContent.platform }}
-                    label="加入日历"
-                    pendingLabel="排期中"
-                    icon="filePlus"
-                  />
                 </div>
+                <ContentScheduleForm contentDraftId={activeContent.id} initialPlatform={activeContent.platform} />
               </div>
             ) : (
               <div className="flex min-h-[420px] items-center justify-center rounded-md border border-dashed border-border text-sm text-muted-foreground">

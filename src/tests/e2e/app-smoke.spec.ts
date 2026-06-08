@@ -365,6 +365,31 @@ test("generates a content draft from an explicit brief form", async ({ page }) =
   await expect(page.getByText("待执行风险检查").first()).toBeVisible();
 });
 
+test("schedules the active content draft with an explicit publish time", async ({ page }) => {
+  await loginAsOwner(page, "/content");
+  await expect(page.getByRole("heading", { name: "内容工作台" })).toBeVisible();
+
+  await page.getByLabel("发布平台").selectOption("WECHAT");
+  await page.getByLabel("发布时间").fill("2026-06-25T10:30");
+
+  const scheduleForm = page.locator("form", { has: page.getByLabel("发布时间") });
+  const scheduleResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/contents/") && response.url().includes("/schedule") && response.request().method() === "POST"
+  );
+  await scheduleForm.getByRole("button", { name: "加入日历" }).click();
+  const scheduleResponse = await scheduleResponsePromise;
+  expect(scheduleResponse.ok()).toBeTruthy();
+  await expect(scheduleResponse.json()).resolves.toMatchObject({
+    data: {
+      platform: "WECHAT",
+      status: "PLANNED"
+    }
+  });
+
+  await expect(scheduleForm.getByRole("status")).toHaveText("已加入日历");
+  await expect(page.getByLabel("内容状态")).toHaveValue("SCHEDULED");
+});
+
 test("imports analytics metrics from an uploaded CSV file", async ({ page }) => {
   await loginAsOwner(page, "/analytics");
   await expect(page.getByRole("heading", { name: "数据分析" })).toBeVisible();
