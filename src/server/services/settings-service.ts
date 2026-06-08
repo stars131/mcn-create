@@ -1,7 +1,7 @@
 import { writeAuditLog } from "@/server/audit/audit-service";
 import { ApiError } from "@/server/errors";
 import { getWorkspaceScoped, nextId, store } from "@/server/services/mock-store";
-import type { ApiKey, CreditLedger, SystemSetting, UsageEvent, WebhookEndpoint } from "@/types/domain";
+import type { AgentRun, ApiKey, CreditLedger, SystemSetting, UsageEvent, WebhookEndpoint } from "@/types/domain";
 
 export type PublicApiKey = Omit<ApiKey, "keyHash"> & {
   keyPreview: string;
@@ -248,6 +248,54 @@ export function recordCreditLedger(input: Omit<CreditLedger, "id" | "createdAt" 
   };
   store.creditLedger.unshift(ledger);
   return ledger;
+}
+
+function compactMetadata(metadata: Record<string, unknown>) {
+  return Object.fromEntries(Object.entries(metadata).filter(([, value]) => value !== undefined));
+}
+
+function estimateAgentRunCreditDelta(run: AgentRun) {
+  const totalTokens = run.tokenUsage?.total ?? 0;
+  if (totalTokens <= 0) {
+    return 0;
+  }
+
+  return -Math.max(1, Math.ceil(totalTokens / 100));
+}
+
+export function recordAgentRunUsage(run: AgentRun) {
+  const metadata = compactMetadata({
+    agentRunId: run.id,
+    agentType: run.agentType,
+    status: run.status,
+    model: run.model,
+    tokenUsage: run.tokenUsage,
+    costEstimate: run.costEstimate,
+    latencyMs: run.latencyMs,
+    errorMessage: run.errorMessage
+  });
+  const usageEvent = recordUsageEvent({
+    workspaceId: run.workspaceId,
+    userId: run.userId,
+    eventType: "agent.run",
+    quantity: 1,
+    metadata
+  });
+  const creditDelta = estimateAgentRunCreditDelta(run);
+  const creditEntry =
+    creditDelta < 0
+      ? recordCreditLedger({
+          workspaceId: run.workspaceId,
+          delta: creditDelta,
+          reason: `${run.agentType} Agent token usage`,
+          metadata: {
+            ...metadata,
+            usageEventId: usageEvent.id
+          }
+        })
+      : undefined;
+
+  return { usageEvent, creditEntry };
 }
 
 export function getUsageSummary(workspaceId: string) {

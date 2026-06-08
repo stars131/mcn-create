@@ -55,6 +55,8 @@ describe("agent run service", () => {
     const beforeRunIds = new Set(store.agentRuns.map((run) => run.id));
     const beforeStepIds = new Set(store.agentSteps.map((step) => step.id));
     const beforeOutputIds = new Set(store.agentOutputs.map((output) => output.id));
+    const beforeUsageIds = new Set(store.usageEvents.map((event) => event.id));
+    const beforeCreditIds = new Set(store.creditLedger.map((entry) => entry.id));
     let retryRunId: string | undefined;
 
     try {
@@ -99,10 +101,36 @@ describe("agent run service", () => {
         name: "risk-check",
         active: true
       });
+
+      const usageEvent = store.usageEvents.find((event) => !beforeUsageIds.has(event.id));
+      const creditEntry = store.creditLedger.find((entry) => !beforeCreditIds.has(entry.id));
+      expect(usageEvent).toMatchObject({
+        workspaceId: "ws_demo",
+        userId: "user_owner",
+        eventType: "agent.run",
+        quantity: 1,
+        metadata: {
+          agentRunId: retryRun?.id,
+          agentType: "RISK",
+          status: "SUCCESS",
+          model: "mock-contentos-v1"
+        }
+      });
+      expect(creditEntry).toMatchObject({
+        workspaceId: "ws_demo",
+        reason: "RISK Agent token usage",
+        metadata: {
+          agentRunId: retryRun?.id,
+          usageEventId: usageEvent?.id
+        }
+      });
+      expect(creditEntry?.delta).toBeLessThan(0);
     } finally {
       store.agentRuns = store.agentRuns.filter((run) => beforeRunIds.has(run.id));
       store.agentSteps = store.agentSteps.filter((step) => beforeStepIds.has(step.id));
       store.agentOutputs = store.agentOutputs.filter((output) => beforeOutputIds.has(output.id));
+      store.usageEvents = store.usageEvents.filter((event) => beforeUsageIds.has(event.id));
+      store.creditLedger = store.creditLedger.filter((entry) => beforeCreditIds.has(entry.id));
       store.auditLogs = store.auditLogs.filter(
         (log) =>
           log.metadata?.originalRunId !== originalRun.id &&

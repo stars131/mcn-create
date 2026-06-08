@@ -12,6 +12,8 @@ describe("Agent framework", () => {
     const beforeAgentRunIds = new Set(store.agentRuns.map((run) => run.id));
     const beforeStepIds = new Set(store.agentSteps.map((step) => step.id));
     const beforeOutputIds = new Set(store.agentOutputs.map((output) => output.id));
+    const beforeUsageIds = new Set(store.usageEvents.map((event) => event.id));
+    const beforeCreditIds = new Set(store.creditLedger.map((entry) => entry.id));
     const beforeAuditLogIds = new Set(store.auditLogs.map((log) => log.id));
 
     try {
@@ -43,6 +45,8 @@ describe("Agent framework", () => {
       store.agentRuns = store.agentRuns.filter((run) => beforeAgentRunIds.has(run.id));
       store.agentSteps = store.agentSteps.filter((step) => beforeStepIds.has(step.id));
       store.agentOutputs = store.agentOutputs.filter((output) => beforeOutputIds.has(output.id));
+      store.usageEvents = store.usageEvents.filter((event) => beforeUsageIds.has(event.id));
+      store.creditLedger = store.creditLedger.filter((entry) => beforeCreditIds.has(entry.id));
       store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
     }
   });
@@ -58,6 +62,8 @@ describe("Agent framework", () => {
     const beforeAgentRunIds = new Set(store.agentRuns.map((run) => run.id));
     const beforeStepIds = new Set(store.agentSteps.map((step) => step.id));
     const beforeOutputIds = new Set(store.agentOutputs.map((output) => output.id));
+    const beforeUsageIds = new Set(store.usageEvents.map((event) => event.id));
+    const beforeCreditIds = new Set(store.creditLedger.map((entry) => entry.id));
     const beforeAuditLogIds = new Set(store.auditLogs.map((log) => log.id));
 
     try {
@@ -84,6 +90,8 @@ describe("Agent framework", () => {
       store.agentRuns = store.agentRuns.filter((run) => beforeAgentRunIds.has(run.id));
       store.agentSteps = store.agentSteps.filter((step) => beforeStepIds.has(step.id));
       store.agentOutputs = store.agentOutputs.filter((output) => beforeOutputIds.has(output.id));
+      store.usageEvents = store.usageEvents.filter((event) => beforeUsageIds.has(event.id));
+      store.creditLedger = store.creditLedger.filter((entry) => beforeCreditIds.has(entry.id));
       store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
     }
   });
@@ -92,6 +100,8 @@ describe("Agent framework", () => {
     const beforeAgentRunIds = new Set(store.agentRuns.map((run) => run.id));
     const beforeStepIds = new Set(store.agentSteps.map((step) => step.id));
     const beforeOutputIds = new Set(store.agentOutputs.map((output) => output.id));
+    const beforeUsageIds = new Set(store.usageEvents.map((event) => event.id));
+    const beforeCreditIds = new Set(store.creditLedger.map((entry) => entry.id));
     const beforeBlockIds = new Set(store.contentBlocks.map((block) => block.id));
     const beforeMediaIds = new Set(store.mediaAssets.map((asset) => asset.id));
     const beforeAuditLogIds = new Set(store.auditLogs.map((log) => log.id));
@@ -147,6 +157,8 @@ describe("Agent framework", () => {
       store.agentRuns = store.agentRuns.filter((run) => beforeAgentRunIds.has(run.id));
       store.agentSteps = store.agentSteps.filter((step) => beforeStepIds.has(step.id));
       store.agentOutputs = store.agentOutputs.filter((output) => beforeOutputIds.has(output.id));
+      store.usageEvents = store.usageEvents.filter((event) => beforeUsageIds.has(event.id));
+      store.creditLedger = store.creditLedger.filter((entry) => beforeCreditIds.has(entry.id));
       store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
     }
   });

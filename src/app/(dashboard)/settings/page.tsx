@@ -252,6 +252,18 @@ export default function SettingsPage() {
                 </div>
               ))}
             </div>
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-muted-foreground">最近用量事件</div>
+              {usageSummary.usageEvents.slice(0, 3).map((event) => (
+                <div key={event.id} className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium text-foreground">{event.eventType}</span>
+                    <Badge>{event.quantity}</Badge>
+                  </div>
+                  <div className="mt-1 truncate">{JSON.stringify(event.metadata ?? {})}</div>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </section>

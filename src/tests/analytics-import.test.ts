@@ -133,6 +133,8 @@ describe("analytics import", () => {
     const beforeAgentRunIds = new Set(store.agentRuns.map((run) => run.id));
     const beforeStepIds = new Set(store.agentSteps.map((step) => step.id));
     const beforeOutputIds = new Set(store.agentOutputs.map((output) => output.id));
+    const beforeUsageIds = new Set(store.usageEvents.map((event) => event.id));
+    const beforeCreditIds = new Set(store.creditLedger.map((entry) => entry.id));
 
     try {
       const report = await generateAnalyticsReport({ workspaceId: "ws_demo", userId: "user_owner", period: "本周" });
@@ -181,6 +183,8 @@ describe("analytics import", () => {
       store.agentRuns = store.agentRuns.filter((run) => beforeAgentRunIds.has(run.id));
       store.agentSteps = store.agentSteps.filter((step) => beforeStepIds.has(step.id));
       store.agentOutputs = store.agentOutputs.filter((output) => beforeOutputIds.has(output.id));
+      store.usageEvents = store.usageEvents.filter((event) => beforeUsageIds.has(event.id));
+      store.creditLedger = store.creditLedger.filter((entry) => beforeCreditIds.has(entry.id));
     }
   });
 });

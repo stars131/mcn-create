@@ -191,6 +191,32 @@ test("opens the dashboard and serves core mock workflow data", async ({ page, re
     }
   });
 
+  const usageAfterRetry = await request.get("/api/settings/usage", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(usageAfterRetry.ok()).toBeTruthy();
+  const usageAfterRetryPayload = await usageAfterRetry.json();
+  expect(usageAfterRetryPayload.data.usageEvents).toContainEqual(
+    expect.objectContaining({
+      eventType: "agent.run",
+      quantity: 1,
+      metadata: expect.objectContaining({
+        agentRunId: retryRun.id,
+        agentType: "RISK",
+        status: "SUCCESS",
+        model: "mock-contentos-v1"
+      })
+    })
+  );
+  expect(usageAfterRetryPayload.data.creditLedger).toContainEqual(
+    expect.objectContaining({
+      reason: "RISK Agent token usage",
+      metadata: expect.objectContaining({
+        agentRunId: retryRun.id
+      })
+    })
+  );
+
   const auditLogs = await request.get("/api/audit-logs", {
     headers: { Cookie: ownerCookie }
   });
@@ -295,6 +321,7 @@ test("exposes API key, webhook, and usage reserves with RBAC", async ({ page, re
   await expect(page.getByRole("heading", { name: "API Key", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Webhook", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "用量与额度", exact: true })).toBeVisible();
+  await expect(page.getByText("最近用量事件")).toBeVisible();
   await expect(page.getByRole("heading", { name: "系统设置", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "通知中心", exact: true })).toBeVisible();
   await expect(page.getByText("Server ingest key")).toBeVisible();
@@ -347,8 +374,15 @@ test("exposes API key, webhook, and usage reserves with RBAC", async ({ page, re
   });
   expect(usage.ok()).toBeTruthy();
   const usagePayload = await usage.json();
-  expect(usagePayload.data.creditBalance).toBe(4880);
+  expect(usagePayload.data.creditBalance).toBeLessThanOrEqual(4880);
   expect(usagePayload.data.usageTotal).toBeGreaterThan(0);
+  expect(usagePayload.data.usageEvents).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        eventType: "agent.run"
+      })
+    ])
+  );
 
   const viewerDenied = await request.get("/api/settings/api-keys", {
     headers: { Cookie: "contentos_session=mock:user_editor; contentos_workspace=ws_demo" }

@@ -2,6 +2,7 @@ import { getAiProvider } from "@/server/ai/providers";
 import type { AiProvider } from "@/server/ai/providers/ai-provider";
 import { writeAuditLog } from "@/server/audit/audit-service";
 import { nextId, store } from "@/server/services/mock-store";
+import { recordAgentRunUsage } from "@/server/services/settings-service";
 import type { AgentOutput, AgentRun, AgentStatus, AgentStep, AgentType } from "@/types/domain";
 import type { z } from "zod";
 
@@ -75,6 +76,7 @@ export abstract class BaseAgent<TInput, TOutput> {
       run.finishedAt = new Date().toISOString();
       run.updatedAt = run.finishedAt;
       this.persistAgentOutput(run, "AgentOutput", run.id, output);
+      recordAgentRunUsage(run);
       this.writeAuditLog(run, "success");
       return output;
     } catch (error) {
@@ -95,6 +97,7 @@ export abstract class BaseAgent<TInput, TOutput> {
       run.updatedAt = run.finishedAt;
       this.persistAgentOutput(run, "AgentError", run.id, { errorMessage: message });
       this.handleError(error, run);
+      recordAgentRunUsage(run);
       this.writeAuditLog(run, "failed");
       throw error;
     }
