@@ -327,6 +327,7 @@ test("exposes API key, webhook, and usage reserves with RBAC", async ({ page, re
   await expect(page.getByText("最近用量事件")).toBeVisible();
   await expect(page.getByRole("heading", { name: "系统设置", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "通知中心", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "API 错误日志", exact: true })).toBeVisible();
   await expect(page.getByText("Server ingest key")).toBeVisible();
 
   const keys = await request.get("/api/settings/api-keys", {
@@ -391,6 +392,27 @@ test("exposes API key, webhook, and usage reserves with RBAC", async ({ page, re
     headers: { Cookie: "contentos_session=mock:user_editor; contentos_workspace=ws_demo" }
   });
   expect(viewerDenied.status()).toBe(403);
+
+  const invalidCalendarItem = await request.post("/api/calendar/items?workspaceId=ws_demo", {
+    headers: { Cookie: ownerCookie },
+    data: {
+      title: "Missing platform and scheduledAt"
+    }
+  });
+  expect(invalidCalendarItem.status()).toBe(422);
+
+  const errorLogs = await request.get("/api/settings/error-logs", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(errorLogs.ok()).toBeTruthy();
+  const errorLogsPayload = await errorLogs.json();
+  expect(errorLogsPayload.data.length).toBeGreaterThan(0);
+  expect(errorLogsPayload.data[0]).toMatchObject({
+    status: 422,
+    route: "/api/calendar/items?workspaceId=ws_demo",
+    hasStack: true
+  });
+  expect(errorLogsPayload.data[0]).not.toHaveProperty("stack");
 });
 
 test("normalizes API validation errors through the shared handler", async ({ request }) => {

@@ -1,6 +1,10 @@
 import { store } from "@/server/services/mock-store";
 import type { ErrorLog } from "@/types/domain";
 
+export type PublicErrorLog = Omit<ErrorLog, "stack"> & {
+  hasStack: boolean;
+};
+
 export interface RecordErrorLogInput {
   workspaceId?: string;
   userId?: string;
@@ -50,4 +54,19 @@ export function recordErrorLog(input: RecordErrorLogInput) {
 
 export function listErrorLogs(workspaceId?: string) {
   return store.errorLogs.filter((log) => !workspaceId || !log.workspaceId || log.workspaceId === workspaceId);
+}
+
+function publicErrorLog(log: ErrorLog): PublicErrorLog {
+  const { stack: _stack, ...safeLog } = log;
+  return {
+    ...safeLog,
+    hasStack: Boolean(_stack)
+  };
+}
+
+export function listPublicErrorLogs(workspaceId?: string, limit = 20) {
+  return listErrorLogs(workspaceId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, limit)
+    .map(publicErrorLog);
 }

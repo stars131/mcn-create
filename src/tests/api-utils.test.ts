@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { NextRequest } from "next/server";
 import { ApiError, fail, withApiHandler } from "@/app/api/_utils";
-import { listErrorLogs } from "@/server/observability/error-log-service";
+import { listErrorLogs, listPublicErrorLogs } from "@/server/observability/error-log-service";
 import { store } from "@/server/services/mock-store";
 
 describe("API utilities", () => {
@@ -93,6 +93,42 @@ describe("API utilities", () => {
         errorName: "Error",
         errorMessage: "选题不存在"
       });
+    } finally {
+      store.errorLogs.splice(0, store.errorLogs.length - beforeErrorLogs);
+    }
+  });
+
+  it("lists public error logs without stack traces", async () => {
+    const beforeErrorLogs = store.errorLogs.length;
+    const request = {
+      method: "PATCH",
+      nextUrl: new URL("https://contentos.local/api/settings/system?workspaceId=ws_demo"),
+      headers: new Headers({
+        "x-request-id": "req_public_log",
+        cookie: "contentos_session=mock:user_owner"
+      })
+    } as unknown as NextRequest;
+    const handler = withApiHandler(async (_request: NextRequest) => {
+      throw new Error("database password leaked in stack context");
+    });
+
+    try {
+      const response = await handler(request);
+
+      expect(response.status).toBe(500);
+      const publicLogs = listPublicErrorLogs("ws_demo");
+      expect(publicLogs[0]).toMatchObject({
+        requestId: "req_public_log",
+        workspaceId: "ws_demo",
+        route: "/api/settings/system?workspaceId=ws_demo",
+        method: "PATCH",
+        status: 500,
+        publicMessage: "请求处理失败",
+        errorName: "Error",
+        errorMessage: "database password leaked in stack context",
+        hasStack: true
+      });
+      expect(publicLogs[0]).not.toHaveProperty("stack");
     } finally {
       store.errorLogs.splice(0, store.errorLogs.length - beforeErrorLogs);
     }

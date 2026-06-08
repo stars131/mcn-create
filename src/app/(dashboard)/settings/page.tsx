@@ -7,6 +7,7 @@ import { Table, Td, Th } from "@/components/ui/table";
 import { listAuditLogs } from "@/server/audit/audit-service";
 import { promptTemplates } from "@/server/ai/prompts/templates";
 import { getCurrentUser, getCurrentWorkspaceId } from "@/server/auth/session";
+import { listPublicErrorLogs } from "@/server/observability/error-log-service";
 import { store } from "@/server/services/mock-store";
 import { listNotifications } from "@/server/services/notification-service";
 import {
@@ -26,6 +27,7 @@ export default function SettingsPage() {
   const usageSummary = getUsageSummary(workspaceId);
   const systemSettings = listSystemSettings(workspaceId);
   const notifications = listNotifications(workspaceId, user.id);
+  const errorLogs = listPublicErrorLogs(workspaceId, 6);
 
   return (
     <>
@@ -348,6 +350,49 @@ export default function SettingsPage() {
                 ))}
               </tbody>
             </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>API 错误日志</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {errorLogs.length > 0 ? (
+              <Table>
+                <thead>
+                  <tr>
+                    <Th>状态</Th>
+                    <Th>接口</Th>
+                    <Th>错误</Th>
+                    <Th>时间</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {errorLogs.map((log) => (
+                    <tr key={log.id}>
+                      <Td>
+                        <Badge tone={log.status >= 500 ? "danger" : "warning"}>{log.status}</Badge>
+                      </Td>
+                      <Td>
+                        <div className="text-xs font-medium text-foreground">{log.method}</div>
+                        <div className="mt-1 max-w-[220px] truncate text-xs text-muted-foreground">{log.route}</div>
+                      </Td>
+                      <Td>
+                        <div className="max-w-[260px] truncate text-sm font-medium">{log.publicMessage}</div>
+                        <div className="mt-1 max-w-[260px] truncate text-xs text-muted-foreground">
+                          {log.errorName}: {log.errorMessage}
+                        </div>
+                        {log.hasStack ? <div className="mt-1 text-xs text-muted-foreground">已记录堆栈</div> : null}
+                      </Td>
+                      <Td>{new Date(log.createdAt).toLocaleString("zh-CN")}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            ) : (
+              <div className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">暂无 API 错误记录</div>
+            )}
           </CardContent>
         </Card>
 
