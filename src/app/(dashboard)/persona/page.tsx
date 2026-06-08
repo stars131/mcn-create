@@ -1,5 +1,6 @@
 import { History } from "lucide-react";
 import { PersonaImportForm } from "@/components/persona/persona-import-form";
+import { PersonaVersionActions } from "@/components/persona/persona-version-actions";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
@@ -228,8 +229,9 @@ export default function PersonaPage() {
           </Card>
 
           <Card className="xl:col-span-2">
-            <CardHeader>
+            <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <CardTitle>人设版本管理</CardTitle>
+              <PersonaVersionActions personaId={persona.id} reviewStatus={persona.reviewStatus} />
             </CardHeader>
             <CardContent className="grid gap-3 md:grid-cols-3">
               {versions.map((version) => (

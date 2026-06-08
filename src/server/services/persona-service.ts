@@ -427,6 +427,32 @@ function recordPersonaVersion(input: {
   return version;
 }
 
+function applyLatestPersonaVersionReview(input: {
+  persona: PersonaProfile;
+  userId: string;
+  previousReviewStatus: PersonaProfile["reviewStatus"];
+}) {
+  if (input.previousReviewStatus === input.persona.reviewStatus || input.persona.reviewStatus !== "APPROVED") {
+    return undefined;
+  }
+
+  const latestVersion = listPersonaVersions(input.persona.workspaceId, input.persona.id)[0];
+  if (!latestVersion) {
+    return undefined;
+  }
+
+  const now = new Date().toISOString();
+  latestVersion.status = "APPROVED";
+  latestVersion.snapshot = {
+    ...latestVersion.snapshot,
+    reviewStatus: "APPROVED"
+  };
+  latestVersion.reviewerId = input.userId;
+  latestVersion.approvedAt = now;
+  latestVersion.updatedAt = now;
+  return latestVersion;
+}
+
 export function createPersona(input: {
   workspaceId: string;
   userId: string;
@@ -497,6 +523,7 @@ export function updatePersona(input: {
   patch: Partial<PersonaProfile>;
 }) {
   const persona = getPersona(input.workspaceId, input.id);
+  const previousReviewStatus = persona.reviewStatus;
   if (input.patch.brandProfileId !== undefined) {
     const brandProfile = getBrandProfile(input.workspaceId, input.patch.brandProfileId);
     input.patch.brandName = brandProfile.name;
@@ -511,6 +538,11 @@ export function updatePersona(input: {
   }
   Object.assign(persona, input.patch, { updatedAt: new Date().toISOString() });
   syncPersonaMemoryRecords(persona);
+  const reviewedVersion = applyLatestPersonaVersionReview({
+    persona,
+    userId: input.userId,
+    previousReviewStatus
+  });
   writeAuditLog({
     workspaceId: input.workspaceId,
     userId: input.userId,
@@ -518,7 +550,13 @@ export function updatePersona(input: {
     entityType: "PersonaProfile",
     entityId: persona.id,
     summary: `更新人设：${persona.name}`,
-    metadata: { brandProfileId: persona.brandProfileId }
+    metadata: {
+      brandProfileId: persona.brandProfileId,
+      previousReviewStatus,
+      nextReviewStatus: persona.reviewStatus,
+      reviewedVersionId: reviewedVersion?.id,
+      reviewedVersion: reviewedVersion?.version
+    }
   });
   return persona;
 }

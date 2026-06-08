@@ -11,7 +11,8 @@ const patchSchema = z.object({
   highFrequencyWords: z.array(z.string()).optional(),
   forbiddenExpressions: z.array(z.string()).optional(),
   targetAudiences: z.array(z.string()).optional(),
-  toneExamples: z.array(z.string()).optional()
+  toneExamples: z.array(z.string()).optional(),
+  reviewStatus: z.enum(["DRAFT", "REVIEWING", "APPROVED"]).optional()
 });
 
 export const GET = withApiHandler(async (request: NextRequest, { params }: { params: { id: string } }) => {

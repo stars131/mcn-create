@@ -4,7 +4,8 @@ import {
   generatePersonaVersion,
   getPersonaMemoryDetail,
   importPersonaContent,
-  listPersonaVersions
+  listPersonaVersions,
+  updatePersona
 } from "@/server/services/persona-service";
 import { store } from "@/server/services/mock-store";
 
@@ -210,6 +211,35 @@ describe("persona service", () => {
           personaId: createdPersona.id,
           previousVersion: 2,
           nextVersion: 3
+        }
+      });
+
+      const approved = updatePersona({
+        workspaceId: "ws_demo",
+        userId: "user_owner",
+        id: createdPersona.id,
+        patch: { reviewStatus: "APPROVED" }
+      });
+      const approvedVersion = listPersonaVersions("ws_demo", createdPersona.id)[0];
+      expect(approved.reviewStatus).toBe("APPROVED");
+      expect(approvedVersion).toMatchObject({
+        id: generated.version.id,
+        status: "APPROVED",
+        reviewerId: "user_owner",
+        snapshot: {
+          reviewStatus: "APPROVED"
+        }
+      });
+      expect(approvedVersion.approvedAt).toBeTruthy();
+      expect(store.auditLogs[0]).toMatchObject({
+        action: "persona.update",
+        entityType: "PersonaProfile",
+        entityId: createdPersona.id,
+        metadata: {
+          previousReviewStatus: "REVIEWING",
+          nextReviewStatus: "APPROVED",
+          reviewedVersionId: generated.version.id,
+          reviewedVersion: 3
         }
       });
     } finally {

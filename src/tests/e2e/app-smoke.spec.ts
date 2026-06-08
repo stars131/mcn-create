@@ -396,6 +396,50 @@ test("imports historical content into persona memory", async ({ page }) => {
   await expect(page.getByText("REVIEWING").first()).toBeVisible();
 });
 
+test("creates and approves a persona review version", async ({ page }) => {
+  await loginAsOwner(page, "/persona");
+  await expect(page.getByRole("heading", { name: "人设记忆层" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "人设版本管理" })).toBeVisible();
+
+  const createResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/personas/persona_001/generate-version") && response.request().method() === "POST"
+  );
+  await page.getByRole("button", { name: "创建待审版本" }).click();
+  const createResponse = await createResponsePromise;
+  expect(createResponse.ok()).toBeTruthy();
+  await expect(createResponse.json()).resolves.toMatchObject({
+    data: {
+      persona: {
+        id: "persona_001",
+        reviewStatus: "REVIEWING"
+      },
+      version: {
+        status: "REVIEWING"
+      }
+    }
+  });
+
+  await expect(page.getByRole("status")).toHaveText("待审版本已创建");
+  await expect(page.getByText("REVIEWING").first()).toBeVisible();
+
+  const approveResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/personas/persona_001") && response.request().method() === "PATCH"
+  );
+  await page.getByRole("button", { name: "通过人设版本" }).click();
+  const approveResponse = await approveResponsePromise;
+  expect(approveResponse.ok()).toBeTruthy();
+  await expect(approveResponse.json()).resolves.toMatchObject({
+    data: {
+      id: "persona_001",
+      reviewStatus: "APPROVED"
+    }
+  });
+
+  await expect(page.getByRole("status")).toHaveText("人设版本已通过");
+  await expect(page.getByText("APPROVED").first()).toBeVisible();
+});
+
 test("edits a content draft and records a new version", async ({ page }) => {
   await loginAsOwner(page, "/content");
   await expect(page.getByRole("heading", { name: "内容工作台" })).toBeVisible();
