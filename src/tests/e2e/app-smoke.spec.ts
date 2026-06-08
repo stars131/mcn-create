@@ -241,6 +241,7 @@ test("opens the dashboard and serves core mock workflow data", async ({ page, re
 test("switches calendar views and filters publish plans by platform", async ({ page }) => {
   await loginAsOwner(page, "/calendar");
   await expect(page.getByRole("heading", { name: "内容日历" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "新增发布计划" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "周视图" })).toBeVisible();
 
   await page.getByRole("button", { name: "月视图" }).click();
@@ -249,6 +250,37 @@ test("switches calendar views and filters publish plans by platform", async ({ p
   await page.getByLabel("按平台筛选").selectOption("DOUYIN");
   await expect(page.getByText("一条热点拆三端版本").first()).toBeVisible();
   await expect(page.getByText("小团队别急着买更多 AI 工具")).toHaveCount(0);
+});
+
+test("creates a manual publish plan on the calendar", async ({ page }) => {
+  const title = `E2E 手动排期 ${Date.now()}`;
+
+  await loginAsOwner(page, "/calendar");
+  await expect(page.getByRole("heading", { name: "内容日历" })).toBeVisible();
+
+  await page.getByLabel("日程标题").fill(title);
+  await page.getByLabel("发布平台").selectOption("WECHAT");
+  await page.getByLabel("发布时间").fill("2026-06-26T09:45");
+  await page.getByLabel("负责人").fill("E2E 编辑");
+
+  const createResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/calendar/items") && response.request().method() === "POST"
+  );
+  await page.getByRole("button", { name: "新增发布计划" }).click();
+  const createResponse = await createResponsePromise;
+  expect(createResponse.ok()).toBeTruthy();
+  await expect(createResponse.json()).resolves.toMatchObject({
+    data: {
+      title,
+      platform: "WECHAT",
+      ownerName: "E2E 编辑",
+      status: "PLANNED"
+    }
+  });
+
+  await expect(page.getByRole("status")).toHaveText("发布计划已创建");
+  await expect(page.getByText(title).first()).toBeVisible();
+  await expect(page.getByText("公众号 · 06-26 09:45")).toBeVisible();
 });
 
 test("creates a topic from the topic pool form", async ({ page }) => {
