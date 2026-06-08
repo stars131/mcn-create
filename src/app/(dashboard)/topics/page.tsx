@@ -1,5 +1,6 @@
 import { ActionButton } from "@/components/ui/action-button";
 import { TopicCreateForm } from "@/components/topics/topic-create-form";
+import { TopicUpdateForm } from "@/components/topics/topic-update-form";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
@@ -122,6 +123,12 @@ export default function TopicsPage() {
                           label="加日历"
                           pendingLabel="排期中"
                           icon="calendarPlus"
+                        />
+                        <TopicUpdateForm
+                          topicId={topic.id}
+                          topicTitle={topic.title}
+                          initialStatus={topic.status}
+                          initialScore={topic.score}
                         />
                       </div>
                     </Td>

@@ -281,6 +281,27 @@ test("creates a topic from the topic pool form", async ({ page }) => {
   await expect(topicRow).toContainText("B 站");
 });
 
+test("updates a topic status and score from the topic pool", async ({ page }) => {
+  await loginAsOwner(page, "/topics");
+  await expect(page.getByRole("heading", { name: "选题池" })).toBeVisible();
+
+  const topicRow = page.locator("tr", { hasText: "一条热点如何拆成小红书、抖音和公众号三个版本" });
+  await expect(topicRow).toBeVisible();
+  await topicRow.getByLabel("调整状态：一条热点如何拆成小红书、抖音和公众号三个版本").selectOption("ADOPTED");
+  await topicRow.getByLabel("调整评分：一条热点如何拆成小红书、抖音和公众号三个版本").fill("91");
+
+  const updateResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/topics/topic_002") && response.request().method() === "PATCH"
+  );
+  await topicRow.getByRole("button", { name: "保存选题" }).click();
+  const updateResponse = await updateResponsePromise;
+  expect(updateResponse.ok()).toBeTruthy();
+
+  await expect(topicRow.getByRole("status")).toHaveText("选题已更新");
+  await expect(topicRow).toContainText("已采纳");
+  await expect(topicRow).toContainText("91");
+});
+
 test("imports historical content into persona memory", async ({ page }) => {
   const importedContent = `E2E 历史内容 ${Date.now()} 强调克制表达、人工审核和复盘证据。`;
 
