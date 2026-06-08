@@ -7,11 +7,19 @@ import { permissions, rolePermissions } from "@/lib/constants/rbac";
 import { roleLabels } from "@/lib/constants/navigation";
 import { getCurrentWorkspaceId } from "@/server/auth/session";
 import { store } from "@/server/services/mock-store";
-import { listMembers } from "@/server/services/workspace-service";
+import { listInvitations, listMembers } from "@/server/services/workspace-service";
+
+const invitationStatusTones = {
+  PENDING: "warning",
+  ACCEPTED: "success",
+  EXPIRED: "neutral",
+  REVOKED: "danger"
+} as const;
 
 export default function TeamPage() {
   const workspaceId = getCurrentWorkspaceId();
   const members = listMembers(workspaceId);
+  const invitations = listInvitations(workspaceId);
 
   return (
     <>
@@ -100,6 +108,39 @@ export default function TeamPage() {
           </CardContent>
         </Card>
       </section>
+
+      <Card className="mt-5">
+        <CardHeader>
+          <CardTitle>邀请记录</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <thead>
+              <tr>
+                <Th>邮箱</Th>
+                <Th>角色</Th>
+                <Th>状态</Th>
+                <Th>过期时间</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {invitations.slice(0, 6).map((invitation) => (
+                <tr key={invitation.id}>
+                  <Td>
+                    <div className="font-medium">{invitation.email}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">token：{invitation.token.slice(0, 12)}...</div>
+                  </Td>
+                  <Td>{roleLabels[invitation.roleKey]}</Td>
+                  <Td>
+                    <Badge tone={invitationStatusTones[invitation.status]}>{invitation.status}</Badge>
+                  </Td>
+                  <Td>{new Date(invitation.expiresAt).toLocaleDateString("zh-CN")}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </CardContent>
+      </Card>
     </>
   );
 }

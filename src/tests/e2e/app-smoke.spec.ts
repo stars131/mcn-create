@@ -47,6 +47,14 @@ test("opens the dashboard and serves core mock workflow data", async ({ page, re
   await expect(page.getByRole("heading", { name: "发布作品日指标" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "账号日指标" })).toBeVisible();
 
+  await page.goto("/team");
+  await expect(page.getByRole("heading", { name: "团队与权限" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "邀请记录" })).toBeVisible();
+
+  await page.goto("/settings");
+  await expect(page.getByRole("heading", { name: "系统设置" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "通知中心" })).toBeVisible();
+
   const hotspots = await request.get("/api/hotspots", {
     headers: { Cookie: ownerCookie }
   });
@@ -84,6 +92,27 @@ test("opens the dashboard and serves core mock workflow data", async ({ page, re
   expect(analyticsPayload.data.publishedPosts.length).toBeGreaterThan(0);
   expect(analyticsPayload.data.postDailyMetrics.length).toBeGreaterThan(0);
   expect(analyticsPayload.data.accountDailyMetrics.length).toBeGreaterThan(0);
+
+  const invitations = await request.get("/api/workspaces/ws_demo/invitations", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(invitations.ok()).toBeTruthy();
+  const invitationsPayload = await invitations.json();
+  expect(invitationsPayload.data.length).toBeGreaterThan(0);
+
+  const notifications = await request.get("/api/notifications", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(notifications.ok()).toBeTruthy();
+  const notificationsPayload = await notifications.json();
+  expect(notificationsPayload.data.length).toBeGreaterThan(0);
+
+  const systemSettings = await request.get("/api/settings/system", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(systemSettings.ok()).toBeTruthy();
+  const systemSettingsPayload = await systemSettings.json();
+  expect(systemSettingsPayload.data.map((setting: { key: string }) => setting.key)).toContain("risk_review_policy");
 
   const agentRuns = await request.get("/api/agent-runs", {
     headers: { Cookie: ownerCookie }
@@ -221,6 +250,8 @@ test("exposes API key, webhook, and usage reserves with RBAC", async ({ page, re
   await expect(page.getByRole("heading", { name: "API Key", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Webhook", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "用量与额度", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "系统设置", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "通知中心", exact: true })).toBeVisible();
   await expect(page.getByText("Server ingest key")).toBeVisible();
 
   const keys = await request.get("/api/settings/api-keys", {

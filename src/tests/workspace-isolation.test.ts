@@ -90,6 +90,8 @@ describe("workspace isolation", () => {
   it("normalizes member invites and rejects duplicate workspace memberships", () => {
     const email = `Invite-${crypto.randomUUID()}@contentos.local`;
     const createdMemberIds: string[] = [];
+    const beforeInvitationIds = new Set(store.invitations.map((invitation) => invitation.id));
+    const beforeNotificationIds = new Set(store.notifications.map((notification) => notification.id));
 
     try {
       const member = inviteMember({
@@ -106,6 +108,27 @@ describe("workspace isolation", () => {
         email: email.toLowerCase(),
         role: "VIEWER"
       });
+      const invitation = store.invitations.find((item) => !beforeInvitationIds.has(item.id));
+      const notification = store.notifications.find((item) => !beforeNotificationIds.has(item.id));
+      expect(invitation).toMatchObject({
+        workspaceId: "ws_demo",
+        email: email.toLowerCase(),
+        roleKey: "VIEWER",
+        invitedById: "user_owner",
+        status: "ACCEPTED"
+      });
+      expect(notification).toMatchObject({
+        workspaceId: "ws_demo",
+        title: "新成员已加入 workspace"
+      });
+      expect(store.auditLogs[0]).toMatchObject({
+        action: "member.invite",
+        metadata: {
+          invitationId: invitation?.id,
+          notificationId: notification?.id,
+          invitationStatus: "ACCEPTED"
+        }
+      });
       expect(() =>
         inviteMember({
           workspaceId: "ws_demo",
@@ -117,6 +140,8 @@ describe("workspace isolation", () => {
       expect(store.teamMembers.filter((item) => item.email === email.toLowerCase())).toHaveLength(1);
     } finally {
       store.teamMembers = store.teamMembers.filter((member) => !createdMemberIds.includes(member.id));
+      store.invitations = store.invitations.filter((invitation) => beforeInvitationIds.has(invitation.id));
+      store.notifications = store.notifications.filter((notification) => beforeNotificationIds.has(notification.id));
       store.auditLogs = store.auditLogs.filter((log) => !createdMemberIds.includes(log.entityId ?? ""));
     }
   });

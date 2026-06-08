@@ -1,7 +1,8 @@
 import { writeAuditLog } from "@/server/audit/audit-service";
 import { ApiError } from "@/server/errors";
 import { defaultWorkspace, nextId, store } from "@/server/services/mock-store";
-import type { RoleKey, TeamMember, Workspace } from "@/types/domain";
+import { createNotification } from "@/server/services/notification-service";
+import type { Invitation, RoleKey, TeamMember, Workspace } from "@/types/domain";
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
@@ -123,6 +124,12 @@ export function listMembers(workspaceId: string) {
   return store.teamMembers.filter((member) => member.workspaceId === workspaceId);
 }
 
+export function listInvitations(workspaceId: string) {
+  return store.invitations
+    .filter((invitation) => invitation.workspaceId === workspaceId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
 export function inviteMember(input: {
   workspaceId: string;
   email: string;
@@ -141,6 +148,20 @@ export function inviteMember(input: {
   }
 
   const existingUser = store.users.find((user) => normalizeEmail(user.email) === email);
+  const now = new Date().toISOString();
+  const invitation: Invitation = {
+    id: nextId("invitation"),
+    workspaceId: input.workspaceId,
+    email,
+    roleKey: input.role,
+    token: `invite_${crypto.randomUUID().replace(/-/g, "").slice(0, 18)}`,
+    invitedById: input.userId,
+    status: "ACCEPTED",
+    expiresAt: new Date(Date.now() + 7 * 86400000).toISOString(),
+    acceptedAt: now,
+    createdAt: now,
+    updatedAt: now
+  };
   const member: TeamMember = {
     id: nextId("member"),
     workspaceId: input.workspaceId,
@@ -148,16 +169,27 @@ export function inviteMember(input: {
     email,
     role: input.role,
     title: input.title ?? "待确认成员",
-    joinedAt: new Date().toISOString()
+    joinedAt: now
   };
+  store.invitations.unshift(invitation);
   store.teamMembers.push(member);
+  const notification = createNotification({
+    workspaceId: input.workspaceId,
+    title: "新成员已加入 workspace",
+    body: `${email} 已作为 ${input.role} 加入当前 workspace。`
+  });
   writeAuditLog({
     workspaceId: input.workspaceId,
     userId: input.userId,
     action: "member.invite",
     entityType: "Membership",
     entityId: member.id,
-    summary: `邀请成员 ${input.email} 为 ${input.role}`
+    summary: `邀请成员 ${input.email} 为 ${input.role}`,
+    metadata: {
+      invitationId: invitation.id,
+      notificationId: notification.id,
+      invitationStatus: invitation.status
+    }
   });
   return member;
 }

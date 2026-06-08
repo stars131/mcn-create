@@ -1,7 +1,7 @@
 import { writeAuditLog } from "@/server/audit/audit-service";
 import { ApiError } from "@/server/errors";
 import { getWorkspaceScoped, nextId, store } from "@/server/services/mock-store";
-import type { ApiKey, CreditLedger, UsageEvent, WebhookEndpoint } from "@/types/domain";
+import type { ApiKey, CreditLedger, SystemSetting, UsageEvent, WebhookEndpoint } from "@/types/domain";
 
 export type PublicApiKey = Omit<ApiKey, "keyHash"> & {
   keyPreview: string;
@@ -97,6 +97,54 @@ export function revokeApiKey(input: { workspaceId: string; userId: string; id: s
 
 export function listWebhookEndpoints(workspaceId: string) {
   return getWorkspaceScoped(store.webhookEndpoints, workspaceId).map(publicWebhookEndpoint);
+}
+
+export function listSystemSettings(workspaceId: string) {
+  return store.systemSettings
+    .filter((setting) => setting.workspaceId === undefined || setting.workspaceId === workspaceId)
+    .sort((a, b) => a.key.localeCompare(b.key));
+}
+
+export function upsertSystemSetting(input: {
+  workspaceId?: string;
+  userId?: string;
+  key: string;
+  value: unknown;
+}) {
+  const key = normalizeName(input.key);
+  const now = new Date().toISOString();
+  let setting = store.systemSettings.find(
+    (item) => item.workspaceId === input.workspaceId && item.key === key
+  );
+
+  if (!setting) {
+    setting = {
+      id: nextId("system_setting"),
+      workspaceId: input.workspaceId,
+      key,
+      value: input.value,
+      createdAt: now,
+      updatedAt: now
+    };
+    store.systemSettings.unshift(setting);
+  } else {
+    setting.value = input.value;
+    setting.updatedAt = now;
+  }
+
+  writeAuditLog({
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    action: "system_setting.upsert",
+    entityType: "SystemSetting",
+    entityId: setting.id,
+    summary: `更新系统设置：${setting.key}`,
+    metadata: {
+      key: setting.key
+    }
+  });
+
+  return setting as SystemSetting;
 }
 
 export function createWebhookEndpoint(input: {

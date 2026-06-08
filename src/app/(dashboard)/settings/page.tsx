@@ -8,7 +8,13 @@ import { listAuditLogs } from "@/server/audit/audit-service";
 import { promptTemplates } from "@/server/ai/prompts/templates";
 import { getCurrentUser, getCurrentWorkspaceId } from "@/server/auth/session";
 import { store } from "@/server/services/mock-store";
-import { getUsageSummary, listApiKeys, listWebhookEndpoints } from "@/server/services/settings-service";
+import { listNotifications } from "@/server/services/notification-service";
+import {
+  getUsageSummary,
+  listApiKeys,
+  listSystemSettings,
+  listWebhookEndpoints
+} from "@/server/services/settings-service";
 
 export default function SettingsPage() {
   const user = getCurrentUser();
@@ -18,6 +24,8 @@ export default function SettingsPage() {
   const apiKeys = listApiKeys(workspaceId);
   const webhooks = listWebhookEndpoints(workspaceId);
   const usageSummary = getUsageSummary(workspaceId);
+  const systemSettings = listSystemSettings(workspaceId);
+  const notifications = listNotifications(workspaceId, user.id);
 
   return (
     <>
@@ -81,6 +89,82 @@ export default function SettingsPage() {
               </div>
             </div>
             <p>ApiKey、WebhookEndpoint、UsageEvent 和 CreditLedger 已进入 mock 运行层，可通过 API 和审计日志验证。</p>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="mt-5 grid gap-4 xl:grid-cols-[1fr_420px]">
+        <Card>
+          <CardHeader className="flex items-center justify-between gap-3 sm:flex-row">
+            <CardTitle>系统设置</CardTitle>
+            <ActionButton
+              endpoint="/api/settings/system"
+              method="PATCH"
+              body={{
+                key: "risk_review_policy",
+                value: {
+                  requireRiskCheckBeforeSchedule: true,
+                  restrictedDomains: ["医疗", "金融", "法律", "时政"],
+                  updatedFrom: "settings_page"
+                }
+              }}
+              label="刷新策略"
+              pendingLabel="更新中"
+              icon="sparkles"
+              variant="primary"
+            />
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Key</Th>
+                  <Th>作用域</Th>
+                  <Th>值</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {systemSettings.map((setting) => (
+                  <tr key={setting.id}>
+                    <Td className="font-medium">{setting.key}</Td>
+                    <Td>{setting.workspaceId ? "Workspace" : "Global"}</Td>
+                    <Td className="max-w-[360px] text-xs leading-5 text-muted-foreground">
+                      {JSON.stringify(setting.value)}
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>通知中心</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {notifications.slice(0, 5).map((notification) => (
+              <div key={notification.id} className="rounded-md border border-border p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium">{notification.title}</div>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">{notification.body}</p>
+                  </div>
+                  {notification.readAt ? <Badge tone="neutral">已读</Badge> : <Badge tone="warning">未读</Badge>}
+                </div>
+                {!notification.readAt ? (
+                  <div className="mt-3">
+                    <ActionButton
+                      endpoint={`/api/notifications/${notification.id}`}
+                      method="PATCH"
+                      label="标为已读"
+                      pendingLabel="更新中"
+                      icon="checkCircle"
+                    />
+                  </div>
+                ) : null}
+              </div>
+            ))}
           </CardContent>
         </Card>
       </section>

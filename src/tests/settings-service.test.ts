@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "@/server/errors";
+import { createNotification, listNotifications, markNotificationRead } from "@/server/services/notification-service";
 import { store } from "@/server/services/mock-store";
 import {
   createApiKey,
   createWebhookEndpoint,
   getUsageSummary,
+  listSystemSettings,
   recordCreditLedger,
   revokeApiKey,
+  upsertSystemSetting,
   updateWebhookEndpoint
 } from "@/server/services/settings-service";
 
@@ -118,6 +121,71 @@ describe("settings service", () => {
       if (createdId) {
         store.creditLedger = store.creditLedger.filter((entry) => entry.id !== createdId);
       }
+    }
+  });
+
+  it("lists system settings and upserts workspace-scoped values", () => {
+    const beforeSettingIds = new Set(store.systemSettings.map((setting) => setting.id));
+    const beforeAuditLogIds = new Set(store.auditLogs.map((log) => log.id));
+
+    try {
+      const initialSettings = listSystemSettings("ws_demo");
+      expect(initialSettings.map((setting) => setting.key)).toEqual(
+        expect.arrayContaining(["ai_provider_policy", "data_retention_policy", "risk_review_policy"])
+      );
+
+      const setting = upsertSystemSetting({
+        workspaceId: "ws_demo",
+        userId: "user_owner",
+        key: "content_export_policy",
+        value: {
+          allowMockExport: true,
+          requireAuditLog: true
+        }
+      });
+
+      expect(listSystemSettings("ws_demo")).toContainEqual(setting);
+      expect(listSystemSettings("ws_brand").some((item) => item.id === setting.id)).toBe(false);
+      expect(store.auditLogs[0]).toMatchObject({
+        action: "system_setting.upsert",
+        entityType: "SystemSetting",
+        entityId: setting.id,
+        metadata: {
+          key: "content_export_policy"
+        }
+      });
+    } finally {
+      store.systemSettings = store.systemSettings.filter((setting) => beforeSettingIds.has(setting.id));
+      store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
+    }
+  });
+
+  it("creates and marks notifications as read per workspace", () => {
+    const beforeNotificationIds = new Set(store.notifications.map((notification) => notification.id));
+
+    try {
+      const notification = createNotification({
+        workspaceId: "ws_demo",
+        userId: "user_owner",
+        title: "测试通知",
+        body: "测试通知正文"
+      });
+
+      expect(listNotifications("ws_demo", "user_owner")[0]).toMatchObject({
+        id: notification.id,
+        title: "测试通知"
+      });
+      expect(listNotifications("ws_demo", "user_owner")[0].readAt).toBeUndefined();
+      expect(listNotifications("ws_brand", "user_owner").some((item) => item.id === notification.id)).toBe(false);
+
+      const read = markNotificationRead("ws_demo", notification.id);
+      expect(read).toMatchObject({
+        id: notification.id
+      });
+      expect(read?.readAt).toBeTruthy();
+      expect(markNotificationRead("ws_brand", notification.id)).toBeUndefined();
+    } finally {
+      store.notifications = store.notifications.filter((notification) => beforeNotificationIds.has(notification.id));
     }
   });
 });

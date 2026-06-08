@@ -36,6 +36,7 @@ export type MetricImportFileType = "RECORDS" | "JSON" | "CSV" | "TSV" | "EXCEL";
 export type ImportedMetricFileStatus = "PARSED" | "FAILED";
 export type ExperimentStatus = "PLANNED" | "RUNNING" | "COMPLETED" | "PAUSED";
 export type RecommendationStatus = "OPEN" | "CONVERTED" | "DISMISSED";
+export type InvitationStatus = "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
 
 export interface Workspace {
   id: string;
@@ -51,6 +52,20 @@ export interface User {
   name: string;
   currentWorkspaceId: string;
   role: RoleKey;
+}
+
+export interface Invitation {
+  id: string;
+  workspaceId: string;
+  email: string;
+  roleKey: RoleKey;
+  token: string;
+  invitedById: string;
+  status: InvitationStatus;
+  expiresAt: string;
+  acceptedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface HotItem {
@@ -647,6 +662,17 @@ export interface AuditLog {
   createdAt: string;
 }
 
+export interface Notification {
+  id: string;
+  workspaceId: string;
+  userId?: string;
+  title: string;
+  body: string;
+  readAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface UsageEvent {
   id: string;
   workspaceId: string;
@@ -688,6 +714,15 @@ export interface WebhookEndpoint {
   secretHash?: string;
   events: string[];
   enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SystemSetting {
+  id: string;
+  workspaceId?: string;
+  key: string;
+  value: unknown;
   createdAt: string;
   updatedAt: string;
 }

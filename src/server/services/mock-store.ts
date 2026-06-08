@@ -24,8 +24,10 @@ import type {
   HotCluster,
   HotItem,
   ImportedMetricFile,
+  Invitation,
   MetricRecord,
   ForbiddenExpression,
+  Notification,
   PersonaMemoryChunk,
   PersonaProfile,
   PersonaRule,
@@ -39,6 +41,7 @@ import type {
   PublishedPost,
   PublishPlan,
   Recommendation,
+  SystemSetting,
   TargetAudience,
   TeamMember,
   ToneExample,
@@ -59,6 +62,7 @@ const iso = (offsetDays = 0) => new Date(now.getTime() + offsetDays * 86400000).
 export interface MockStore {
   users: User[];
   workspaces: Workspace[];
+  invitations: Invitation[];
   hotItems: HotItem[];
   hotClusters: HotCluster[];
   topics: Topic[];
@@ -102,10 +106,12 @@ export interface MockStore {
   agentOutputs: AgentOutput[];
   agentFeedback: AgentFeedback[];
   auditLogs: AuditLog[];
+  notifications: Notification[];
   usageEvents: UsageEvent[];
   creditLedger: CreditLedger[];
   apiKeys: ApiKey[];
   webhookEndpoints: WebhookEndpoint[];
+  systemSettings: SystemSetting[];
   teamMembers: TeamMember[];
 }
 
@@ -175,6 +181,32 @@ const initialStore: MockStore = {
     }
   ],
   workspaces: [defaultWorkspace, secondaryWorkspace, privateWorkspace],
+  invitations: [
+    {
+      id: "invitation_001",
+      workspaceId: defaultWorkspace.id,
+      email: "pending-editor@contentos.local",
+      roleKey: "EDITOR",
+      token: "invite_demo_editor",
+      invitedById: "user_owner",
+      status: "PENDING",
+      expiresAt: iso(7),
+      createdAt: iso(-1),
+      updatedAt: iso(-1)
+    },
+    {
+      id: "invitation_002",
+      workspaceId: secondaryWorkspace.id,
+      email: "brand-viewer@contentos.local",
+      roleKey: "VIEWER",
+      token: "invite_brand_viewer",
+      invitedById: "user_owner",
+      status: "PENDING",
+      expiresAt: iso(5),
+      createdAt: iso(-2),
+      updatedAt: iso(-2)
+    }
+  ],
   hotItems: [
     {
       id: "hot_001",
@@ -1359,6 +1391,26 @@ const initialStore: MockStore = {
       createdAt: iso()
     }
   ],
+  notifications: [
+    {
+      id: "notification_001",
+      workspaceId: defaultWorkspace.id,
+      userId: "user_owner",
+      title: "人设版本待审阅",
+      body: "务实型内容增长顾问的人设版本已进入 REVIEWING，可在记忆层查看差异。",
+      createdAt: iso(-1),
+      updatedAt: iso(-1)
+    },
+    {
+      id: "notification_002",
+      workspaceId: defaultWorkspace.id,
+      title: "本周数据复盘已生成",
+      body: "Analytics Agent 已生成周报，并沉淀 A/B 假设与选题回流建议。",
+      readAt: iso(),
+      createdAt: iso(-2),
+      updatedAt: iso()
+    }
+  ],
   usageEvents: [
     {
       id: "usage_001",
@@ -1430,6 +1482,42 @@ const initialStore: MockStore = {
       events: ["agent.run.success", "content.scheduled"],
       enabled: true,
       createdAt: iso(-5),
+      updatedAt: iso(-1)
+    }
+  ],
+  systemSettings: [
+    {
+      id: "system_setting_001",
+      key: "data_retention_policy",
+      value: {
+        metricDays: 365,
+        auditDays: 730,
+        authorizationCacheDays: 30
+      },
+      createdAt: iso(-10),
+      updatedAt: iso(-1)
+    },
+    {
+      id: "system_setting_002",
+      workspaceId: defaultWorkspace.id,
+      key: "ai_provider_policy",
+      value: {
+        provider: "mock",
+        allowExternalModels: false,
+        requireAgentAudit: true
+      },
+      createdAt: iso(-8),
+      updatedAt: iso(-1)
+    },
+    {
+      id: "system_setting_003",
+      workspaceId: defaultWorkspace.id,
+      key: "risk_review_policy",
+      value: {
+        requireRiskCheckBeforeSchedule: true,
+        restrictedDomains: ["医疗", "金融", "法律", "时政"]
+      },
+      createdAt: iso(-8),
       updatedAt: iso(-1)
     }
   ],
