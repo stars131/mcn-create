@@ -1,5 +1,5 @@
+import { MemberRoleSelect } from "@/components/team/member-role-select";
 import { TeamInviteForm } from "@/components/team/team-invite-form";
-import { ActionButton } from "@/components/ui/action-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
@@ -60,17 +60,12 @@ export default function TeamPage() {
                     <Td>{member.title}</Td>
                     <Td>{new Date(member.joinedAt).toLocaleDateString("zh-CN")}</Td>
                     <Td>
-                      {member.role !== "OWNER" ? (
-                        <ActionButton
-                          endpoint={`/api/workspaces/${workspaceId}/members/${member.id}`}
-                          method="PATCH"
-                          body={{ role: member.role === "VIEWER" ? "EDITOR" : "VIEWER" }}
-                          label="切换角色"
-                          pendingLabel="更新中"
-                        />
-                      ) : (
-                        <span className="text-xs text-muted-foreground">Owner</span>
-                      )}
+                      <MemberRoleSelect
+                        workspaceId={workspaceId}
+                        memberId={member.id}
+                        memberEmail={member.email}
+                        initialRole={member.role}
+                      />
                     </Td>
                   </tr>
                 ))}

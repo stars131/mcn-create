@@ -315,6 +315,18 @@ test("invites a workspace member with an explicit role", async ({ page }) => {
   await expect(page.getByRole("status")).toHaveText("邀请已发送");
   const memberRow = page.locator("tr", { hasText: email }).filter({ hasText: "E2E 内容编辑" });
   await expect(memberRow).toBeVisible();
+  await expect(memberRow.getByLabel(`调整权限：${email}`)).toHaveValue("EDITOR");
+
+  await memberRow.getByLabel(`调整权限：${email}`).selectOption("ANALYST");
+  const roleResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/workspaces/ws_demo/members/") && response.request().method() === "PATCH"
+  );
+  await memberRow.getByRole("button", { name: "保存角色" }).click();
+  const roleResponse = await roleResponsePromise;
+  expect(roleResponse.ok()).toBeTruthy();
+
+  await expect(memberRow.getByRole("status")).toHaveText("角色已更新");
+  await expect(memberRow.getByLabel(`调整权限：${email}`)).toHaveValue("ANALYST");
 });
 
 test("logs out and clears access to protected pages", async ({ page }) => {
