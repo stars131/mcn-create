@@ -1,4 +1,5 @@
 import { ActionButton } from "@/components/ui/action-button";
+import { TopicCreateForm } from "@/components/topics/topic-create-form";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
@@ -38,6 +39,14 @@ export default function TopicsPage() {
         title="选题池"
         description="承接热点 Agent 与数据分析 Agent 的输出，支持评分、状态流转、生成 brief 和加入内容日历。"
       />
+      <Card className="mb-5">
+        <CardHeader>
+          <CardTitle>手动新建选题</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <TopicCreateForm />
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle>选题列表</CardTitle>

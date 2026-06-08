@@ -251,6 +251,36 @@ test("switches calendar views and filters publish plans by platform", async ({ p
   await expect(page.getByText("小团队别急着买更多 AI 工具")).toHaveCount(0);
 });
 
+test("creates a topic from the topic pool form", async ({ page }) => {
+  const title = `E2E 手动选题 ${Date.now()}`;
+  const angle = "E2E 用小团队复盘场景说明选题运行记录的价值。";
+
+  await loginAsOwner(page, "/topics");
+  await expect(page.getByRole("heading", { name: "选题池" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "手动新建选题" })).toBeVisible();
+
+  await page.getByLabel("选题标题").fill(title);
+  await page.getByLabel("切入角度").fill(angle);
+  await page.getByLabel("目标受众").fill("E2E 内容团队负责人");
+  await page.getByLabel("B 站").check();
+
+  const createResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/topics") && response.request().method() === "POST"
+  );
+  await page.getByRole("button", { name: "新建选题" }).click();
+  const createResponse = await createResponsePromise;
+  expect(createResponse.ok()).toBeTruthy();
+
+  await expect(page.getByRole("status")).toHaveText("选题已创建");
+  const topicRow = page.locator("tr", { hasText: title });
+  await expect(topicRow).toBeVisible();
+  await expect(topicRow).toContainText(angle);
+  await expect(topicRow).toContainText("72");
+  await expect(topicRow).toContainText("小红书");
+  await expect(topicRow).toContainText("抖音");
+  await expect(topicRow).toContainText("B 站");
+});
+
 test("imports historical content into persona memory", async ({ page }) => {
   const importedContent = `E2E 历史内容 ${Date.now()} 强调克制表达、人工审核和复盘证据。`;
 
