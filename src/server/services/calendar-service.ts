@@ -1,6 +1,7 @@
 import { writeAuditLog } from "@/server/audit/audit-service";
 import { ApiError } from "@/server/errors";
 import { getWorkspaceScoped, nextId, store } from "@/server/services/mock-store";
+import { createPublishedPostFromCalendarItem } from "@/server/services/publishing-service";
 import type { CalendarItem, Platform } from "@/types/domain";
 
 export function listCalendarItems(workspaceId: string) {
@@ -54,6 +55,7 @@ export function updateCalendarItem(input: {
 }) {
   const item = getCalendarItem(input.workspaceId, input.id);
   Object.assign(item, input.patch);
+  const publishedPost = input.patch.status === "PUBLISHED" ? createPublishedPostFromCalendarItem(item) : undefined;
   writeAuditLog({
     workspaceId: input.workspaceId,
     userId: input.userId,
@@ -61,7 +63,10 @@ export function updateCalendarItem(input: {
     entityType: "CalendarItem",
     entityId: item.id,
     summary: `更新日历项：${item.title}`,
-    metadata: input.patch
+    metadata: {
+      ...input.patch,
+      publishedPostId: publishedPost?.id
+    }
   });
   return item;
 }

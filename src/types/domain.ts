@@ -370,6 +370,48 @@ export interface PublishPlan {
   updatedAt: string;
 }
 
+export interface PublishedPost {
+  id: string;
+  workspaceId: string;
+  publishPlanId?: string;
+  contentDraftId: string;
+  platform: Platform;
+  platformPostId?: string;
+  url?: string;
+  publishedAt: string;
+  metrics?: Record<string, number>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PostMetricDaily {
+  id: string;
+  workspaceId: string;
+  publishedPostId?: string;
+  platform: Platform;
+  metricDate: string;
+  views: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  conversions: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AccountMetricDaily {
+  id: string;
+  workspaceId: string;
+  platformAccountId?: string;
+  platform: Platform;
+  metricDate: string;
+  followers: number;
+  impressions: number;
+  engagementRate: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CalendarItem {
   id: string;
   workspaceId: string;

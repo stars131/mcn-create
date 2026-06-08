@@ -42,6 +42,11 @@ test("opens the dashboard and serves core mock workflow data", async ({ page, re
   await expect(page.getByRole("heading", { name: "数据源与平台授权" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "授权账号" })).toBeVisible();
 
+  await page.goto("/analytics");
+  await expect(page.getByRole("heading", { name: "数据分析" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "发布作品日指标" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "账号日指标" })).toBeVisible();
+
   const hotspots = await request.get("/api/hotspots", {
     headers: { Cookie: ownerCookie }
   });
@@ -70,6 +75,15 @@ test("opens the dashboard and serves core mock workflow data", async ({ page, re
   expect(platformAuthorizationPayload.data.accounts.length).toBeGreaterThan(0);
   expect(platformAuthorizationPayload.data.authorizations[0]).toHaveProperty("hasTokenRef");
   expect(platformAuthorizationPayload.data.authorizations[0]).not.toHaveProperty("tokenRef");
+
+  const analyticsOverview = await request.get("/api/analytics/overview", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(analyticsOverview.ok()).toBeTruthy();
+  const analyticsPayload = await analyticsOverview.json();
+  expect(analyticsPayload.data.publishedPosts.length).toBeGreaterThan(0);
+  expect(analyticsPayload.data.postDailyMetrics.length).toBeGreaterThan(0);
+  expect(analyticsPayload.data.accountDailyMetrics.length).toBeGreaterThan(0);
 
   const agentRuns = await request.get("/api/agent-runs", {
     headers: { Cookie: ownerCookie }

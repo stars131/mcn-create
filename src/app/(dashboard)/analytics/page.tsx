@@ -53,6 +53,7 @@ export default function AnalyticsPage() {
   const posts = listPostMetrics(workspaceId);
   const report = overview.reports[0];
   const openRecommendations = overview.recommendations.filter((item) => item.status === "OPEN").length;
+  const publishedPostById = new Map(overview.publishedPosts.map((post) => [post.id, post]));
 
   return (
     <>
@@ -89,7 +90,7 @@ export default function AnalyticsPage() {
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="总曝光" value={overview.totals.views.toLocaleString()} delta="导入与 mock 指标" icon={BarChart3} />
         <MetricCard label="互动数" value={(overview.totals.likes + overview.totals.comments + overview.totals.shares).toLocaleString()} icon={BarChart3} />
-        <MetricCard label="导入文件" value={overview.importedFiles.length} delta="含解析行数与来源" icon={BarChart3} />
+        <MetricCard label="已发布作品" value={overview.publishedPosts.length} delta="发布计划回写" icon={BarChart3} />
         <MetricCard label="待处理建议" value={openRecommendations} delta="可回流选题与人设" icon={BarChart3} />
       </section>
 
@@ -261,6 +262,79 @@ export default function AnalyticsPage() {
                         {recommendationStatusLabels[recommendation.status]}
                       </Badge>
                     </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="mt-5 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle>发布作品日指标</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>作品</Th>
+                  <Th>平台</Th>
+                  <Th>日期</Th>
+                  <Th>曝光</Th>
+                  <Th>互动</Th>
+                  <Th>转化</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {overview.postDailyMetrics.slice(0, 6).map((metric) => {
+                  const publishedPost = metric.publishedPostId ? publishedPostById.get(metric.publishedPostId) : undefined;
+
+                  return (
+                    <tr key={metric.id}>
+                      <Td>
+                        <div className="font-medium">{publishedPost?.platformPostId ?? metric.publishedPostId ?? "手动导入作品"}</div>
+                        <div className="mt-1 text-xs text-muted-foreground">{publishedPost?.url ?? "等待平台链接"}</div>
+                      </Td>
+                      <Td>
+                        <Badge tone="info">{platformLabels[metric.platform]}</Badge>
+                      </Td>
+                      <Td>{shortDate(metric.metricDate)}</Td>
+                      <Td>{metric.views.toLocaleString()}</Td>
+                      <Td>{(metric.likes + metric.comments + metric.shares).toLocaleString()}</Td>
+                      <Td>{metric.conversions}</Td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>账号日指标</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>平台</Th>
+                  <Th>粉丝</Th>
+                  <Th>曝光</Th>
+                  <Th>互动率</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {overview.accountDailyMetrics.slice(0, 6).map((metric) => (
+                  <tr key={metric.id}>
+                    <Td>
+                      <Badge tone="info">{platformLabels[metric.platform]}</Badge>
+                    </Td>
+                    <Td>{metric.followers.toLocaleString()}</Td>
+                    <Td>{metric.impressions.toLocaleString()}</Td>
+                    <Td>{metric.engagementRate}%</Td>
                   </tr>
                 ))}
               </tbody>

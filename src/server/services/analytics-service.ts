@@ -3,6 +3,11 @@ import { writeAuditLog } from "@/server/audit/audit-service";
 import { ApiError } from "@/server/errors";
 import { enqueueAndProcessAgentJob } from "@/server/queue/agent-queue";
 import { getWorkspaceScoped, nextId, store } from "@/server/services/mock-store";
+import {
+  listAccountMetricDaily,
+  listPostMetricDaily,
+  listPublishedPosts
+} from "@/server/services/publishing-service";
 import { createInitialTopicRuntimeRecords } from "@/server/services/topic-runtime";
 import type {
   ImportedMetricFile,
@@ -253,6 +258,9 @@ export function parseMetricImport(payload: MetricImportPayload) {
 
 export function getAnalyticsOverview(workspaceId: string) {
   const records = getWorkspaceScoped(store.metricRecords, workspaceId);
+  const postDailyMetrics = listPostMetricDaily(workspaceId);
+  const accountDailyMetrics = listAccountMetricDaily(workspaceId);
+  const publishedPosts = listPublishedPosts(workspaceId);
   const totals = records.reduce(
     (acc, record) => ({
       views: acc.views + record.views,
@@ -263,14 +271,44 @@ export function getAnalyticsOverview(workspaceId: string) {
     }),
     { views: 0, likes: 0, comments: 0, shares: 0, conversions: 0 }
   );
+  const publishedTotals = postDailyMetrics.reduce(
+    (acc, metric) => ({
+      views: acc.views + metric.views,
+      likes: acc.likes + metric.likes,
+      comments: acc.comments + metric.comments,
+      shares: acc.shares + metric.shares,
+      conversions: acc.conversions + metric.conversions
+    }),
+    { views: 0, likes: 0, comments: 0, shares: 0, conversions: 0 }
+  );
+  const combinedTotals = {
+    views: totals.views + publishedTotals.views,
+    likes: totals.likes + publishedTotals.likes,
+    comments: totals.comments + publishedTotals.comments,
+    shares: totals.shares + publishedTotals.shares,
+    conversions: totals.conversions + publishedTotals.conversions
+  };
   return {
-    totals,
-    trend: records.map((record) => ({
-      name: record.title.slice(0, 8),
-      views: record.views,
-      engagement: record.likes + record.comments + record.shares,
-      conversions: record.conversions
-    })),
+    totals: combinedTotals,
+    importedTotals: totals,
+    publishedTotals,
+    trend: [
+      ...records.map((record) => ({
+        name: record.title.slice(0, 8),
+        views: record.views,
+        engagement: record.likes + record.comments + record.shares,
+        conversions: record.conversions
+      })),
+      ...postDailyMetrics.map((metric) => ({
+        name: `${metric.platform}-${metric.metricDate.slice(5, 10)}`,
+        views: metric.views,
+        engagement: metric.likes + metric.comments + metric.shares,
+        conversions: metric.conversions
+      }))
+    ],
+    publishedPosts,
+    postDailyMetrics,
+    accountDailyMetrics,
     importedFiles: getWorkspaceScoped(store.importedMetricFiles, workspaceId),
     reports: getWorkspaceScoped(store.analyticsReports, workspaceId),
     commentInsights: getWorkspaceScoped(store.commentInsights, workspaceId),

@@ -4,6 +4,7 @@ import {
   listCalendarItems,
   updateCalendarItem
 } from "@/server/services/calendar-service";
+import { scheduleContent } from "@/server/services/content-service";
 import { store } from "@/server/services/mock-store";
 
 describe("calendar service", () => {
@@ -110,6 +111,84 @@ describe("calendar service", () => {
     } finally {
       store.calendarItems = store.calendarItems.filter((record) => record.id !== item.id);
       store.auditLogs = store.auditLogs.filter((log) => log.entityId !== item.id);
+    }
+  });
+
+  it("creates published post and daily metrics when a linked calendar item is published", () => {
+    const content = store.contentDrafts.find((item) => item.id === "content_001");
+    expect(content).toBeTruthy();
+    const originalContent = {
+      ...content!,
+      riskItems: [...content!.riskItems]
+    };
+    const beforePublishPlanIds = new Set(store.publishPlans.map((plan) => plan.id));
+    const beforeCalendarIds = new Set(store.calendarItems.map((item) => item.id));
+    const beforePublishedPostIds = new Set(store.publishedPosts.map((post) => post.id));
+    const beforePostMetricIds = new Set(store.postMetricDaily.map((metric) => metric.id));
+    const beforeAccountMetricIds = new Set(store.accountMetricDaily.map((metric) => metric.id));
+    const beforeAuditLogIds = new Set(store.auditLogs.map((log) => log.id));
+
+    try {
+      const scheduledAt = "2026-07-01T09:00:00.000Z";
+      const calendarItem = scheduleContent({
+        workspaceId: "ws_demo",
+        userId: "user_owner",
+        id: "content_001",
+        platform: "XIAOHONGSHU",
+        scheduledAt
+      });
+      const publishPlan = store.publishPlans.find((plan) => !beforePublishPlanIds.has(plan.id));
+
+      const publishedItem = updateCalendarItem({
+        workspaceId: "ws_demo",
+        userId: "user_owner",
+        id: calendarItem.id,
+        patch: { status: "PUBLISHED" }
+      });
+      const publishedPost = store.publishedPosts.find((post) => !beforePublishedPostIds.has(post.id));
+      const postMetric = store.postMetricDaily.find((metric) => !beforePostMetricIds.has(metric.id));
+      const accountMetric = store.accountMetricDaily.find((metric) => !beforeAccountMetricIds.has(metric.id));
+
+      expect(publishedItem.status).toBe("PUBLISHED");
+      expect(content?.status).toBe("PUBLISHED");
+      expect(publishPlan).toMatchObject({
+        status: "PUBLISHED",
+        exportUrl: publishedPost?.url
+      });
+      expect(publishedPost).toMatchObject({
+        workspaceId: "ws_demo",
+        publishPlanId: publishPlan?.id,
+        contentDraftId: "content_001",
+        platform: "XIAOHONGSHU",
+        publishedAt: scheduledAt
+      });
+      expect(postMetric).toMatchObject({
+        publishedPostId: publishedPost?.id,
+        platform: "XIAOHONGSHU",
+        metricDate: scheduledAt
+      });
+      expect(accountMetric).toMatchObject({
+        platformAccountId: "platform_account_001",
+        platform: "XIAOHONGSHU",
+        metricDate: scheduledAt
+      });
+      expect(store.auditLogs[0]).toMatchObject({
+        action: "calendar_item.update",
+        entityType: "CalendarItem",
+        entityId: calendarItem.id,
+        metadata: {
+          status: "PUBLISHED",
+          publishedPostId: publishedPost?.id
+        }
+      });
+    } finally {
+      Object.assign(content!, originalContent);
+      store.publishPlans = store.publishPlans.filter((plan) => beforePublishPlanIds.has(plan.id));
+      store.calendarItems = store.calendarItems.filter((item) => beforeCalendarIds.has(item.id));
+      store.publishedPosts = store.publishedPosts.filter((post) => beforePublishedPostIds.has(post.id));
+      store.postMetricDaily = store.postMetricDaily.filter((metric) => beforePostMetricIds.has(metric.id));
+      store.accountMetricDaily = store.accountMetricDaily.filter((metric) => beforeAccountMetricIds.has(metric.id));
+      store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
     }
   });
 });

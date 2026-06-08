@@ -8,6 +8,7 @@ import type {
   AgentStep,
   AnalyticsReport,
   ApiKey,
+  AccountMetricDaily,
   AuditLog,
   CalendarItem,
   CommentInsight,
@@ -34,6 +35,8 @@ import type {
   PlatformAuthorization,
   Platform,
   MediaAsset,
+  PostMetricDaily,
+  PublishedPost,
   PublishPlan,
   Recommendation,
   TargetAudience,
@@ -79,6 +82,9 @@ export interface MockStore {
   contentReviews: ContentReview[];
   contentRiskChecks: ContentRiskCheck[];
   publishPlans: PublishPlan[];
+  publishedPosts: PublishedPost[];
+  postMetricDaily: PostMetricDaily[];
+  accountMetricDaily: AccountMetricDaily[];
   calendarItems: CalendarItem[];
   dataSources: DataSource[];
   platformAccounts: PlatformAccount[];
@@ -854,6 +860,82 @@ const initialStore: MockStore = {
       status: "PLANNED",
       createdAt: iso(),
       updatedAt: iso()
+    }
+  ],
+  publishedPosts: [
+    {
+      id: "published_post_001",
+      workspaceId: defaultWorkspace.id,
+      contentDraftId: "content_001",
+      platform: "XIAOHONGSHU",
+      platformPostId: "xhs_mock_001",
+      url: "mock://xiaohongshu/posts/xhs_mock_001",
+      publishedAt: iso(-5),
+      metrics: {
+        views: 38600,
+        likes: 2100,
+        comments: 318,
+        shares: 420,
+        conversions: 96
+      },
+      createdAt: iso(-5),
+      updatedAt: iso(-4)
+    }
+  ],
+  postMetricDaily: [
+    {
+      id: "post_metric_daily_001",
+      workspaceId: defaultWorkspace.id,
+      publishedPostId: "published_post_001",
+      platform: "XIAOHONGSHU",
+      metricDate: iso(-5),
+      views: 18200,
+      likes: 960,
+      comments: 132,
+      shares: 180,
+      conversions: 42,
+      createdAt: iso(-5),
+      updatedAt: iso(-5)
+    },
+    {
+      id: "post_metric_daily_002",
+      workspaceId: defaultWorkspace.id,
+      publishedPostId: "published_post_001",
+      platform: "XIAOHONGSHU",
+      metricDate: iso(-4),
+      views: 20400,
+      likes: 1140,
+      comments: 186,
+      shares: 240,
+      conversions: 54,
+      createdAt: iso(-4),
+      updatedAt: iso(-4)
+    }
+  ],
+  accountMetricDaily: [
+    {
+      id: "account_metric_daily_001",
+      workspaceId: defaultWorkspace.id,
+      platformAccountId: "platform_account_001",
+      platform: "XIAOHONGSHU",
+      metricDate: iso(-5),
+      followers: 12800,
+      impressions: 42600,
+      engagementRate: 6.7,
+      createdAt: iso(-5),
+      updatedAt: iso(-5)
+    },
+    {
+      id: "account_metric_daily_002",
+      workspaceId: defaultWorkspace.id,
+      platformAccountId: "platform_account_002",
+      platform: "DOUYIN",
+      metricDate: iso(-4),
+      followers: 21800,
+      impressions: 58200,
+      engagementRate: 7.8,
+      createdAt: iso(-4),
+      updatedAt: iso(-4)
     }
   ],
   calendarItems: [
