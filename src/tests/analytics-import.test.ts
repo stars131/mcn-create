@@ -5,9 +5,42 @@ import {
   parseMetricImport,
   recommendationsToTopics
 } from "@/server/services/analytics-service";
+import { manualMetricImportAdapter } from "@/server/analytics/metric-import-adapter";
 import { store } from "@/server/services/mock-store";
 
 describe("analytics import", () => {
+  it("normalizes manual upload payloads through the import adapter", () => {
+    const result = manualMetricImportAdapter.parse({
+      records: [
+        {
+          title: "Adapter import",
+          platform: "视频号",
+          views: "1,200",
+          likes: "80",
+          comments: 6,
+          shares: 12,
+          conversions: 3
+        }
+      ]
+    });
+
+    expect(result).toEqual({
+      fileType: "RECORDS",
+      records: [
+        {
+          title: "Adapter import",
+          platform: "VIDEO_ACCOUNT",
+          views: 1200,
+          likes: 80,
+          comments: 6,
+          shares: 12,
+          conversions: 3
+        }
+      ]
+    });
+    expect(manualMetricImportAdapter.supportedFileTypes).toContain("EXCEL");
+  });
+
   it("parses CSV text with Chinese headers and platform aliases", () => {
     const records = parseMetricImport({
       fileType: "CSV",
