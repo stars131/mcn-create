@@ -1,14 +1,15 @@
-import { KeyRound, Settings2 } from "lucide-react";
+import { Download, KeyRound, Search, Settings2 } from "lucide-react";
 import { ApiKeyCreateAction, ApiKeyRevokeAction } from "@/components/settings/api-key-actions";
 import { DataRetentionPolicyAction } from "@/components/settings/data-retention-policy-action";
 import { NotificationReadAction } from "@/components/settings/notification-read-action";
 import { SystemPolicyRefreshAction } from "@/components/settings/system-policy-action";
 import { WebhookCreateAction, WebhookToggleAction } from "@/components/settings/webhook-actions";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
 import { Table, Td, Th } from "@/components/ui/table";
-import { listAuditLogs } from "@/server/audit/audit-service";
+import { listAuditLogs, parseAuditLogFilters } from "@/server/audit/audit-service";
 import { promptTemplates } from "@/server/ai/prompts/templates";
 import { getCurrentUser, getCurrentWorkspaceId } from "@/server/auth/session";
 import { listPublicErrorLogs } from "@/server/observability/error-log-service";
@@ -30,17 +31,56 @@ type DataRetentionPolicy = {
   errorLogDays?: number;
 };
 
+type SettingsPageProps = {
+  searchParams?: Record<string, string | string[] | undefined>;
+};
+
 function formatRetentionDays(days?: number) {
   return typeof days === "number" ? `${days} 天` : "-";
 }
 
-export default function SettingsPage() {
+function getSearchParamValue(searchParams: SettingsPageProps["searchParams"], key: string) {
+  const value = searchParams?.[key];
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function getAuditExportHref(filters: ReturnType<typeof parseAuditLogFilters>) {
+  const params = new URLSearchParams({ format: "export", limit: String(filters.limit ?? 50) });
+  if (filters.action) {
+    params.set("action", filters.action);
+  }
+  if (filters.entityType) {
+    params.set("entityType", filters.entityType);
+  }
+  if (filters.q) {
+    params.set("q", filters.q);
+  }
+  if (filters.from) {
+    params.set("from", filters.from);
+  }
+  if (filters.to) {
+    params.set("to", filters.to);
+  }
+  return `/api/audit-logs?${params.toString()}`;
+}
+
+export default function SettingsPage({ searchParams }: SettingsPageProps) {
   const user = getCurrentUser();
   const workspaceId = getCurrentWorkspaceId();
   const workspace = store.workspaces.find((item) => item.id === workspaceId);
   const brandProfiles = listBrandProfiles(workspaceId);
   const activeBrand = brandProfiles[0];
-  const logs = listAuditLogs(workspaceId);
+  const auditFilters = parseAuditLogFilters({
+    action: getSearchParamValue(searchParams, "auditAction"),
+    entityType: getSearchParamValue(searchParams, "auditEntityType"),
+    q: getSearchParamValue(searchParams, "auditQ"),
+    limit: getSearchParamValue(searchParams, "auditLimit") ?? 20
+  });
+  const allAuditLogs = listAuditLogs(workspaceId);
+  const logs = listAuditLogs(workspaceId, auditFilters);
+  const auditExportHref = getAuditExportHref(auditFilters);
+  const auditActionOptions = Array.from(new Set(allAuditLogs.map((log) => log.action))).sort();
+  const auditEntityOptions = Array.from(new Set(allAuditLogs.map((log) => log.entityType))).sort();
   const apiKeys = listApiKeys(workspaceId);
   const webhooks = listWebhookEndpoints(workspaceId);
   const usageSummary = getUsageSummary(workspaceId);
@@ -357,30 +397,109 @@ export default function SettingsPage() {
         </Card>
 
         <Card id="audit">
-          <CardHeader>
-            <CardTitle>审计日志</CardTitle>
+          <CardHeader className="flex items-start justify-between gap-3 sm:flex-row">
+            <div>
+              <CardTitle>审计日志</CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">当前筛选 {logs.length} 条，默认保留最近 20 条。</p>
+            </div>
+            <a
+              href={auditExportHref}
+              className="focus-ring inline-flex h-8 shrink-0 items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 text-xs font-medium text-foreground transition hover:bg-muted"
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden="true" />
+              导出 JSON
+            </a>
           </CardHeader>
-          <CardContent>
-            <Table>
-              <thead>
-                <tr>
-                  <Th>动作</Th>
-                  <Th>对象</Th>
-                  <Th>摘要</Th>
-                  <Th>时间</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.map((log) => (
-                  <tr key={log.id}>
-                    <Td className="font-medium">{log.action}</Td>
-                    <Td>{log.entityType}</Td>
-                    <Td>{log.summary}</Td>
-                    <Td>{new Date(log.createdAt).toLocaleString("zh-CN")}</Td>
+          <CardContent className="space-y-3">
+            <form aria-label="审计日志筛选" className="grid gap-2 lg:grid-cols-[1fr_1fr_1.4fr_92px_auto]">
+              <label className="space-y-1 text-xs text-muted-foreground">
+                <span>动作</span>
+                <select
+                  name="auditAction"
+                  defaultValue={auditFilters.action ?? ""}
+                  className="focus-ring h-9 w-full rounded-md border border-border bg-background px-2 text-sm text-foreground"
+                >
+                  <option value="">全部动作</option>
+                  {auditActionOptions.map((action) => (
+                    <option key={action} value={action}>
+                      {action}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-1 text-xs text-muted-foreground">
+                <span>对象</span>
+                <select
+                  name="auditEntityType"
+                  defaultValue={auditFilters.entityType ?? ""}
+                  className="focus-ring h-9 w-full rounded-md border border-border bg-background px-2 text-sm text-foreground"
+                >
+                  <option value="">全部对象</option>
+                  {auditEntityOptions.map((entityType) => (
+                    <option key={entityType} value={entityType}>
+                      {entityType}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-1 text-xs text-muted-foreground">
+                <span>关键词</span>
+                <input
+                  name="auditQ"
+                  defaultValue={auditFilters.q ?? ""}
+                  placeholder="搜索摘要、对象 ID 或 metadata"
+                  className="focus-ring h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground"
+                />
+              </label>
+              <label className="space-y-1 text-xs text-muted-foreground">
+                <span>条数</span>
+                <input
+                  name="auditLimit"
+                  defaultValue={auditFilters.limit ?? 20}
+                  min={1}
+                  max={100}
+                  type="number"
+                  className="focus-ring h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground"
+                />
+              </label>
+              <div className="flex items-end gap-2">
+                <Button type="submit" size="sm" variant="secondary">
+                  <Search className="h-3.5 w-3.5" aria-hidden="true" />
+                  筛选
+                </Button>
+                <a
+                  href="/settings#audit"
+                  className="focus-ring inline-flex h-8 items-center justify-center rounded-md border border-transparent px-2 text-xs font-medium text-muted-foreground transition hover:bg-muted"
+                >
+                  重置
+                </a>
+              </div>
+            </form>
+
+            {logs.length > 0 ? (
+              <Table>
+                <thead>
+                  <tr>
+                    <Th>动作</Th>
+                    <Th>对象</Th>
+                    <Th>摘要</Th>
+                    <Th>时间</Th>
                   </tr>
-                ))}
-              </tbody>
-            </Table>
+                </thead>
+                <tbody>
+                  {logs.map((log) => (
+                    <tr key={log.id}>
+                      <Td className="font-medium">{log.action}</Td>
+                      <Td>{log.entityType}</Td>
+                      <Td>{log.summary}</Td>
+                      <Td>{new Date(log.createdAt).toLocaleString("zh-CN")}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            ) : (
+              <div className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">未找到匹配的审计日志</div>
+            )}
           </CardContent>
         </Card>
 
