@@ -469,6 +469,61 @@ test("edits a content draft and records a new version", async ({ page }) => {
   await expect(page.getByLabel("对比版本").locator("option:checked")).toContainText("v3");
 });
 
+test("runs content risk review and platform adaptation controls", async ({ page }) => {
+  await loginAsOwner(page, "/content");
+  await expect(page.getByRole("heading", { name: "内容工作台" })).toBeVisible();
+
+  const governance = page.getByRole("group", { name: "内容治理操作" });
+  const riskResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/contents/content_001/risk-check") && response.request().method() === "POST"
+  );
+  await governance.getByRole("button", { name: "风险检查" }).click();
+  const riskResponse = await riskResponsePromise;
+  expect(riskResponse.ok()).toBeTruthy();
+  await expect(riskResponse.json()).resolves.toMatchObject({
+    data: {
+      riskLevel: "LOW"
+    }
+  });
+  await expect(governance.getByRole("status")).toHaveText("风险检查已完成");
+  await expect(page.getByText("保留人工审核入口。").first()).toBeVisible();
+
+  const reviewResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/contents/content_001/review") && response.request().method() === "POST"
+  );
+  await governance.getByRole("button", { name: "审核通过" }).click();
+  const reviewResponse = await reviewResponsePromise;
+  expect(reviewResponse.ok()).toBeTruthy();
+  await expect(reviewResponse.json()).resolves.toMatchObject({
+    data: {
+      id: "content_001",
+      status: "APPROVED"
+    }
+  });
+  await expect(governance.getByRole("status")).toHaveText("内容已审核通过");
+  await expect(page.getByLabel("内容状态")).toHaveValue("APPROVED");
+  await expect(page.getByText("MVP 人工审核通过")).toBeVisible();
+
+  await page.getByLabel("适配平台").selectOption("WECHAT");
+  const adaptForm = page.locator("form", { has: page.getByLabel("适配平台") });
+  const adaptResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/contents/content_001/adapt") && response.request().method() === "POST"
+  );
+  await adaptForm.getByRole("button", { name: "生成适配版本" }).click();
+  const adaptResponse = await adaptResponsePromise;
+  expect(adaptResponse.ok()).toBeTruthy();
+  await expect(adaptResponse.json()).resolves.toMatchObject({
+    data: {
+      platform: "WECHAT",
+      format: "长文",
+      status: "DRAFT"
+    }
+  });
+  await expect(adaptForm.getByRole("status")).toHaveText("公众号适配版本已生成");
+  await expect(page.getByText("长文").first()).toBeVisible();
+});
+
 test("generates a content draft from an explicit brief form", async ({ page }) => {
   const cta = `E2E CTA ${Date.now()} 预约内容工作流体检`;
 

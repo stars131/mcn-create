@@ -1,6 +1,7 @@
-import { ActionButton } from "@/components/ui/action-button";
+import { ContentAdaptationForm } from "@/components/content/content-adaptation-form";
 import { ContentEditorForm } from "@/components/content/content-editor-form";
 import { ContentGenerateForm } from "@/components/content/content-generate-form";
+import { ContentGovernanceActions } from "@/components/content/content-governance-actions";
 import { ContentScheduleForm } from "@/components/content/content-schedule-form";
 import { ContentVersionCompare } from "@/components/content/content-version-compare";
 import { Badge } from "@/components/ui/badge";
@@ -168,22 +169,7 @@ export default function ContentPage() {
                     </div>
                   </div>
                 ) : null}
-                <div className="flex flex-wrap gap-2">
-                  <ActionButton
-                    endpoint={`/api/contents/${activeContent.id}/risk-check`}
-                    label="风险检查"
-                    pendingLabel="检查中"
-                    icon="shieldAlert"
-                    variant="primary"
-                  />
-                  <ActionButton
-                    endpoint={`/api/contents/${activeContent.id}/review`}
-                    body={{ status: "APPROVED", comment: "MVP 人工审核通过" }}
-                    label="审核通过"
-                    pendingLabel="提交中"
-                    icon="checkCircle"
-                  />
-                </div>
+                <ContentGovernanceActions contentDraftId={activeContent.id} />
                 <ContentScheduleForm contentDraftId={activeContent.id} initialPlatform={activeContent.platform} />
               </div>
             ) : (
@@ -204,22 +190,7 @@ export default function ContentPage() {
               <p>建议先生成抖音口播版，再扩写公众号长文版，复用同一 brief。</p>
               {activeContent ? (
                 <div className="space-y-3 pt-1">
-                  <div className="flex flex-wrap gap-2">
-                    <ActionButton
-                      endpoint={`/api/contents/${activeContent.id}/adapt`}
-                      body={{ platform: "DOUYIN" }}
-                      label="抖音版"
-                      pendingLabel="改写中"
-                      icon="copyPlus"
-                    />
-                    <ActionButton
-                      endpoint={`/api/contents/${activeContent.id}/adapt`}
-                      body={{ platform: "WECHAT" }}
-                      label="公众号版"
-                      pendingLabel="改写中"
-                      icon="copyPlus"
-                    />
-                  </div>
+                  <ContentAdaptationForm contentDraftId={activeContent.id} initialPlatform={activeContent.platform} />
                   {activeAdaptations.length > 0 ? (
                     <div className="space-y-2">
                       {activeAdaptations.slice(0, 2).map((adaptation) => (
