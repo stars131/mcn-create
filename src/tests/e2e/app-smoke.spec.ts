@@ -1051,6 +1051,40 @@ test("exposes API key, webhook, and usage reserves with RBAC", async ({ page, re
   await expect(page.getByRole("heading", { name: "API 错误日志", exact: true })).toBeVisible();
   await expect(page.getByText("Server ingest key")).toBeVisible();
 
+  const systemPolicy = page.getByRole("group", { name: "系统设置操作" });
+  const policyResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/settings/system") && response.request().method() === "PATCH"
+  );
+  await systemPolicy.getByRole("button", { name: "刷新策略" }).click();
+  const policyResponse = await policyResponsePromise;
+  expect(policyResponse.ok()).toBeTruthy();
+  await expect(policyResponse.json()).resolves.toMatchObject({
+    data: {
+      key: "risk_review_policy",
+      value: expect.objectContaining({
+        updatedFrom: "settings_page"
+      })
+    }
+  });
+  await expect(systemPolicy.getByRole("status")).toContainText("策略已刷新");
+  await expect(page.locator("tr").filter({ hasText: "risk_review_policy" }).filter({ hasText: "settings_page" })).toBeVisible();
+
+  const notificationActions = page.getByRole("group", { name: "通知操作：人设版本待审阅" });
+  const notificationResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/notifications/notification_001") && response.request().method() === "PATCH"
+  );
+  await notificationActions.getByRole("button", { name: "标为已读" }).click();
+  const notificationResponse = await notificationResponsePromise;
+  expect(notificationResponse.ok()).toBeTruthy();
+  await expect(notificationResponse.json()).resolves.toMatchObject({
+    data: {
+      id: "notification_001",
+      readAt: expect.any(String)
+    }
+  });
+  await expect(notificationActions.getByRole("status")).toHaveText("通知已标为已读");
+  await expect(notificationActions).toContainText("已读");
+
   const apiKeyCreate = page.getByRole("group", { name: "API Key 创建操作" });
   const uiKeyResponsePromise = page.waitForResponse(
     (response) => response.url().includes("/api/settings/api-keys") && response.request().method() === "POST"

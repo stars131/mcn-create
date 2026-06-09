@@ -1,7 +1,8 @@
 import { KeyRound, Settings2 } from "lucide-react";
 import { ApiKeyCreateAction, ApiKeyRevokeAction } from "@/components/settings/api-key-actions";
+import { NotificationReadAction } from "@/components/settings/notification-read-action";
+import { SystemPolicyRefreshAction } from "@/components/settings/system-policy-action";
 import { WebhookCreateAction, WebhookToggleAction } from "@/components/settings/webhook-actions";
-import { ActionButton } from "@/components/ui/action-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
@@ -140,22 +141,7 @@ export default function SettingsPage() {
         <Card>
           <CardHeader className="flex items-center justify-between gap-3 sm:flex-row">
             <CardTitle>系统设置</CardTitle>
-            <ActionButton
-              endpoint="/api/settings/system"
-              method="PATCH"
-              body={{
-                key: "risk_review_policy",
-                value: {
-                  requireRiskCheckBeforeSchedule: true,
-                  restrictedDomains: ["医疗", "金融", "法律", "时政"],
-                  updatedFrom: "settings_page"
-                }
-              }}
-              label="刷新策略"
-              pendingLabel="更新中"
-              icon="sparkles"
-              variant="primary"
-            />
+            <SystemPolicyRefreshAction />
           </CardHeader>
           <CardContent>
             <Table>
@@ -227,17 +213,13 @@ export default function SettingsPage() {
                     </div>
                     {notification.readAt ? <Badge tone="neutral">已读</Badge> : <Badge tone="warning">未读</Badge>}
                   </div>
-                  {!notification.readAt ? (
-                    <div className="mt-3">
-                      <ActionButton
-                        endpoint={`/api/notifications/${notification.id}`}
-                        method="PATCH"
-                        label="标为已读"
-                        pendingLabel="更新中"
-                        icon="checkCircle"
-                      />
-                    </div>
-                  ) : null}
+                  <div className="mt-3">
+                    <NotificationReadAction
+                      notificationId={notification.id}
+                      title={notification.title}
+                      read={Boolean(notification.readAt)}
+                    />
+                  </div>
                 </div>
               ))}
             </CardContent>
