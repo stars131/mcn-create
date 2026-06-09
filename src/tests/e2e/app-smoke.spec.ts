@@ -1005,24 +1005,23 @@ test("switches workspaces and scopes default API reads to the active workspace",
     })
     .toEqual([{ id: "hot_004", workspaceId: "ws_brand" }]);
 
-  await expect(page.getByRole("button", { name: "新建" })).toBeVisible();
-  const createdWorkspace = await page.evaluate(async () => {
-    const response = await fetch("/api/workspaces", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: `E2E Workspace ${Date.now()}`,
-        organizationName: "E2E 自动化组织"
-      })
-    });
-    if (!response.ok) {
-      throw new Error(`workspace create failed: ${response.status}`);
-    }
-    const payload = await response.json();
-    return payload.data as { id: string; name: string };
-  });
-  await page.reload();
-  await expect(switcher).toHaveValue(createdWorkspace.id);
+  const createWorkspaceAction = page.getByRole("group", { name: "Workspace 创建操作" });
+  await expect(createWorkspaceAction.getByRole("button", { name: "新建" })).toBeEnabled();
+  const createResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/workspaces") && response.request().method() === "POST"
+  );
+  await createWorkspaceAction.getByRole("button", { name: "新建" }).click();
+  const createResponse = await createResponsePromise;
+  expect(createResponse.ok()).toBeTruthy();
+  const createPayload = (await createResponse.json()) as {
+    data: {
+      id: string;
+      name: string;
+    };
+  };
+  await expect(createWorkspaceAction.getByRole("status")).toHaveText(`workspace 已创建：${createPayload.data.name}`);
+  const createdWorkspace = createPayload.data;
+  await expect.poll(async () => switcher.inputValue()).toBe(createdWorkspace.id);
   await expect(switcher.locator(`option[value="${createdWorkspace.id}"]`)).toHaveText(createdWorkspace.name);
 
   const resetOk = await page.evaluate(async () => {

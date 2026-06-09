@@ -1,7 +1,7 @@
 import { Search, ShieldCheck } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { WorkspaceCreateAction } from "@/components/layout/workspace-create-action";
 import { WorkspaceSwitcher } from "@/components/layout/workspace-switcher";
-import { ActionButton } from "@/components/ui/action-button";
 import { getCurrentUser, getCurrentWorkspaceId } from "@/server/auth/session";
 import { store } from "@/server/services/mock-store";
 import { listWorkspaces } from "@/server/services/workspace-service";
@@ -20,16 +20,9 @@ export function Topbar() {
       <div className="flex h-16 items-center justify-between gap-4 px-4 lg:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <WorkspaceSwitcher currentWorkspaceId={workspace.id} workspaces={workspaces} />
-          <ActionButton
-            endpoint="/api/workspaces"
-            body={{
-              name: `新 workspace ${workspaces.length + 1}`,
-              organizationName: workspace.organizationName
-            }}
-            label="新建"
-            pendingLabel="创建中"
-            icon="plus"
-            size="sm"
+          <WorkspaceCreateAction
+            nextName={`新 workspace ${workspaces.length + 1}`}
+            organizationName={workspace.organizationName}
           />
         </div>
         <div className="hidden h-9 min-w-[260px] items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm text-muted-foreground md:flex">
