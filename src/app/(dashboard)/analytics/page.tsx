@@ -1,4 +1,5 @@
 import { BarChart3 } from "lucide-react";
+import { AnalyticsWorkflowActions } from "@/components/analytics/analytics-workflow-actions";
 import { MetricChart } from "@/components/analytics/metric-chart";
 import { MetricImportUpload } from "@/components/analytics/metric-import-upload";
 import { ActionButton } from "@/components/ui/action-button";
@@ -77,14 +78,6 @@ export default function AnalyticsPage() {
               pendingLabel="导入中"
               icon="fileUp"
             />
-            <ActionButton
-              endpoint="/api/analytics/reports/generate"
-              body={{ period: "本周" }}
-              label="生成周报"
-              pendingLabel="生成中"
-              icon="refresh"
-              variant="primary"
-            />
           </>
         }
       />
@@ -111,6 +104,7 @@ export default function AnalyticsPage() {
             <CardTitle>最新周报</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <AnalyticsWorkflowActions />
             {report ? (
               <>
                 <div>
@@ -127,13 +121,6 @@ export default function AnalyticsPage() {
                     ))}
                   </div>
                 </div>
-                <ActionButton
-                  endpoint="/api/analytics/recommendations/to-topics"
-                  label="建议回流选题池"
-                  pendingLabel="回流中"
-                  icon="sendToBack"
-                  variant="primary"
-                />
               </>
             ) : (
               <p className="text-sm text-muted-foreground">生成周报后展示复盘结果。</p>

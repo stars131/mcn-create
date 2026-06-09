@@ -687,6 +687,49 @@ test("imports analytics metrics from an uploaded CSV file", async ({ page }) => 
   await expect(page.getByRole("status")).toHaveText("已导入 1 行");
 });
 
+test("generates an analytics report and backflows recommendations to topics", async ({ page }) => {
+  await loginAsOwner(page, "/analytics");
+  await expect(page.getByRole("heading", { name: "数据分析" })).toBeVisible();
+
+  const workflow = page.getByRole("group", { name: "数据复盘工作流" });
+  await expect(workflow).toBeVisible();
+
+  const reportResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/analytics/reports/generate") && response.request().method() === "POST"
+  );
+  await workflow.getByRole("button", { name: "生成周报" }).click();
+  const reportResponse = await reportResponsePromise;
+  expect(reportResponse.ok()).toBeTruthy();
+  const reportPayload = (await reportResponse.json()) as {
+    data: {
+      title: string;
+      summary: string;
+      recommendations: string[];
+    };
+  };
+  expect(reportPayload.data.summary).toEqual(expect.any(String));
+  expect(reportPayload.data.recommendations.length).toBeGreaterThan(0);
+
+  await expect(workflow.getByRole("status")).toContainText("周报已生成");
+  await expect(page.getByText(reportPayload.data.title).first()).toBeVisible();
+  await expect(page.getByText("异常波动")).toBeVisible();
+
+  const backflowResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/analytics/recommendations/to-topics") && response.request().method() === "POST"
+  );
+  await workflow.getByRole("button", { name: "建议回流选题池" }).click();
+  const backflowResponse = await backflowResponsePromise;
+  expect(backflowResponse.ok()).toBeTruthy();
+  const backflowPayload = (await backflowResponse.json()) as {
+    data: Array<{ id: string; title: string }>;
+  };
+  expect(backflowPayload.data.length).toBeGreaterThan(0);
+
+  await expect(workflow.getByRole("status")).toHaveText(`已回流 ${backflowPayload.data.length} 条选题`);
+  await expect(page.getByText("已回流").first()).toBeVisible();
+});
+
 test("creates a managed platform data source from the form", async ({ page }) => {
   const sourceName = `E2E 小红书授权 ${Date.now()}`;
 
