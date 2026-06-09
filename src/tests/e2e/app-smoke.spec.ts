@@ -1399,6 +1399,27 @@ test("exposes API key, webhook, and usage reserves with RBAC", async ({ page, re
   await expect(page.locator("tr").filter({ hasText: "data_retention_policy" }).filter({ hasText: "settings_retention_panel" })).toBeVisible();
   await expect(page.getByText("180 天").first()).toBeVisible();
 
+  const pruneResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/audit-logs/retention-prune") && response.request().method() === "POST"
+  );
+  await retentionPolicy.getByRole("button", { name: "执行审计清理" }).click();
+  const pruneResponse = await pruneResponsePromise;
+  expect(pruneResponse.ok()).toBeTruthy();
+  await expect(pruneResponse.json()).resolves.toMatchObject({
+    data: {
+      workspaceId: "ws_demo",
+      auditDays: 730,
+      prunedCount: expect.any(Number),
+      cutoffAt: expect.any(String)
+    }
+  });
+  await expect(retentionPolicy.getByRole("status")).toContainText("审计清理完成");
+
+  const pruneDenied = await request.post("/api/audit-logs/retention-prune", {
+    headers: { Cookie: "contentos_session=mock:user_editor; contentos_workspace=ws_demo" }
+  });
+  expect(pruneDenied.status()).toBe(403);
+
   const notificationActions = page.getByRole("group", { name: "通知操作：人设版本待审阅" });
   const markReadButton = notificationActions.getByRole("button", { name: "标为已读" });
   if ((await markReadButton.count()) > 0) {

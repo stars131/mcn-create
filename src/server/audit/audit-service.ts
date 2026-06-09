@@ -41,6 +41,14 @@ export interface AuditLogPage {
   hasNextPage: boolean;
 }
 
+export interface AuditLogRetentionPruneResult {
+  workspaceId: string;
+  auditDays: number;
+  cutoffAt: string;
+  prunedCount: number;
+  retainedCount: number;
+}
+
 export function writeAuditLog(input: Omit<AuditLog, "id" | "createdAt">) {
   const log: AuditLog = {
     id: `audit_${crypto.randomUUID()}`,
@@ -274,6 +282,29 @@ function writeAuditLogExportEvent(input: {
   });
 }
 
+type DataRetentionPolicy = {
+  auditDays?: number;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function getAuditRetentionDays(workspaceId: string) {
+  const scopedSetting = store.systemSettings.find(
+    (setting) => setting.workspaceId === workspaceId && setting.key === "data_retention_policy"
+  );
+  const globalSetting = store.systemSettings.find(
+    (setting) => setting.workspaceId === undefined && setting.key === "data_retention_policy"
+  );
+  const value = (scopedSetting ?? globalSetting)?.value as DataRetentionPolicy | undefined;
+  const auditDays = isRecord(value) ? value.auditDays : undefined;
+
+  return typeof auditDays === "number" && Number.isFinite(auditDays) && auditDays > 0
+    ? Math.max(1, Math.trunc(auditDays))
+    : 730;
+}
+
 function listFilteredAuditLogs(workspaceId: string, filters: AuditLogFilters) {
   return store.auditLogs
     .filter((log) => !log.workspaceId || log.workspaceId === workspaceId)
@@ -285,6 +316,48 @@ export function listAuditLogs(workspaceId = "ws_demo", filters: AuditLogFilters 
   const filtered = listFilteredAuditLogs(workspaceId, filters);
 
   return typeof filters.limit === "number" ? filtered.slice(0, filters.limit) : filtered;
+}
+
+export function pruneAuditLogsByRetentionPolicy(input: {
+  workspaceId: string;
+  userId: string;
+  now?: string | Date;
+}): AuditLogRetentionPruneResult {
+  const auditDays = getAuditRetentionDays(input.workspaceId);
+  const now = input.now ? new Date(input.now) : new Date();
+  const cutoffAt = new Date(now.getTime() - auditDays * 86_400_000).toISOString();
+  const cutoffTime = Date.parse(cutoffAt);
+  let prunedCount = 0;
+
+  store.auditLogs = store.auditLogs.filter((log) => {
+    const expired = Date.parse(log.createdAt) < cutoffTime;
+    if (log.workspaceId === input.workspaceId && expired) {
+      prunedCount += 1;
+      return false;
+    }
+    return true;
+  });
+
+  writeAuditLog({
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    action: "audit_log.retention_prune",
+    entityType: "AuditLog",
+    summary: `执行审计日志保留清理：删除 ${prunedCount} 条`,
+    metadata: {
+      auditDays,
+      cutoffAt,
+      prunedCount
+    }
+  });
+
+  return {
+    workspaceId: input.workspaceId,
+    auditDays,
+    cutoffAt,
+    prunedCount,
+    retainedCount: store.auditLogs.filter((log) => log.workspaceId === input.workspaceId).length
+  };
 }
 
 export function listAuditLogPage(workspaceId = "ws_demo", filters: AuditLogFilters = {}): AuditLogPage {

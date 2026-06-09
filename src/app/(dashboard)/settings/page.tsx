@@ -283,7 +283,7 @@ export default function SettingsPage({ searchParams }: SettingsPageProps) {
                 </div>
               </div>
               <p className="text-xs leading-5 text-muted-foreground">
-                策略来自 SystemSetting，可通过设置 API 写入 workspace 覆盖值。
+                策略来自 SystemSetting，可通过设置 API 写入 workspace 覆盖值，并按审计保留天数执行清理。
               </p>
             </CardContent>
           </Card>

@@ -5,6 +5,7 @@ import {
   listAuditLogPage,
   listAuditLogs,
   parseAuditLogFilters,
+  pruneAuditLogsByRetentionPolicy,
   writeAuditLog
 } from "@/server/audit/audit-service";
 import { store } from "@/server/services/mock-store";
@@ -167,6 +168,101 @@ describe("audit service", () => {
       expect(listAuditLogPage("ws_brand", { entityType: "AuditPageFixture" }).items).toEqual([crossWorkspace]);
     } finally {
       store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
+    }
+  });
+
+  it("prunes expired workspace audit logs by retention policy and records the cleanup", () => {
+    const beforeAuditLogIds = new Set(store.auditLogs.map((log) => log.id));
+    const beforeSystemSettings = [...store.systemSettings];
+    const now = new Date("2026-06-10T00:00:00.000Z");
+
+    try {
+      store.systemSettings.unshift({
+        id: "system_setting_audit_retention_test",
+        workspaceId: "ws_demo",
+        key: "data_retention_policy",
+        value: {
+          auditDays: 30
+        },
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString()
+      });
+
+      const expired = writeAuditLog({
+        workspaceId: "ws_demo",
+        userId: "user_owner",
+        action: "audit.retention.expired",
+        entityType: "AuditFixture",
+        summary: "过期审计日志",
+        metadata: {
+          apiKey: "sk-expired"
+        }
+      });
+      expired.createdAt = "2026-05-01T00:00:00.000Z";
+
+      const retained = writeAuditLog({
+        workspaceId: "ws_demo",
+        userId: "user_owner",
+        action: "audit.retention.retained",
+        entityType: "AuditFixture",
+        summary: "保留审计日志"
+      });
+      retained.createdAt = "2026-06-01T00:00:00.000Z";
+
+      const crossWorkspace = writeAuditLog({
+        workspaceId: "ws_brand",
+        userId: "user_owner",
+        action: "audit.retention.expired",
+        entityType: "AuditFixture",
+        summary: "其他 workspace 过期审计日志"
+      });
+      crossWorkspace.createdAt = "2026-05-01T00:00:00.000Z";
+
+      const result = pruneAuditLogsByRetentionPolicy({
+        workspaceId: "ws_demo",
+        userId: "user_owner",
+        now
+      });
+
+      expect(result).toMatchObject({
+        workspaceId: "ws_demo",
+        auditDays: 30,
+        cutoffAt: "2026-05-11T00:00:00.000Z",
+        prunedCount: 1
+      });
+      expect(store.auditLogs).not.toContainEqual(expired);
+      expect(store.auditLogs).toContainEqual(retained);
+      expect(store.auditLogs).toContainEqual(crossWorkspace);
+      expect(store.auditLogs[0]).toMatchObject({
+        workspaceId: "ws_demo",
+        userId: "user_owner",
+        action: "audit_log.retention_prune",
+        entityType: "AuditLog",
+        summary: "执行审计日志保留清理：删除 1 条",
+        metadata: {
+          auditDays: 30,
+          cutoffAt: "2026-05-11T00:00:00.000Z",
+          prunedCount: 1
+        }
+      });
+      expect(JSON.stringify(store.auditLogs[0].metadata)).not.toContain("sk-expired");
+
+      const emptyResult = pruneAuditLogsByRetentionPolicy({
+        workspaceId: "ws_demo",
+        userId: "user_owner",
+        now
+      });
+      expect(emptyResult.prunedCount).toBe(0);
+      expect(store.auditLogs[0]).toMatchObject({
+        action: "audit_log.retention_prune",
+        summary: "执行审计日志保留清理：删除 0 条",
+        metadata: {
+          prunedCount: 0
+        }
+      });
+    } finally {
+      store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
+      store.systemSettings = beforeSystemSettings;
     }
   });
 
