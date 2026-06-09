@@ -765,6 +765,21 @@ test("imports analytics metrics from an uploaded CSV file", async ({ page }) => 
   expect(analyticsImportResponse.ok()).toBeTruthy();
   await expect(page.getByText("e2e-metrics.csv")).toBeVisible();
   await expect(page.getByRole("status")).toHaveText("已导入 1 行");
+
+  const sampleImport = page.getByRole("group", { name: "CSV 样例导入操作" });
+  await expect(sampleImport.getByRole("button", { name: "导入 CSV 样例" })).toBeEnabled();
+  const sampleImportResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/analytics/import") && response.request().method() === "POST"
+  );
+  await sampleImport.getByRole("button", { name: "导入 CSV 样例" }).click();
+  const sampleImportResponse = await sampleImportResponsePromise;
+  expect(sampleImportResponse.ok()).toBeTruthy();
+  const sampleImportPayload = (await sampleImportResponse.json()) as {
+    data: Array<{ title: string }>;
+  };
+  expect(sampleImportPayload.data).toContainEqual(expect.objectContaining({ title: "导入样例：人设记忆清单" }));
+  await expect(sampleImport.getByRole("status")).toHaveText(`CSV 样例已导入：${sampleImportPayload.data.length} 行`);
+  await expect(page.getByText("content-performance-sample.csv")).toBeVisible();
 });
 
 test("generates an analytics report and backflows recommendations to topics", async ({ page }) => {
@@ -816,9 +831,28 @@ test("creates, syncs, and revokes a managed platform data source from the form",
   await loginAsOwner(page, "/data-sources");
   await expect(page.getByRole("heading", { name: "数据源与平台授权" })).toBeVisible();
 
+  const mockConnect = page.getByRole("group", { name: "模拟平台连接操作" });
+  await expect(mockConnect.getByRole("button", { name: "模拟连接" })).toBeEnabled();
+  const mockConnectResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/data-sources") && response.request().method() === "POST"
+  );
+  await mockConnect.getByRole("button", { name: "模拟连接" }).click();
+  const mockConnectResponse = await mockConnectResponsePromise;
+  expect(mockConnectResponse.ok()).toBeTruthy();
+  const mockConnectPayload = (await mockConnectResponse.json()) as {
+    data: {
+      name: string;
+    };
+  };
+  await expect(mockConnect.getByRole("status")).toHaveText(`模拟连接已创建：${mockConnectPayload.data.name}`);
+  const mockConnectRow = page.locator("tr", { hasText: mockConnectPayload.data.name }).first();
+  await expect(mockConnectRow).toBeVisible();
+  await expect(mockConnectRow).toContainText("USER_AUTHORIZED");
+  await expect(mockConnectRow).toContainText("CONNECTED");
+
   await page.getByLabel("数据源名称").fill(sourceName);
   await page.getByLabel("来源类型").selectOption("USER_AUTHORIZED");
-  await page.getByLabel("平台").selectOption("XIAOHONGSHU");
+  await page.getByLabel("平台", { exact: true }).selectOption("XIAOHONGSHU");
   await page.getByLabel("授权状态").selectOption("CONNECTED");
   await page.getByLabel("备注").fill("E2E 通过表单创建的用户授权数据源");
 
@@ -836,7 +870,7 @@ test("creates, syncs, and revokes a managed platform data source from the form",
   };
   expect(createPayload.data.name).toBe(sourceName);
 
-  await expect(page.getByRole("status")).toHaveText("数据源已创建");
+  await expect(page.getByText("数据源已创建")).toBeVisible();
   const sourceRow = page.locator("tr", { hasText: sourceName });
   await expect(sourceRow).toBeVisible();
   await expect(sourceRow).toContainText("USER_AUTHORIZED");

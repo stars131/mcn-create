@@ -2,7 +2,7 @@ import { BarChart3 } from "lucide-react";
 import { AnalyticsWorkflowActions } from "@/components/analytics/analytics-workflow-actions";
 import { MetricChart } from "@/components/analytics/metric-chart";
 import { MetricImportUpload } from "@/components/analytics/metric-import-upload";
-import { ActionButton } from "@/components/ui/action-button";
+import { SampleMetricImportAction } from "@/components/analytics/sample-metric-import-action";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetricCard } from "@/components/ui/metric-card";
@@ -66,18 +66,7 @@ export default function AnalyticsPage() {
         actions={
           <>
             <MetricImportUpload />
-            <ActionButton
-              endpoint="/api/analytics/import"
-              body={{
-                fileType: "CSV",
-                fileName: "content-performance-sample.csv",
-                rawText:
-                  "作品,平台,曝光,点赞,评论,分享,转化,发布时间\n导入样例：人设记忆清单,公众号,16800,820,91,134,42,2026-06-07"
-              }}
-              label="导入 CSV 样例"
-              pendingLabel="导入中"
-              icon="fileUp"
-            />
+            <SampleMetricImportAction />
           </>
         }
       />

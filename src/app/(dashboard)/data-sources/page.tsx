@@ -1,6 +1,6 @@
 import { DataSourceCreateForm } from "@/components/data-sources/data-source-create-form";
 import { DataSourceRowActions } from "@/components/data-sources/data-source-row-actions";
-import { ActionButton } from "@/components/ui/action-button";
+import { MockPlatformConnectAction } from "@/components/data-sources/mock-platform-connect-action";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
@@ -28,22 +28,7 @@ export default function DataSourcesPage() {
         eyebrow="Data Sources"
         title="数据源与平台授权"
         description="平台能力必须通过 adapter 抽象；MVP 只启用 mock、用户上传和模拟连接，不做未经授权的数据抓取。"
-        actions={
-          <ActionButton
-            endpoint="/api/data-sources"
-            body={{
-              name: "模拟 OAuth 连接",
-              sourceType: "USER_AUTHORIZED",
-              platform: "DOUYIN",
-              authorizationStatus: "CONNECTED",
-              notes: "预留官方 OAuth 接入结构，当前为模拟连接。"
-            }}
-            label="模拟连接"
-            pendingLabel="连接中"
-            icon="plug"
-            variant="primary"
-          />
-        }
+        actions={<MockPlatformConnectAction />}
       />
 
       <section className="grid gap-4 xl:grid-cols-[1fr_360px]">
