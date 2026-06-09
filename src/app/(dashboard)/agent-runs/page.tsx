@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AgentRunActions } from "@/components/agent-runs/agent-run-actions";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,10 +20,18 @@ function formatCost(value: number) {
   return `¥${value.toFixed(4)}`;
 }
 
-export default function AgentRunsPage() {
+interface AgentRunsPageProps {
+  searchParams?: {
+    runId?: string;
+  };
+}
+
+export default function AgentRunsPage({ searchParams }: AgentRunsPageProps) {
   const workspaceId = getCurrentWorkspaceId();
   const details = listAgentRunDetails(workspaceId);
   const latest = details[0];
+  const selected = details.find((detail) => detail.run.id === searchParams?.runId) ?? latest;
+  const selectedRunId = selected?.run.id;
 
   return (
     <>
@@ -78,6 +87,7 @@ export default function AgentRunsPage() {
           <Table>
             <thead>
               <tr>
+                <Th>运行 ID</Th>
                 <Th>类型</Th>
                 <Th>状态</Th>
                 <Th>输入摘要</Th>
@@ -92,7 +102,10 @@ export default function AgentRunsPage() {
             </thead>
             <tbody>
               {details.map(({ run, steps, outputs, feedback }) => (
-                <tr key={run.id}>
+                <tr key={run.id} className={run.id === selectedRunId ? "bg-primary/5" : undefined}>
+                  <Td>
+                    <div className="font-mono text-xs text-muted-foreground">{run.id}</div>
+                  </Td>
                   <Td className="font-medium">{run.agentType.toLowerCase()}</Td>
                   <Td>
                     <AgentStatusBadge status={run.status} />
@@ -109,13 +122,26 @@ export default function AgentRunsPage() {
                   <Td>{run.latencyMs}ms</Td>
                   <Td className="text-xs text-red-700">{run.errorMessage ?? "-"}</Td>
                   <Td>
-                    <AgentRunActions
-                      runId={run.id}
-                      status={run.status}
-                      stepCount={steps.length}
-                      outputCount={outputs.length}
-                      feedbackCount={feedback.length}
-                    />
+                    <div className="space-y-3">
+                      <Link
+                        aria-label={`查看 Agent 运行详情：${run.id}`}
+                        className={
+                          run.id === selectedRunId
+                            ? "focus-ring inline-flex h-8 items-center justify-center rounded-md border border-primary bg-primary px-3 text-xs font-medium text-primary-foreground"
+                            : "focus-ring inline-flex h-8 items-center justify-center rounded-md border border-border bg-surface px-3 text-xs font-medium text-foreground hover:bg-muted"
+                        }
+                        href={`/agent-runs?runId=${run.id}`}
+                      >
+                        查看详情
+                      </Link>
+                      <AgentRunActions
+                        runId={run.id}
+                        status={run.status}
+                        stepCount={steps.length}
+                        outputCount={outputs.length}
+                        feedbackCount={feedback.length}
+                      />
+                    </div>
                   </Td>
                 </tr>
               ))}
@@ -124,13 +150,31 @@ export default function AgentRunsPage() {
         </CardContent>
       </Card>
 
-      {latest ? (
+      {selected ? (
         <section className="mt-5 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
           <Card>
             <CardHeader>
-              <CardTitle>最新运行轨迹</CardTitle>
+              <CardTitle>运行轨迹：{selected.run.id}</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-md bg-muted px-3 py-2">
+                  <div>Agent 类型</div>
+                  <div className="mt-1 font-semibold text-foreground">{selected.run.agentType.toLowerCase()}</div>
+                </div>
+                <div className="rounded-md bg-muted px-3 py-2">
+                  <div>模型</div>
+                  <div className="mt-1 font-semibold text-foreground">{selected.run.model ?? "-"}</div>
+                </div>
+                <div className="rounded-md bg-muted px-3 py-2">
+                  <div>Token</div>
+                  <div className="mt-1 font-semibold text-foreground">{selected.run.tokenUsage?.total ?? 0}</div>
+                </div>
+                <div className="rounded-md bg-muted px-3 py-2">
+                  <div>成本</div>
+                  <div className="mt-1 font-semibold text-foreground">{formatCost(selected.run.costEstimate)}</div>
+                </div>
+              </div>
               <Table>
                 <thead>
                   <tr>
@@ -142,7 +186,7 @@ export default function AgentRunsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {latest.steps.map((step) => (
+                  {selected.steps.map((step) => (
                     <tr key={step.id}>
                       <Td className="font-medium">{step.name}</Td>
                       <Td>
@@ -164,15 +208,15 @@ export default function AgentRunsPage() {
                 <CardTitle>Prompt 模板</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
-                {latest.promptTemplate ? (
+                {selected.promptTemplate ? (
                   <>
                     <div className="flex flex-wrap gap-2">
-                      <Badge tone="info">{latest.promptTemplate.agentType.toLowerCase()}</Badge>
-                      <Badge>v{latest.promptTemplate.version}</Badge>
-                      <Badge>{latest.promptTemplate.name}</Badge>
+                      <Badge tone="info">{selected.promptTemplate.agentType.toLowerCase()}</Badge>
+                      <Badge>v{selected.promptTemplate.version}</Badge>
+                      <Badge>{selected.promptTemplate.name}</Badge>
                     </div>
-                    <p className="leading-6 text-muted-foreground">{latest.promptTemplate.systemPrompt}</p>
-                    <p className="leading-6 text-muted-foreground">{latest.promptTemplate.userPrompt}</p>
+                    <p className="leading-6 text-muted-foreground">{selected.promptTemplate.systemPrompt}</p>
+                    <p className="leading-6 text-muted-foreground">{selected.promptTemplate.userPrompt}</p>
                   </>
                 ) : (
                   <p className="text-muted-foreground">未找到激活模板。</p>
@@ -185,7 +229,7 @@ export default function AgentRunsPage() {
                 <CardTitle>输出与反馈</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {latest.outputs.slice(0, 3).map((output) => (
+                {selected.outputs.slice(0, 3).map((output) => (
                   <div key={output.id} className="rounded-md border border-border p-3">
                     <div className="flex items-center gap-2">
                       <Badge tone={output.entityType === "AgentError" ? "danger" : "success"}>{output.entityType}</Badge>
@@ -194,7 +238,7 @@ export default function AgentRunsPage() {
                     <div className="mt-2 text-xs leading-5 text-muted-foreground">{summarize(output.payload, 180)}</div>
                   </div>
                 ))}
-                {latest.feedback.slice(0, 3).map((feedback) => (
+                {selected.feedback.slice(0, 3).map((feedback) => (
                   <div key={feedback.id} className="rounded-md bg-muted px-3 py-2 text-sm">
                     <span className="font-medium">{feedback.rating}/5</span>
                     <span className="ml-2 text-muted-foreground">{feedback.comment ?? "无备注"}</span>

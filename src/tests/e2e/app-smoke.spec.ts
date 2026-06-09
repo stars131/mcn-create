@@ -291,6 +291,12 @@ test("runs Agent retry and feedback controls from the run center", async ({ page
   await expect(page.getByText("mock-contentos-v1").first()).toBeVisible();
   await expect(page.getByText("¥").first()).toBeVisible();
 
+  await page.getByRole("link", { name: "查看 Agent 运行详情：run_002" }).click();
+  await expect(page).toHaveURL(/\/agent-runs\?runId=run_002$/);
+  await expect(page.getByRole("heading", { name: "运行轨迹：run_002" })).toBeVisible();
+  await expect(page.getByText("risk-check").first()).toBeVisible();
+  await expect(page.getByText("ContentRiskCheck").first()).toBeVisible();
+
   const actions = page.getByRole("group", { name: "Agent 操作：run_002" });
   await expect(actions).toBeVisible();
 
@@ -309,6 +315,7 @@ test("runs Agent retry and feedback controls from the run center", async ({ page
   });
   await expect(actions.getByRole("status")).toHaveText("反馈已提交");
   await expect(actions).toContainText("1 反馈");
+  await expect(page.getByText("页面快捷反馈：结果可用").first()).toBeVisible();
 
   const detailBeforeRetry = await page.evaluate(async () => {
     const response = await fetch("/api/agent-runs/run_002");
@@ -353,6 +360,8 @@ test("runs Agent retry and feedback controls from the run center", async ({ page
     }
   });
   await expect(actions.getByRole("status")).toHaveText("Agent 已重跑");
+
+  await page.goto("/agent-runs");
   await expect(page.getByText("persist_result").first()).toBeVisible();
 });
 
