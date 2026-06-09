@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 interface AuthFormProps {
@@ -15,8 +15,13 @@ function getPostAuthPath(nextPath?: string) {
 
 export function AuthForm({ mode, nextPath }: AuthFormProps) {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -82,7 +87,7 @@ export function AuthForm({ mode, nextPath }: AuthFormProps) {
         />
       </label>
       {error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
-      <Button type="submit" variant="primary" className="w-full" disabled={pending}>
+      <Button type="submit" variant="primary" className="w-full" disabled={!mounted || pending}>
         {pending ? "处理中" : mode === "login" ? "登录工作台" : "创建账号"}
       </Button>
     </form>

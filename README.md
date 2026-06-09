@@ -32,7 +32,9 @@ contentos123
 ## 验证命令
 
 ```bash
+npm run lint
 npm run typecheck
+npm run db:validate
 npm run test
 npm run test:e2e
 npm run build

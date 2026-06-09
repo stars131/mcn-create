@@ -6,8 +6,13 @@ const ownerCookie = "contentos_session=mock:user_owner; contentos_workspace=ws_d
 
 async function loginAsOwner(page: import("@playwright/test").Page, nextPath = "/dashboard") {
   await page.goto(`/login?next=${encodeURIComponent(nextPath)}`);
+  const loginResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/auth/login") && response.request().method() === "POST"
+  );
   await page.getByRole("button", { name: "登录工作台" }).click();
-  await expect(page).toHaveURL(new RegExp(`${nextPath}$`));
+  const loginResponse = await loginResponsePromise;
+  expect(loginResponse.ok()).toBeTruthy();
+  await expect(page).toHaveURL(new RegExp(`${nextPath}$`), { timeout: 30000 });
 }
 
 test("requires authentication for app pages and business APIs", async ({ page, request }) => {
