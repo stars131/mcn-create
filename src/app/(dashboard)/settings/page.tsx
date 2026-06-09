@@ -1,4 +1,6 @@
 import { KeyRound, Settings2 } from "lucide-react";
+import { ApiKeyCreateAction, ApiKeyRevokeAction } from "@/components/settings/api-key-actions";
+import { WebhookCreateAction, WebhookToggleAction } from "@/components/settings/webhook-actions";
 import { ActionButton } from "@/components/ui/action-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -247,14 +249,7 @@ export default function SettingsPage() {
         <Card>
           <CardHeader className="flex items-center justify-between gap-3 sm:flex-row">
             <CardTitle>API Key</CardTitle>
-            <ActionButton
-              endpoint="/api/settings/api-keys"
-              body={{ name: `MVP 操作 Key ${apiKeys.length + 1}` }}
-              label="创建 Key"
-              pendingLabel="创建中"
-              icon="key"
-              variant="primary"
-            />
+            <ApiKeyCreateAction nextName={`MVP 操作 Key ${apiKeys.length + 1}`} />
           </CardHeader>
           <CardContent>
             <Table>
@@ -279,18 +274,11 @@ export default function SettingsPage() {
                     </Td>
                     <Td>{apiKey.lastUsedAt ? new Date(apiKey.lastUsedAt).toLocaleString("zh-CN") : "-"}</Td>
                     <Td>
-                      {apiKey.deletedAt ? (
-                        <span className="text-xs text-muted-foreground">已关闭</span>
-                      ) : (
-                        <ActionButton
-                          endpoint={`/api/settings/api-keys/${apiKey.id}`}
-                          method="DELETE"
-                          label="撤销"
-                          pendingLabel="撤销中"
-                          icon="shieldX"
-                          variant="danger"
-                        />
-                      )}
+                      <ApiKeyRevokeAction
+                        apiKeyId={apiKey.id}
+                        apiKeyName={apiKey.name}
+                        revoked={Boolean(apiKey.deletedAt)}
+                      />
                     </Td>
                   </tr>
                 ))}
@@ -346,18 +334,7 @@ export default function SettingsPage() {
         <Card>
           <CardHeader className="flex items-center justify-between gap-3 sm:flex-row">
             <CardTitle>Webhook</CardTitle>
-            <ActionButton
-              endpoint="/api/settings/webhooks"
-              body={{
-                name: `Webhook ${webhooks.length + 1}`,
-                url: "https://example.com/contentos/webhook",
-                events: ["agent.run.success", "content.scheduled"]
-              }}
-              label="新增 Webhook"
-              pendingLabel="新增中"
-              icon="plug"
-              variant="primary"
-            />
+            <WebhookCreateAction nextName={`Webhook ${webhooks.length + 1}`} />
           </CardHeader>
           <CardContent>
             <Table>
@@ -382,12 +359,10 @@ export default function SettingsPage() {
                       </Badge>
                     </Td>
                     <Td>
-                      <ActionButton
-                        endpoint={`/api/settings/webhooks/${webhook.id}`}
-                        method="PATCH"
-                        body={{ enabled: !webhook.enabled }}
-                        label={webhook.enabled ? "停用" : "启用"}
-                        pendingLabel="更新中"
+                      <WebhookToggleAction
+                        webhookId={webhook.id}
+                        webhookName={webhook.name}
+                        enabled={webhook.enabled}
                       />
                     </Td>
                   </tr>

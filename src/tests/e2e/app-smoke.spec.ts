@@ -1009,6 +1009,59 @@ test("exposes API key, webhook, and usage reserves with RBAC", async ({ page, re
   await expect(page.getByRole("heading", { name: "API 错误日志", exact: true })).toBeVisible();
   await expect(page.getByText("Server ingest key")).toBeVisible();
 
+  const apiKeyCreate = page.getByRole("group", { name: "API Key 创建操作" });
+  const uiKeyResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/settings/api-keys") && response.request().method() === "POST"
+  );
+  await apiKeyCreate.getByRole("button", { name: "创建 Key" }).click();
+  const uiKeyResponse = await uiKeyResponsePromise;
+  expect(uiKeyResponse.ok()).toBeTruthy();
+  const uiKeyPayload = await uiKeyResponse.json();
+  expect(uiKeyPayload.data.secret).toMatch(/^cos_/);
+  expect(uiKeyPayload.data.apiKey).not.toHaveProperty("keyHash");
+  await expect(apiKeyCreate.getByRole("status")).toContainText("API Key 已创建");
+  const uiKeyRow = page.locator("tr", { hasText: uiKeyPayload.data.apiKey.keyPreview });
+  await expect(uiKeyRow).toBeVisible();
+  await expect(uiKeyRow).toContainText(uiKeyPayload.data.apiKey.keyPreview);
+
+  const uiKeyActions = uiKeyRow.getByRole("group", { name: `API Key 操作：${uiKeyPayload.data.apiKey.name}` });
+  const uiKeyRevokeResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes(`/api/settings/api-keys/${uiKeyPayload.data.apiKey.id}`) &&
+      response.request().method() === "DELETE"
+  );
+  await uiKeyActions.getByRole("button", { name: "撤销" }).click();
+  const uiKeyRevokeResponse = await uiKeyRevokeResponsePromise;
+  expect(uiKeyRevokeResponse.ok()).toBeTruthy();
+  await expect(uiKeyActions.getByRole("status")).toHaveText("API Key 已撤销");
+  await expect(uiKeyRow).toContainText("已撤销");
+
+  const webhookCreate = page.getByRole("group", { name: "Webhook 创建操作" });
+  const uiWebhookResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/settings/webhooks") && response.request().method() === "POST"
+  );
+  await webhookCreate.getByRole("button", { name: "新增 Webhook" }).click();
+  const uiWebhookResponse = await uiWebhookResponsePromise;
+  expect(uiWebhookResponse.ok()).toBeTruthy();
+  const uiWebhookPayload = await uiWebhookResponse.json();
+  expect(uiWebhookPayload.data).not.toHaveProperty("secretHash");
+  await expect(webhookCreate.getByRole("status")).toContainText("Webhook 已创建");
+  const uiWebhookRow = page.locator("tr", { hasText: uiWebhookPayload.data.name }).filter({ hasText: uiWebhookPayload.data.url });
+  await expect(uiWebhookRow).toBeVisible();
+  await expect(uiWebhookRow).toContainText("启用");
+
+  const uiWebhookActions = uiWebhookRow.getByRole("group", { name: `Webhook 操作：${uiWebhookPayload.data.name}` });
+  const uiWebhookToggleResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes(`/api/settings/webhooks/${uiWebhookPayload.data.id}`) &&
+      response.request().method() === "PATCH"
+  );
+  await uiWebhookActions.getByRole("button", { name: "停用" }).click();
+  const uiWebhookToggleResponse = await uiWebhookToggleResponsePromise;
+  expect(uiWebhookToggleResponse.ok()).toBeTruthy();
+  await expect(uiWebhookActions.getByRole("status")).toHaveText("Webhook 已停用");
+  await expect(uiWebhookRow).toContainText("停用");
+
   const keys = await request.get("/api/settings/api-keys", {
     headers: { Cookie: ownerCookie }
   });
