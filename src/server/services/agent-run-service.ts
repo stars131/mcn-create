@@ -40,6 +40,25 @@ export interface AgentRunFilters {
   q?: string;
 }
 
+export interface AgentRunFailureBucket {
+  agentType: AgentType;
+  reason: string;
+  runCount: number;
+  failedStepCount: number;
+  agentErrorOutputCount: number;
+  latestRunId: string;
+  latestFailedAt?: string;
+}
+
+export interface AgentRunFailureSummary {
+  failedRunCount: number;
+  failedStepCount: number;
+  agentErrorOutputCount: number;
+  affectedAgentTypes: AgentType[];
+  latestFailedRun?: AgentRun;
+  buckets: AgentRunFailureBucket[];
+}
+
 export const agentRunTypeOptions: AgentType[] = ["HOTSPOT", "TOPIC", "PERSONA", "CONTENT", "ANALYTICS", "RISK"];
 export const agentRunStatusOptions: AgentStatus[] = ["PENDING", "RUNNING", "SUCCESS", "FAILED"];
 
@@ -119,6 +138,82 @@ export function getAgentRunDetail(workspaceId: string, id: string): AgentRunDeta
 
 export function listAgentRunDetails(workspaceId: string, filters: AgentRunFilters = {}) {
   return listAgentRuns(workspaceId, filters).map((run) => getAgentRunDetail(workspaceId, run.id));
+}
+
+function getRunFailureTime(run: AgentRun) {
+  return run.finishedAt ?? run.updatedAt ?? run.startedAt ?? run.createdAt;
+}
+
+function getRunFailureSortValue(run: AgentRun) {
+  return Date.parse(getRunFailureTime(run) ?? "") || 0;
+}
+
+function getRunFailureReason(run: AgentRun) {
+  return run.errorMessage?.trim() || "未知错误";
+}
+
+export function summarizeAgentRunFailures(workspaceId: string): AgentRunFailureSummary {
+  const failedRuns = listAgentRuns(workspaceId, { status: "FAILED" }).slice().sort((left, right) => {
+    return getRunFailureSortValue(right) - getRunFailureSortValue(left);
+  });
+  const failedRunIds = new Set(failedRuns.map((run) => run.id));
+  const failedSteps = store.agentSteps.filter(
+    (step) => step.workspaceId === workspaceId && failedRunIds.has(step.agentRunId) && step.status === "FAILED"
+  );
+  const agentErrorOutputs = store.agentOutputs.filter(
+    (output) => output.workspaceId === workspaceId && failedRunIds.has(output.agentRunId) && output.entityType === "AgentError"
+  );
+  const failedStepCountByRun = new Map<string, number>();
+  const agentErrorOutputCountByRun = new Map<string, number>();
+
+  for (const step of failedSteps) {
+    failedStepCountByRun.set(step.agentRunId, (failedStepCountByRun.get(step.agentRunId) ?? 0) + 1);
+  }
+  for (const output of agentErrorOutputs) {
+    agentErrorOutputCountByRun.set(output.agentRunId, (agentErrorOutputCountByRun.get(output.agentRunId) ?? 0) + 1);
+  }
+
+  const bucketsByKey = new Map<string, AgentRunFailureBucket>();
+  const affectedAgentTypes = new Set<AgentType>();
+  for (const run of failedRuns) {
+    affectedAgentTypes.add(run.agentType);
+    const reason = getRunFailureReason(run);
+    const key = `${run.agentType}:${reason}`;
+    const existing = bucketsByKey.get(key);
+    const failedStepCount = failedStepCountByRun.get(run.id) ?? 0;
+    const agentErrorOutputCount = agentErrorOutputCountByRun.get(run.id) ?? 0;
+
+    if (existing) {
+      existing.runCount += 1;
+      existing.failedStepCount += failedStepCount;
+      existing.agentErrorOutputCount += agentErrorOutputCount;
+      continue;
+    }
+
+    bucketsByKey.set(key, {
+      agentType: run.agentType,
+      reason,
+      runCount: 1,
+      failedStepCount,
+      agentErrorOutputCount,
+      latestRunId: run.id,
+      latestFailedAt: getRunFailureTime(run)
+    });
+  }
+
+  return {
+    failedRunCount: failedRuns.length,
+    failedStepCount: failedSteps.length,
+    agentErrorOutputCount: agentErrorOutputs.length,
+    affectedAgentTypes: [...affectedAgentTypes],
+    latestFailedRun: failedRuns[0],
+    buckets: [...bucketsByKey.values()].sort((left, right) => {
+      if (right.runCount !== left.runCount) {
+        return right.runCount - left.runCount;
+      }
+      return Date.parse(right.latestFailedAt ?? "") - Date.parse(left.latestFailedAt ?? "");
+    })
+  };
 }
 
 const sensitiveTraceKeys = new Set([

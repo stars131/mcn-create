@@ -1443,6 +1443,29 @@ const initialStore: MockStore = {
       finishedAt: iso(),
       createdAt: iso(),
       updatedAt: iso()
+    },
+    {
+      id: "run_003",
+      workspaceId: defaultWorkspace.id,
+      userId: "user_owner",
+      agentType: "ANALYTICS",
+      status: "FAILED",
+      input: {
+        metricIds: ["metric_001", "metric_002"],
+        period: "2026-06-01 至 2026-06-07",
+        commentSummary: "CSV 导入后准备生成周报。",
+        importedMetricFileId: "import_file_001",
+        requiredColumns: ["views", "likes", "comments", "shares", "conversions"]
+      },
+      model: "mock-contentos-v1",
+      tokenUsage: { prompt: 780, completion: 0, total: 780 },
+      costEstimate: 0,
+      latencyMs: 140,
+      errorMessage: "指标字段缺失：conversions",
+      startedAt: iso(),
+      finishedAt: iso(),
+      createdAt: iso(),
+      updatedAt: iso()
     }
   ],
   agentSteps: [
@@ -1493,6 +1516,30 @@ const initialStore: MockStore = {
       latencyMs: 310,
       createdAt: iso(),
       updatedAt: iso()
+    },
+    {
+      id: "agent_step_005",
+      workspaceId: defaultWorkspace.id,
+      agentRunId: "run_003",
+      name: "validate_input",
+      status: "SUCCESS",
+      input: { metricIds: ["metric_001", "metric_002"], period: "2026-06-01 至 2026-06-07" },
+      output: { accepted: true },
+      latencyMs: 5,
+      createdAt: iso(),
+      updatedAt: iso()
+    },
+    {
+      id: "agent_step_006",
+      workspaceId: defaultWorkspace.id,
+      agentRunId: "run_003",
+      name: "model_call",
+      status: "FAILED",
+      input: { agentType: "ANALYTICS", promptName: "analytics-report", importedMetricFileId: "import_file_001" },
+      latencyMs: 140,
+      errorMessage: "指标字段缺失：conversions",
+      createdAt: iso(),
+      updatedAt: iso()
     }
   ],
   agentPromptTemplates: promptTemplates.map((template) => ({
@@ -1524,6 +1571,21 @@ const initialStore: MockStore = {
       entityType: "ContentRiskCheck",
       entityId: "content_risk_001",
       payload: { riskLevel: "LOW" },
+      createdAt: iso(),
+      updatedAt: iso()
+    },
+    {
+      id: "agent_output_003",
+      workspaceId: defaultWorkspace.id,
+      agentRunId: "run_003",
+      entityType: "AgentError",
+      entityId: "run_003",
+      payload: {
+        errorMessage: "指标字段缺失：conversions",
+        recoverySuggestion: "重新上传包含 conversions 列的 CSV，或在导入映射中把转化指标映射到 conversions。",
+        importedMetricFileId: "import_file_001",
+        missingFields: ["conversions"]
+      },
       createdAt: iso(),
       updatedAt: iso()
     }
@@ -1579,8 +1641,8 @@ const initialStore: MockStore = {
       workspaceId: defaultWorkspace.id,
       userId: "user_owner",
       eventType: "agent.run",
-      quantity: 2,
-      metadata: { agentTypes: ["HOTSPOT", "RISK"] },
+      quantity: 3,
+      metadata: { agentTypes: ["HOTSPOT", "RISK", "ANALYTICS"] },
       createdAt: iso()
     },
     {
@@ -1606,10 +1668,10 @@ const initialStore: MockStore = {
     {
       id: "credit_002",
       workspaceId: defaultWorkspace.id,
-      delta: -120,
-      balance: 4880,
+      delta: -145,
+      balance: 4855,
       reason: "Agent mock 运行消耗",
-      metadata: { agentRunIds: ["run_001", "run_002"] },
+      metadata: { agentRunIds: ["run_001", "run_002", "run_003"] },
       createdAt: iso()
     },
     {

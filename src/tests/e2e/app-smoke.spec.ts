@@ -293,6 +293,12 @@ test("runs Agent retry and feedback controls from the run center", async ({ page
   await expect(page.getByRole("heading", { name: "Agent 运行中心" })).toBeVisible();
   await expect(page.getByText("mock-contentos-v1").first()).toBeVisible();
   await expect(page.getByText("¥").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "失败聚合" })).toBeVisible();
+  await expect(page.getByText("指标字段缺失：conversions").first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "查看失败运行" })).toHaveAttribute(
+    "href",
+    "/agent-runs?status=FAILED"
+  );
 
   await page.getByRole("link", { name: "查看 Agent 运行详情：run_002", exact: true }).click();
   await expect(page).toHaveURL(/\/agent-runs\?runId=run_002$/);
@@ -385,6 +391,32 @@ test("runs Agent retry and feedback controls from the run center", async ({ page
         JSON.stringify(run.input).includes("content_001")
     )
   ).toBe(true);
+
+  await page.goto("/agent-runs?status=FAILED&runId=run_003");
+  await expect(page.getByRole("heading", { name: "运行轨迹：run_003" })).toBeVisible();
+  await expect(page.getByText("失败摘要")).toBeVisible();
+  await expect(page.getByText("指标字段缺失：conversions").first()).toBeVisible();
+  await expect(page.getByText("analytics").first()).toBeVisible();
+  await expect(page.getByText("AgentError").first()).toBeVisible();
+  await expect(page.getByLabel("AgentError JSON")).toContainText("recoverySuggestion");
+
+  const failedRuns = await page.evaluate(async () => {
+    const response = await fetch("/api/agent-runs?status=FAILED");
+    return {
+      ok: response.ok,
+      payload: await response.json()
+    };
+  });
+  expect(failedRuns.ok).toBeTruthy();
+  expect(failedRuns.payload.data).toContainEqual(
+    expect.objectContaining({
+      id: "run_003",
+      agentType: "ANALYTICS",
+      status: "FAILED",
+      errorMessage: "指标字段缺失：conversions"
+    })
+  );
+  expect(failedRuns.payload.data.every((run: { status: string }) => run.status === "FAILED")).toBe(true);
 
   const exportedTrace = await page.evaluate(async () => {
     const response = await fetch("/api/agent-runs/run_002/export");

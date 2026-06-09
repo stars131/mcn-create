@@ -11,7 +11,8 @@ import {
   agentRunStatusOptions,
   agentRunTypeOptions,
   listAgentRunDetails,
-  parseAgentRunFilters
+  parseAgentRunFilters,
+  summarizeAgentRunFailures
 } from "@/server/services/agent-run-service";
 import type { AgentStatus, AgentType } from "@/types/domain";
 
@@ -113,6 +114,11 @@ export default function AgentRunsPage({ searchParams }: AgentRunsPageProps) {
   const selected = details.find((detail) => detail.run.id === searchParams?.runId) ?? latest;
   const selectedRunId = selected?.run.id;
   const hasFilters = Boolean(filters.agentType || filters.status || filters.q);
+  const failureSummary = summarizeAgentRunFailures(workspaceId);
+  const latestFailedRun = failureSummary.latestFailedRun;
+  const failedRunFilters = parseAgentRunFilters({ status: "FAILED" });
+  const selectedFailedSteps = selected?.steps.filter((step) => step.status === "FAILED") ?? [];
+  const selectedAgentErrors = selected?.outputs.filter((output) => output.entityType === "AgentError") ?? [];
 
   return (
     <>
@@ -159,6 +165,83 @@ export default function AgentRunsPage({ searchParams }: AgentRunsPageProps) {
           </CardContent>
         </Card>
       </section>
+
+      <Card className="mt-5">
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle>失败聚合</CardTitle>
+            <Link
+              className="focus-ring inline-flex h-8 items-center justify-center rounded-md border border-red-200 bg-red-50 px-3 text-xs font-medium text-red-700 hover:bg-red-100"
+              href="/agent-runs?status=FAILED"
+            >
+              查看失败运行
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-4">
+            <div className="rounded-md bg-muted px-3 py-2">
+              <div className="text-xs text-muted-foreground">失败运行</div>
+              <div className="mt-1 text-xl font-semibold text-foreground">{failureSummary.failedRunCount}</div>
+            </div>
+            <div className="rounded-md bg-muted px-3 py-2">
+              <div className="text-xs text-muted-foreground">失败步骤</div>
+              <div className="mt-1 text-xl font-semibold text-foreground">{failureSummary.failedStepCount}</div>
+            </div>
+            <div className="rounded-md bg-muted px-3 py-2">
+              <div className="text-xs text-muted-foreground">AgentError</div>
+              <div className="mt-1 text-xl font-semibold text-foreground">{failureSummary.agentErrorOutputCount}</div>
+            </div>
+            <div className="rounded-md bg-muted px-3 py-2">
+              <div className="text-xs text-muted-foreground">影响类型</div>
+              <div className="mt-1 text-sm font-semibold text-foreground">
+                {failureSummary.affectedAgentTypes.length > 0
+                  ? failureSummary.affectedAgentTypes.map((agentType) => agentType.toLowerCase()).join(" / ")
+                  : "-"}
+              </div>
+            </div>
+          </div>
+
+          {latestFailedRun ? (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold">最近失败</span>
+                <Badge tone="danger">{latestFailedRun.agentType.toLowerCase()}</Badge>
+                <Link
+                  aria-label={`查看最近失败 Agent 运行：${latestFailedRun.id}`}
+                  className="font-mono text-xs font-semibold underline-offset-2 hover:underline"
+                  href={buildAgentRunHref(latestFailedRun.id, failedRunFilters)}
+                >
+                  {latestFailedRun.id}
+                </Link>
+              </div>
+              <div className="mt-1 text-xs">{latestFailedRun.errorMessage ?? "未记录错误信息"}</div>
+            </div>
+          ) : (
+            <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">暂无失败运行。</p>
+          )}
+
+          <div aria-label="Agent 失败原因聚合" className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" role="list">
+            {failureSummary.buckets.slice(0, 3).map((bucket) => (
+              <div key={`${bucket.agentType}-${bucket.reason}`} className="rounded-md border border-border p-3" role="listitem">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone="danger">{bucket.agentType.toLowerCase()}</Badge>
+                  <span className="text-xs text-muted-foreground">{bucket.runCount} 次</span>
+                </div>
+                <div className="mt-2 text-sm font-medium text-foreground">{bucket.reason}</div>
+                <div className="mt-2 text-xs text-muted-foreground">
+                  最近：{bucket.latestRunId} · 失败步骤 {bucket.failedStepCount} · AgentError {bucket.agentErrorOutputCount}
+                </div>
+              </div>
+            ))}
+            {failureSummary.buckets.length === 0 ? (
+              <div className="rounded-md border border-border p-3 text-sm text-muted-foreground" role="listitem">
+                当前 workspace 没有失败原因需要聚合。
+              </div>
+            ) : null}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="mt-5">
         <CardHeader>
@@ -340,6 +423,16 @@ export default function AgentRunsPage({ searchParams }: AgentRunsPageProps) {
                   <div className="mt-1 font-semibold text-foreground">{formatCost(selected.run.costEstimate)}</div>
                 </div>
               </div>
+              {selected.run.status === "FAILED" ? (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+                  <div className="font-semibold">失败摘要</div>
+                  <div className="mt-1">{selected.run.errorMessage ?? "未记录错误信息"}</div>
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                    <Badge tone="danger">{selectedFailedSteps.length} 失败步骤</Badge>
+                    <Badge tone="danger">{selectedAgentErrors.length} AgentError</Badge>
+                  </div>
+                </div>
+              ) : null}
               <div className="grid gap-3 lg:grid-cols-3">
                 <TraceJsonBlock title="运行输入 JSON" value={selected.run.input} />
                 <TraceJsonBlock title="运行输出 JSON" value={selected.run.output} />

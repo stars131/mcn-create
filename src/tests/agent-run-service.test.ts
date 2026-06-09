@@ -6,7 +6,8 @@ import {
   getAgentRunDetail,
   listAgentRuns,
   parseAgentRunFilters,
-  retryAgentRun
+  retryAgentRun,
+  summarizeAgentRunFailures
 } from "@/server/services/agent-run-service";
 import { store } from "@/server/services/mock-store";
 import type { AgentRun } from "@/types/domain";
@@ -28,6 +29,40 @@ describe("agent run service", () => {
     expect(filtered.map((run) => run.id)).toEqual(["run_002"]);
     expect(listAgentRuns("ws_demo", { agentType: "HOTSPOT" }).map((run) => run.id)).toContain("run_001");
     expect(listAgentRuns("ws_brand", { agentType: "RISK" })).toEqual([]);
+  });
+
+  it("summarizes failed runs by reason with workspace isolation", () => {
+    const summary = summarizeAgentRunFailures("ws_demo");
+
+    expect(summary).toMatchObject({
+      failedRunCount: 1,
+      failedStepCount: 1,
+      agentErrorOutputCount: 1,
+      affectedAgentTypes: ["ANALYTICS"],
+      latestFailedRun: {
+        id: "run_003",
+        status: "FAILED",
+        errorMessage: "指标字段缺失：conversions"
+      }
+    });
+    expect(summary.buckets).toEqual([
+      expect.objectContaining({
+        agentType: "ANALYTICS",
+        reason: "指标字段缺失：conversions",
+        runCount: 1,
+        failedStepCount: 1,
+        agentErrorOutputCount: 1,
+        latestRunId: "run_003"
+      })
+    ]);
+
+    expect(summarizeAgentRunFailures("ws_brand")).toMatchObject({
+      failedRunCount: 0,
+      failedStepCount: 0,
+      agentErrorOutputCount: 0,
+      affectedAgentTypes: [],
+      buckets: []
+    });
   });
 
   it("returns typed errors for missing and in-flight runs", async () => {
