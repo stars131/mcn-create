@@ -100,6 +100,12 @@ enum RiskLevel {
   HIGH
 }
 
+enum PersonaReviewStatus {
+  DRAFT
+  REVIEWING
+  APPROVED
+}
+
 model User {
   id             String       @id @default(cuid())
   email          String       @unique
@@ -261,11 +267,17 @@ model PersonaProfile {
   id             String   @id @default(cuid())
   workspaceId    String
   brandProfileId String?
+  brandName      String?
   name           String
   voiceGuide     String
   coreAudience   String
   highFrequencyWords String[]
   forbiddenTopics String[]
+  forbiddenExpressions String[] @default([])
+  targetAudiences String[] @default([])
+  toneExamples   String[] @default([])
+  version        Int      @default(1)
+  reviewStatus   PersonaReviewStatus @default(DRAFT)
   status         String   @default("active")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -281,6 +293,7 @@ model PersonaVersion {
   version     Int
   summary     String
   snapshot    Json
+  status      PersonaReviewStatus @default(DRAFT)
   reviewerId  String?
   approvedAt  DateTime?
   createdAt   DateTime @default(now())
@@ -372,6 +385,7 @@ model DataSource {
   platform            Platform
   authorizationStatus AuthorizationStatus @default(MOCKED)
   lastSyncedAt        DateTime?
+  notes               String              @default("")
   config              Json?
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
@@ -625,6 +639,8 @@ model ContentDraft {
   content         String
   status          ContentStatus @default(DRAFT)
   currentVersion  Int           @default(1)
+  riskLevel       RiskLevel     @default(LOW)
+  riskItems       String[]      @default([])
   sourceAgentRunId String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -827,9 +843,11 @@ model CommentInsight {
   id          String   @id @default(cuid())
   workspaceId String
   publishedPostId String?
+  metricRecordId String?
   sentiment   String
   summary     String
   keywords    String[]
+  sourceReportId String?
   sourceAgentRunId String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -842,11 +860,13 @@ model AnalyticsReport {
   id          String   @id @default(cuid())
   workspaceId String
   title       String
+  period      String?
   periodStart DateTime
   periodEnd   DateTime
   summary     String
   anomalies   Json
   recommendations Json
+  hypotheses  Json?
   sourceAgentRunId String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -880,6 +900,8 @@ model ABHypothesis {
   variantB    String
   successMetric String
   rationale   String
+  sourceReportId String?
+  sourceAgentRunId String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   deletedAt   DateTime?
@@ -895,7 +917,9 @@ model Recommendation {
   rationale   String
   targetModule String
   status      String   @default("open")
+  sourceReportId String?
   sourceAgentRunId String?
+  generatedTopicIds String[] @default([])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   deletedAt   DateTime?
@@ -1051,6 +1075,7 @@ model ApiKey {
   id          String   @id @default(cuid())
   workspaceId String
   name        String
+  keyPrefix   String   @default("")
   keyHash     String
   lastUsedAt  DateTime?
   expiresAt   DateTime?
@@ -1060,6 +1085,27 @@ model ApiKey {
   deletedAt   DateTime?
 
   @@index([workspaceId])
+}
+
+model ErrorLog {
+  id            String   @id @default(cuid())
+  workspaceId   String?
+  userId        String?
+  requestId     String
+  route         String
+  method        String
+  status        Int
+  publicMessage String
+  errorName     String
+  errorMessage  String
+  stack         String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  @@index([workspaceId, status])
+  @@index([requestId])
 }
 
 model WebhookEndpoint {

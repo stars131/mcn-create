@@ -156,11 +156,17 @@ async function main() {
     data: {
       workspaceId: workspace.id,
       brandProfileId: brand.id,
+      brandName: brand.name,
       name: "务实型内容增长顾问",
       voiceGuide: "表达直接、具体、克制。先讲业务问题，再给流程和判断标准。避免夸大承诺。",
       coreAudience: "中文内容创业者、小品牌内容负责人、小型 MCN 主理人",
       highFrequencyWords: ["工作流", "闭环", "审计", "复盘", "人设一致性"],
-      forbiddenTopics: ["医疗建议", "金融收益承诺", "法律结论", "时政判断"]
+      forbiddenTopics: ["医疗建议", "金融收益承诺", "法律结论", "时政判断"],
+      forbiddenExpressions: ["稳赚", "全自动代运营", "一键爆款"],
+      targetAudiences: ["职业 IP", "小品牌内容团队", "小型 MCN"],
+      toneExamples: ["先判断业务问题，再给可执行流程。"],
+      version: 1,
+      reviewStatus: "APPROVED"
     }
   });
 
@@ -171,9 +177,16 @@ async function main() {
       version: 1,
       summary: "初始人设版本",
       snapshot: {
+        brandName: brand.name,
+        name: "务实型内容增长顾问",
         voiceGuide: "表达直接、具体、克制",
-        forbiddenExpressions: ["稳赚", "全自动代运营", "一键爆款"]
-      }
+        forbiddenExpressions: ["稳赚", "全自动代运营", "一键爆款"],
+        targetAudiences: ["职业 IP", "小品牌内容团队", "小型 MCN"],
+        toneExamples: ["先判断业务问题，再给可执行流程。"],
+        reviewStatus: "APPROVED"
+      },
+      status: "APPROVED",
+      approvedAt: new Date()
     }
   });
 
@@ -185,6 +198,7 @@ async function main() {
       platform: "ALL",
       authorizationStatus: "MOCKED",
       lastSyncedAt: new Date(),
+      notes: "MVP 内置模拟数据，仅用于演示热点闭环。",
       config: {
         adapter: "mock-platform-adapter"
       }
@@ -261,7 +275,9 @@ async function main() {
       format: "图文",
       content: "很多团队的问题不是不会生成，而是生成之后没人知道这篇内容是否符合品牌。先做一份可审阅的人设记忆。",
       status: "IN_REVIEW",
-      currentVersion: 1
+      currentVersion: 1,
+      riskLevel: "LOW",
+      riskItems: ["未发现高风险承诺", "建议补充案例来源说明"]
     }
   });
 
@@ -337,16 +353,56 @@ async function main() {
     }
   });
 
-  await prisma.analyticsReport.create({
+  const report = await prisma.analyticsReport.create({
     data: {
       workspaceId: workspace.id,
       title: "第 23 周内容复盘",
+      period: "2026-06-01 至 2026-06-07",
       periodStart: new Date(Date.now() - 6 * 86400000),
       periodEnd: new Date(),
       summary: "人设一致性和工具链复盘类内容表现最好。",
       anomalies: ["B 站长视频脚本主题播放低于账号基线 18%"],
       recommendations: ["追加 3 条多平台改写案例"],
+      hypotheses: ["标题中加入团队规模可能提高点击率"],
       sourceAgentRunId: agentRun.id
+    }
+  });
+
+  await prisma.commentInsight.create({
+    data: {
+      workspaceId: workspace.id,
+      sentiment: "MIXED",
+      summary: "评论集中追问人设跑偏后的修正流程，也有人担心 AI 自动改写削弱品牌表达。",
+      keywords: ["人设一致性", "禁用表达", "人工审核"],
+      sourceReportId: report.id,
+      sourceAgentRunId: agentRun.id
+    }
+  });
+
+  await prisma.aBHypothesis.create({
+    data: {
+      workspaceId: workspace.id,
+      title: "标题中加入团队规模可能提高点击率",
+      variantA: "小团队如何稳定内容排期",
+      variantB: "3-10 人内容团队如何稳定一周排期",
+      successMetric: "点击率",
+      rationale: "历史数据里带团队规模的标题更容易让目标用户识别适用场景。",
+      sourceReportId: report.id,
+      sourceAgentRunId: agentRun.id
+    }
+  });
+
+  await prisma.recommendation.create({
+    data: {
+      workspaceId: workspace.id,
+      sourceType: "ANALYTICS_REPORT",
+      title: "追加 3 条多平台改写案例",
+      rationale: "多平台改写类内容带来更稳定的收藏和分享，适合回流到选题池。",
+      targetModule: "TOPIC",
+      status: "OPEN",
+      sourceReportId: report.id,
+      sourceAgentRunId: agentRun.id,
+      generatedTopicIds: []
     }
   });
 

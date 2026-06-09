@@ -83,7 +83,7 @@ src/server/audit      审计日志服务
 prisma                schema 和 seed
 ```
 
-MVP 页面使用内存 mock store 保证开箱可运行；Prisma schema 和 seed 已包含企业级数据模型，便于接入 PostgreSQL 后将服务层替换为 Prisma repository。
+MVP 页面使用内存 mock store 保证开箱可运行；Prisma schema、migration 和 seed 已包含企业级数据模型，并持续对齐运行时 domain contract。当前数据库模型已承接人设审阅状态、内容风险字段、数据源备注、API Key 前缀、分析报告/推荐回流来源、Agent 可观测性和错误日志，便于接入 PostgreSQL 后将服务层替换为 Prisma repository。
 
 ## 已预留能力
 
