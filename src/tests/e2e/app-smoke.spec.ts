@@ -287,6 +287,7 @@ test("refreshes hotspots and generates topics from a hotspot card", async ({ pag
 
 test("runs Agent retry and feedback controls from the run center", async ({ page }) => {
   test.setTimeout(60000);
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
 
   await loginAsOwner(page, "/agent-runs");
   await expect(page.getByRole("heading", { name: "Agent 运行中心" })).toBeVisible();
@@ -307,10 +308,45 @@ test("runs Agent retry and feedback controls from the run center", async ({ page
     "href",
     "/api/agent-runs/run_002/export"
   );
+  const traceCopy = page.getByRole("group", { name: "Trace 复制操作：run_002" });
+  await expect(traceCopy.getByRole("button", { name: "复制 trace" })).toBeVisible();
   await expect(page.getByLabel("运行输入 JSON")).toContainText("contentDraftId");
   await expect(page.getByLabel("运行输出 JSON")).toContainText("riskLevel");
   await expect(page.getByLabel("Token Usage JSON")).toContainText("completion");
   await expect(page.getByLabel("ContentRiskCheck JSON")).toContainText("LOW");
+
+  const copyTraceResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/agent-runs/run_002/export") && response.request().method() === "GET"
+  );
+  await traceCopy.getByRole("button", { name: "复制 trace" }).click();
+  const copyTraceResponse = await copyTraceResponsePromise;
+  expect(copyTraceResponse.ok()).toBeTruthy();
+  await expect(traceCopy.getByRole("status")).toHaveText("trace 已复制：contentos.agentRunTrace.v1");
+  const clipboardTraceText = await page.evaluate(() => navigator.clipboard.readText());
+  const clipboardTrace = JSON.parse(clipboardTraceText) as {
+    schemaVersion: string;
+    runId: string;
+    trace: {
+      run: {
+        input: { contentDraftId: string };
+        output: { riskLevel: string };
+      };
+    };
+  };
+  expect(clipboardTrace).toMatchObject({
+    schemaVersion: "contentos.agentRunTrace.v1",
+    runId: "run_002",
+    trace: {
+      run: {
+        input: {
+          contentDraftId: "content_001"
+        },
+        output: {
+          riskLevel: "LOW"
+        }
+      }
+    }
+  });
 
   await page.getByLabel("搜索").fill("content_001");
   await page.getByLabel("Agent 类型").selectOption("RISK");

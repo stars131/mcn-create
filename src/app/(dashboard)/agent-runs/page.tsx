@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AgentRunActions } from "@/components/agent-runs/agent-run-actions";
+import { AgentRunTraceCopyAction } from "@/components/agent-runs/agent-run-trace-copy-action";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
@@ -314,6 +315,10 @@ export default function AgentRunsPage({ searchParams }: AgentRunsPageProps) {
                 >
                   导出 trace
                 </Link>
+                <AgentRunTraceCopyAction
+                  runId={selected.run.id}
+                  exportHref={buildAgentRunExportHref(selected.run.id)}
+                />
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
