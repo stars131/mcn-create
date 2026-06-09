@@ -6,7 +6,29 @@ import { PageHeading } from "@/components/ui/page-heading";
 import { AgentStatusBadge } from "@/components/ui/status-badge";
 import { Table, Td, Th } from "@/components/ui/table";
 import { getCurrentWorkspaceId } from "@/server/auth/session";
-import { listAgentRunDetails } from "@/server/services/agent-run-service";
+import {
+  agentRunStatusOptions,
+  agentRunTypeOptions,
+  listAgentRunDetails,
+  parseAgentRunFilters
+} from "@/server/services/agent-run-service";
+import type { AgentStatus, AgentType } from "@/types/domain";
+
+const agentTypeLabels: Record<AgentType, string> = {
+  HOTSPOT: "hotspot",
+  TOPIC: "topic",
+  PERSONA: "persona",
+  CONTENT: "content",
+  ANALYTICS: "analytics",
+  RISK: "risk"
+};
+
+const agentStatusLabels: Record<AgentStatus, string> = {
+  PENDING: "pending",
+  RUNNING: "running",
+  SUCCESS: "success",
+  FAILED: "failed"
+};
 
 function summarize(value: unknown, maxLength = 110) {
   const text = typeof value === "string" ? value : JSON.stringify(value);
@@ -20,18 +42,38 @@ function formatCost(value: number) {
   return `¥${value.toFixed(4)}`;
 }
 
+function buildAgentRunHref(runId: string, filters: ReturnType<typeof parseAgentRunFilters>) {
+  const params = new URLSearchParams({ runId });
+  if (filters.q) {
+    params.set("q", filters.q);
+  }
+  if (filters.agentType) {
+    params.set("agentType", filters.agentType);
+  }
+  if (filters.status) {
+    params.set("status", filters.status);
+  }
+
+  return `/agent-runs?${params.toString()}`;
+}
+
 interface AgentRunsPageProps {
   searchParams?: {
     runId?: string;
+    agentType?: string;
+    status?: string;
+    q?: string;
   };
 }
 
 export default function AgentRunsPage({ searchParams }: AgentRunsPageProps) {
   const workspaceId = getCurrentWorkspaceId();
-  const details = listAgentRunDetails(workspaceId);
+  const filters = parseAgentRunFilters(searchParams ?? {});
+  const details = listAgentRunDetails(workspaceId, filters);
   const latest = details[0];
   const selected = details.find((detail) => detail.run.id === searchParams?.runId) ?? latest;
   const selectedRunId = selected?.run.id;
+  const hasFilters = Boolean(filters.agentType || filters.status || filters.q);
 
   return (
     <>
@@ -47,7 +89,7 @@ export default function AgentRunsPage({ searchParams }: AgentRunsPageProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{details.length}</div>
-            <div className="mt-1 text-xs text-muted-foreground">当前 workspace</div>
+            <div className="mt-1 text-xs text-muted-foreground">{hasFilters ? "筛选结果" : "当前 workspace"}</div>
           </CardContent>
         </Card>
         <Card>
@@ -78,6 +120,71 @@ export default function AgentRunsPage({ searchParams }: AgentRunsPageProps) {
           </CardContent>
         </Card>
       </section>
+
+      <Card className="mt-5">
+        <CardHeader>
+          <CardTitle>筛选运行记录</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form className="grid gap-3 md:grid-cols-[1fr_180px_180px_auto_auto]" role="search">
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-muted-foreground">搜索</span>
+              <input
+                className="h-9 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                defaultValue={filters.q ?? ""}
+                name="q"
+                placeholder="运行 ID、模型、输入或输出"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-muted-foreground">Agent 类型</span>
+              <select
+                className="h-9 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                defaultValue={filters.agentType ?? ""}
+                name="agentType"
+              >
+                <option value="">全部类型</option>
+                {agentRunTypeOptions.map((agentType) => (
+                  <option key={agentType} value={agentType}>
+                    {agentTypeLabels[agentType]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-muted-foreground">状态</span>
+              <select
+                className="h-9 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                defaultValue={filters.status ?? ""}
+                name="status"
+              >
+                <option value="">全部状态</option>
+                {agentRunStatusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {agentStatusLabels[status]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="flex items-end">
+              <button
+                className="focus-ring inline-flex h-9 items-center justify-center rounded-md border border-primary bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                type="submit"
+              >
+                筛选
+              </button>
+            </div>
+            <div className="flex items-end">
+              <Link
+                className="focus-ring inline-flex h-9 items-center justify-center rounded-md border border-border bg-surface px-4 text-sm font-medium text-foreground hover:bg-muted"
+                href="/agent-runs"
+              >
+                重置
+              </Link>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
       <Card className="mt-5">
         <CardHeader>
@@ -130,7 +237,7 @@ export default function AgentRunsPage({ searchParams }: AgentRunsPageProps) {
                             ? "focus-ring inline-flex h-8 items-center justify-center rounded-md border border-primary bg-primary px-3 text-xs font-medium text-primary-foreground"
                             : "focus-ring inline-flex h-8 items-center justify-center rounded-md border border-border bg-surface px-3 text-xs font-medium text-foreground hover:bg-muted"
                         }
-                        href={`/agent-runs?runId=${run.id}`}
+                        href={buildAgentRunHref(run.id, filters)}
                       >
                         查看详情
                       </Link>
@@ -145,6 +252,13 @@ export default function AgentRunsPage({ searchParams }: AgentRunsPageProps) {
                   </Td>
                 </tr>
               ))}
+              {details.length === 0 ? (
+                <tr>
+                  <Td colSpan={11} className="py-8 text-center text-sm text-muted-foreground">
+                    未找到匹配的 Agent 运行记录。
+                  </Td>
+                </tr>
+              ) : null}
             </tbody>
           </Table>
         </CardContent>

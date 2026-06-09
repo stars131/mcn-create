@@ -1,10 +1,34 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "@/server/errors";
-import { addAgentFeedback, getAgentRunDetail, retryAgentRun } from "@/server/services/agent-run-service";
+import {
+  addAgentFeedback,
+  getAgentRunDetail,
+  listAgentRuns,
+  parseAgentRunFilters,
+  retryAgentRun
+} from "@/server/services/agent-run-service";
 import { store } from "@/server/services/mock-store";
 import type { AgentRun } from "@/types/domain";
 
 describe("agent run service", () => {
+  it("filters runs by type, status, and searchable payload text", () => {
+    expect(parseAgentRunFilters({ agentType: "RISK", status: "SUCCESS", q: " content_001 " })).toEqual({
+      agentType: "RISK",
+      status: "SUCCESS",
+      q: "content_001"
+    });
+    expect(parseAgentRunFilters({ agentType: "UNKNOWN", status: "DONE", q: " " })).toEqual({});
+
+    const filtered = listAgentRuns("ws_demo", {
+      agentType: "RISK",
+      status: "SUCCESS",
+      q: "content_001"
+    });
+    expect(filtered.map((run) => run.id)).toEqual(["run_002"]);
+    expect(listAgentRuns("ws_demo", { agentType: "HOTSPOT" }).map((run) => run.id)).toContain("run_001");
+    expect(listAgentRuns("ws_brand", { agentType: "RISK" })).toEqual([]);
+  });
+
   it("returns typed errors for missing and in-flight runs", async () => {
     await expect(retryAgentRun({ workspaceId: "ws_demo", userId: "user_owner", id: "missing_run" })).rejects.toThrow(
       ApiError

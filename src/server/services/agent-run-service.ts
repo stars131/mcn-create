@@ -2,7 +2,15 @@ import { AnalyticsAgent, ContentAgent, HotspotAgent, PersonaAgent, RiskCheckAgen
 import { writeAuditLog } from "@/server/audit/audit-service";
 import { ApiError } from "@/server/errors";
 import { getWorkspaceScoped, nextId, store } from "@/server/services/mock-store";
-import type { AgentFeedback, AgentOutput, AgentPromptTemplate, AgentRun, AgentStep, AgentType } from "@/types/domain";
+import type {
+  AgentFeedback,
+  AgentOutput,
+  AgentPromptTemplate,
+  AgentRun,
+  AgentStatus,
+  AgentStep,
+  AgentType
+} from "@/types/domain";
 
 export interface AgentRunDetail {
   run: AgentRun;
@@ -12,8 +20,72 @@ export interface AgentRunDetail {
   promptTemplate?: AgentPromptTemplate;
 }
 
-export function listAgentRuns(workspaceId: string) {
-  return getWorkspaceScoped(store.agentRuns, workspaceId);
+export interface AgentRunFilters {
+  agentType?: AgentType;
+  status?: AgentStatus;
+  q?: string;
+}
+
+export const agentRunTypeOptions: AgentType[] = ["HOTSPOT", "TOPIC", "PERSONA", "CONTENT", "ANALYTICS", "RISK"];
+export const agentRunStatusOptions: AgentStatus[] = ["PENDING", "RUNNING", "SUCCESS", "FAILED"];
+
+export function parseAgentRunFilters(input: {
+  agentType?: string | null;
+  status?: string | null;
+  q?: string | null;
+}): AgentRunFilters {
+  return {
+    agentType: agentRunTypeOptions.includes(input.agentType as AgentType) ? (input.agentType as AgentType) : undefined,
+    status: agentRunStatusOptions.includes(input.status as AgentStatus) ? (input.status as AgentStatus) : undefined,
+    q: input.q?.trim() || undefined
+  };
+}
+
+function stringifySearchValue(value: unknown) {
+  if (value === undefined || value === null) {
+    return "";
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function matchesQuery(run: AgentRun, query: string) {
+  const normalizedQuery = query.toLowerCase();
+  const haystack = [
+    run.id,
+    run.agentType,
+    run.status,
+    run.model,
+    run.errorMessage,
+    stringifySearchValue(run.input),
+    stringifySearchValue(run.output)
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(normalizedQuery);
+}
+
+export function listAgentRuns(workspaceId: string, filters: AgentRunFilters = {}) {
+  return getWorkspaceScoped(store.agentRuns, workspaceId).filter((run) => {
+    if (filters.agentType && run.agentType !== filters.agentType) {
+      return false;
+    }
+    if (filters.status && run.status !== filters.status) {
+      return false;
+    }
+    if (filters.q && !matchesQuery(run, filters.q)) {
+      return false;
+    }
+    return true;
+  });
 }
 
 export function getAgentRunDetail(workspaceId: string, id: string): AgentRunDetail {
@@ -31,8 +103,8 @@ export function getAgentRunDetail(workspaceId: string, id: string): AgentRunDeta
   };
 }
 
-export function listAgentRunDetails(workspaceId: string) {
-  return listAgentRuns(workspaceId).map((run) => getAgentRunDetail(workspaceId, run.id));
+export function listAgentRunDetails(workspaceId: string, filters: AgentRunFilters = {}) {
+  return listAgentRuns(workspaceId, filters).map((run) => getAgentRunDetail(workspaceId, run.id));
 }
 
 export function getAgentRun(workspaceId: string, id: string) {

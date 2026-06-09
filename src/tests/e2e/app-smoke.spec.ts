@@ -286,6 +286,8 @@ test("refreshes hotspots and generates topics from a hotspot card", async ({ pag
 });
 
 test("runs Agent retry and feedback controls from the run center", async ({ page }) => {
+  test.setTimeout(60000);
+
   await loginAsOwner(page, "/agent-runs");
   await expect(page.getByRole("heading", { name: "Agent 运行中心" })).toBeVisible();
   await expect(page.getByText("mock-contentos-v1").first()).toBeVisible();
@@ -296,6 +298,47 @@ test("runs Agent retry and feedback controls from the run center", async ({ page
   await expect(page.getByRole("heading", { name: "运行轨迹：run_002" })).toBeVisible();
   await expect(page.getByText("risk-check").first()).toBeVisible();
   await expect(page.getByText("ContentRiskCheck").first()).toBeVisible();
+
+  await page.getByLabel("搜索").fill("content_001");
+  await page.getByLabel("Agent 类型").selectOption("RISK");
+  await page.getByLabel("状态").selectOption("SUCCESS");
+  await page.getByRole("button", { name: "筛选" }).click();
+  await expect(page).toHaveURL(/agentType=RISK/);
+  await expect(page).toHaveURL(/status=SUCCESS/);
+  await expect(page).toHaveURL(/q=content_001/);
+  const runTable = page.getByRole("table").first();
+  await expect(runTable).toContainText("run_002");
+  await expect(runTable).not.toContainText("run_001");
+  await page.getByRole("link", { name: "查看 Agent 运行详情：run_002" }).click();
+  await expect(page).toHaveURL(/runId=run_002/);
+  await expect(page).toHaveURL(/agentType=RISK/);
+
+  const filteredRuns = await page.evaluate(async () => {
+    const response = await fetch("/api/agent-runs?agentType=RISK&status=SUCCESS&q=content_001");
+    return {
+      ok: response.ok,
+      payload: await response.json()
+    };
+  });
+  expect(filteredRuns.ok).toBeTruthy();
+  expect(filteredRuns.payload.data).toContainEqual(
+    expect.objectContaining({
+      id: "run_002",
+      agentType: "RISK",
+      status: "SUCCESS"
+    })
+  );
+  expect(
+    filteredRuns.payload.data.every(
+      (run: { agentType: string; status: string; input: unknown }) =>
+        run.agentType === "RISK" &&
+        run.status === "SUCCESS" &&
+        JSON.stringify(run.input).includes("content_001")
+    )
+  ).toBe(true);
+
+  await page.goto("/agent-runs?runId=run_002");
+  await expect(page.getByRole("heading", { name: "运行轨迹：run_002" })).toBeVisible();
 
   const actions = page.getByRole("group", { name: "Agent 操作：run_002" });
   await expect(actions).toBeVisible();
