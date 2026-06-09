@@ -390,6 +390,14 @@ test("runs Agent retry and feedback controls from the run center", async ({ page
 
   const actions = page.getByRole("group", { name: "Agent 操作：run_002" });
   await expect(actions).toBeVisible();
+  await expect(actions).toContainText("success");
+  const refreshStatusResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/agent-runs/run_002") && response.request().method() === "GET"
+  );
+  await actions.getByRole("button", { name: "刷新状态" }).click();
+  const refreshStatusResponse = await refreshStatusResponsePromise;
+  expect(refreshStatusResponse.ok()).toBeTruthy();
+  await expect(actions.getByRole("status")).toHaveText("状态已刷新");
 
   const feedbackCountBeforeAction = await page.evaluate(async () => {
     const response = await fetch("/api/agent-runs/run_002");
