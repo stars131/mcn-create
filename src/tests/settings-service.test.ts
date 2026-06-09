@@ -174,6 +174,14 @@ describe("settings service", () => {
           key: "content_export_policy"
         }
       });
+      expect(store.auditLogs.find((log) => log.entityId === retentionOverride.id)).toMatchObject({
+        action: "system_setting.upsert",
+        entityType: "SystemSetting",
+        entityId: retentionOverride.id,
+        metadata: {
+          key: "data_retention_policy"
+        }
+      });
     } finally {
       store.systemSettings = store.systemSettings.filter((setting) => beforeSettingIds.has(setting.id));
       store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));

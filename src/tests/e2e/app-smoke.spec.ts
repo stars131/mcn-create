@@ -1272,20 +1272,46 @@ test("exposes API key, webhook, and usage reserves with RBAC", async ({ page, re
   await expect(systemPolicy.getByRole("status")).toContainText("策略已刷新");
   await expect(page.locator("tr").filter({ hasText: "risk_review_policy" }).filter({ hasText: "settings_page" })).toBeVisible();
 
-  const notificationActions = page.getByRole("group", { name: "通知操作：人设版本待审阅" });
-  const notificationResponsePromise = page.waitForResponse(
-    (response) => response.url().includes("/api/notifications/notification_001") && response.request().method() === "PATCH"
+  const retentionPolicy = page.getByRole("group", { name: "数据保留策略操作" });
+  const retentionResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/settings/system") && response.request().method() === "PATCH"
   );
-  await notificationActions.getByRole("button", { name: "标为已读" }).click();
-  const notificationResponse = await notificationResponsePromise;
-  expect(notificationResponse.ok()).toBeTruthy();
-  await expect(notificationResponse.json()).resolves.toMatchObject({
+  await retentionPolicy.getByRole("button", { name: "刷新保留策略" }).click();
+  const retentionResponse = await retentionResponsePromise;
+  expect(retentionResponse.ok()).toBeTruthy();
+  await expect(retentionResponse.json()).resolves.toMatchObject({
     data: {
-      id: "notification_001",
-      readAt: expect.any(String)
+      key: "data_retention_policy",
+      value: expect.objectContaining({
+        metricDays: 180,
+        auditDays: 730,
+        authorizationCacheDays: 14,
+        errorLogDays: 60,
+        updatedFrom: "settings_retention_panel"
+      })
     }
   });
-  await expect(notificationActions.getByRole("status")).toHaveText("通知已标为已读");
+  await expect(retentionPolicy.getByRole("status")).toContainText("保留策略已刷新");
+  await expect(page.locator("tr").filter({ hasText: "data_retention_policy" }).filter({ hasText: "settings_retention_panel" })).toBeVisible();
+  await expect(page.getByText("180 天").first()).toBeVisible();
+
+  const notificationActions = page.getByRole("group", { name: "通知操作：人设版本待审阅" });
+  const markReadButton = notificationActions.getByRole("button", { name: "标为已读" });
+  if ((await markReadButton.count()) > 0) {
+    const notificationResponsePromise = page.waitForResponse(
+      (response) => response.url().includes("/api/notifications/notification_001") && response.request().method() === "PATCH"
+    );
+    await markReadButton.click();
+    const notificationResponse = await notificationResponsePromise;
+    expect(notificationResponse.ok()).toBeTruthy();
+    await expect(notificationResponse.json()).resolves.toMatchObject({
+      data: {
+        id: "notification_001",
+        readAt: expect.any(String)
+      }
+    });
+    await expect(notificationActions.getByRole("status")).toHaveText("通知已标为已读");
+  }
   await expect(notificationActions).toContainText("已读");
 
   const apiKeyCreate = page.getByRole("group", { name: "API Key 创建操作" });

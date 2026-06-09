@@ -1,5 +1,6 @@
 import { KeyRound, Settings2 } from "lucide-react";
 import { ApiKeyCreateAction, ApiKeyRevokeAction } from "@/components/settings/api-key-actions";
+import { DataRetentionPolicyAction } from "@/components/settings/data-retention-policy-action";
 import { NotificationReadAction } from "@/components/settings/notification-read-action";
 import { SystemPolicyRefreshAction } from "@/components/settings/system-policy-action";
 import { WebhookCreateAction, WebhookToggleAction } from "@/components/settings/webhook-actions";
@@ -169,8 +170,9 @@ export default function SettingsPage() {
 
         <div className="space-y-4">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex items-center justify-between gap-3 sm:flex-row">
               <CardTitle>数据保留策略</CardTitle>
+              <DataRetentionPolicyAction />
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-2">
