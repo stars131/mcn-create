@@ -1172,6 +1172,11 @@ test("creates, syncs, and revokes a managed platform data source from the form",
   await expect(sourceRow).toContainText("REVOKED");
   await expect(sourceRow).toContainText("授权数据已删除，保留最小审计记录。");
   await expect(actions.getByRole("button", { name: "同步" })).toBeDisabled();
+  const authorizationDeleteAuditLink = actions.getByRole("link", { name: "查看删除审计" });
+  await expect(authorizationDeleteAuditLink).toHaveAttribute(
+    "href",
+    `/settings?auditAction=data_source.authorization.delete&auditEntityType=DataSource&auditQ=${createPayload.data.id}&auditLimit=20#audit`
+  );
 
   const authorizationAfterDelete = await request.get("/api/data-sources/platform-authorizations", {
     headers: { Cookie: ownerCookie }
@@ -1187,6 +1192,20 @@ test("creates, syncs, and revokes a managed platform data source from the form",
       })
     })
   );
+
+  await authorizationDeleteAuditLink.click();
+  await expect(page).toHaveURL(
+    new RegExp(
+      `/settings\\?auditAction=data_source\\.authorization\\.delete&auditEntityType=DataSource&auditQ=${createPayload.data.id}&auditLimit=20#audit$`
+    )
+  );
+  const authorizationDeleteAuditFilter = page.getByRole("form", { name: "审计日志筛选" });
+  await expect(authorizationDeleteAuditFilter.getByLabel("动作")).toHaveValue("data_source.authorization.delete");
+  await expect(authorizationDeleteAuditFilter.getByLabel("对象")).toHaveValue("DataSource");
+  await expect(authorizationDeleteAuditFilter.getByLabel("关键词")).toHaveValue(createPayload.data.id);
+  await expect(
+    page.locator("tr").filter({ hasText: "data_source.authorization.delete" }).filter({ hasText: `删除平台授权数据：${sourceName}` }).first()
+  ).toBeVisible();
 });
 
 test("invites a workspace member with an explicit role", async ({ page }) => {

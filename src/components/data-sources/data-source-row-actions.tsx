@@ -1,6 +1,7 @@
 "use client";
 
 import { DatabaseZap, ShieldX } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,16 @@ interface DataSourceRowActionsProps {
   sourceId: string;
   sourceName: string;
   authorizationStatus: AuthorizationStatus;
+}
+
+function buildAuthorizationDeleteAuditHref(sourceId: string) {
+  const params = new URLSearchParams({
+    auditAction: "data_source.authorization.delete",
+    auditEntityType: "DataSource",
+    auditQ: sourceId,
+    auditLimit: "20"
+  });
+  return `/settings?${params.toString()}#audit`;
 }
 
 export function DataSourceRowActions({
@@ -91,6 +102,14 @@ export function DataSourceRowActions({
         <span className="block text-xs text-muted-foreground" role="status" aria-live="polite">
           {message}
         </span>
+      ) : null}
+      {currentStatus === "REVOKED" ? (
+        <Link
+          className="focus-ring inline-flex h-8 items-center justify-center rounded-md border border-border bg-surface px-3 text-xs font-medium text-foreground hover:bg-muted"
+          href={buildAuthorizationDeleteAuditHref(sourceId)}
+        >
+          查看删除审计
+        </Link>
       ) : null}
     </div>
   );

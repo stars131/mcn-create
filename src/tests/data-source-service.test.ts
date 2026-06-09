@@ -138,6 +138,26 @@ describe("data source service", () => {
       ).resolves.toEqual({ ok: true });
       expect(source.authorizationStatus).toBe("REVOKED");
       expect(source.notes).toBe("授权数据已删除，保留最小审计记录。");
+      expect(store.auditLogs[0]).toMatchObject({
+        action: "data_source.authorization.delete",
+        entityType: "DataSource",
+        entityId: source.id,
+        summary: "删除平台授权数据：OAuth Source",
+        metadata: {
+          sourceName: "OAuth Source",
+          sourceType: "USER_AUTHORIZED",
+          platform: "XIAOHONGSHU",
+          previousAuthorizationStatus: "CONNECTED",
+          authorizationStatus: "REVOKED",
+          platformAccountId: account?.id,
+          platformAuthorizationId: authorization?.id,
+          previousPlatformAuthorizationId: authorization?.id,
+          hadTokenRef: true,
+          tokenRefRemoved: true,
+          retainedAuditRecord: true
+        }
+      });
+      expect(store.auditLogs[0].metadata).not.toHaveProperty("tokenRef");
       expect(account).toMatchObject({
         status: "REVOKED"
       });

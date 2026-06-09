@@ -7,6 +7,7 @@ import type {
   DataSource,
   Platform,
   PlatformAccount,
+  PlatformAuthorization,
   SourceType
 } from "@/types/domain";
 
@@ -235,6 +236,19 @@ export function updateDataSource(input: {
 
 export async function deleteAuthorizationData(input: { workspaceId: string; userId: string; id: string }) {
   const source = getDataSourceOrThrow(input.workspaceId, input.id);
+  const previousAuthorizationStatus = source.authorizationStatus;
+  const previousLastSyncedAt = source.lastSyncedAt;
+  const previousRuntime: {
+    account?: PlatformAccount;
+    authorization?: PlatformAuthorization;
+    hadTokenRef: boolean;
+  } = shouldManagePlatformAuthorization(source)
+    ? (() => {
+        const account = findPlatformAccountForSource(source);
+        const authorization = account ? findPlatformAuthorization(account) : undefined;
+        return { account, authorization, hadTokenRef: Boolean(authorization?.tokenRef) };
+      })()
+    : { hadTokenRef: false };
   await mockPlatformAdapter.deleteAuthorizationData(input.workspaceId, input.id);
   const runtime = upsertPlatformAuthorizationForSource(source);
   writeAuditLog({
@@ -243,10 +257,22 @@ export async function deleteAuthorizationData(input: { workspaceId: string; user
     action: "data_source.authorization.delete",
     entityType: "DataSource",
     entityId: input.id,
-    summary: "删除平台授权数据，保留审计记录",
+    summary: `删除平台授权数据：${source.name}`,
     metadata: {
+      sourceName: source.name,
+      sourceType: source.sourceType,
+      platform: source.platform,
+      previousAuthorizationStatus,
+      authorizationStatus: source.authorizationStatus,
+      previousLastSyncedAt,
+      lastSyncedAt: source.lastSyncedAt,
       platformAccountId: runtime.account?.id,
-      platformAuthorizationId: runtime.authorization?.id
+      platformAuthorizationId: runtime.authorization?.id,
+      previousPlatformAuthorizationId: previousRuntime.authorization?.id,
+      revokedAt: runtime.authorization?.revokedAt,
+      hadTokenRef: previousRuntime.hadTokenRef ?? false,
+      tokenRefRemoved: previousRuntime.hadTokenRef ? !runtime.authorization?.tokenRef : false,
+      retainedAuditRecord: true
     }
   });
   return { ok: true };
