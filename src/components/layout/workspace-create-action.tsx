@@ -1,6 +1,7 @@
 "use client";
 
 import { Plus } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ interface WorkspaceCreateActionProps {
 
 export function WorkspaceCreateAction({ nextName, organizationName }: WorkspaceCreateActionProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [mounted, setMounted] = useState(false);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string>();
@@ -50,6 +52,7 @@ export function WorkspaceCreateAction({ nextName, organizationName }: WorkspaceC
       }
 
       setMessage(`workspace 已创建：${payload?.data?.name ?? nextName}`);
+      await queryClient.invalidateQueries({ queryKey: ["workspace-snapshot"] });
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "workspace 创建失败");

@@ -1,29 +1,74 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useWorkspaceStore, type WorkspaceSummary } from "@/lib/stores/workspace-store";
 import { cn } from "@/lib/utils/cn";
-
-interface WorkspaceOption {
-  id: string;
-  name: string;
-  currentPlan: string;
-}
 
 interface WorkspaceSwitcherProps {
   currentWorkspaceId: string;
-  workspaces: WorkspaceOption[];
+  workspaces: WorkspaceSummary[];
+}
+
+type ApiPayload<T> = {
+  data?: T;
+  error?: string;
+};
+
+type WorkspaceSnapshot = {
+  currentWorkspaceId: string;
+  workspaces: WorkspaceSummary[];
+};
+
+async function fetchWorkspaceSnapshot(): Promise<WorkspaceSnapshot> {
+  const response = await fetch("/api/me", {
+    credentials: "same-origin",
+    headers: { "content-type": "application/json" }
+  });
+  const payload = (await response.json().catch(() => null)) as
+    | ApiPayload<{
+        user: { currentWorkspaceId: string };
+        workspaces: WorkspaceSummary[];
+      }>
+    | null;
+  if (!response.ok || !payload?.data) {
+    throw new Error(payload?.error ?? "workspace 状态读取失败");
+  }
+
+  return {
+    currentWorkspaceId: payload.data.user.currentWorkspaceId,
+    workspaces: payload.data.workspaces
+  };
 }
 
 export function WorkspaceSwitcher({ currentWorkspaceId, workspaces }: WorkspaceSwitcherProps) {
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(currentWorkspaceId);
   const [pending, setPending] = useState(false);
-  const selectedWorkspace = workspaces.find((workspace) => workspace.id === selectedWorkspaceId) ?? workspaces[0];
+  const storedWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+  const storedWorkspaces = useWorkspaceStore((state) => state.workspaces);
+  const setCurrentWorkspaceId = useWorkspaceStore((state) => state.setCurrentWorkspaceId);
+  const setWorkspaceSnapshot = useWorkspaceStore((state) => state.setWorkspaceSnapshot);
+  const selectedWorkspaceId = storedWorkspaceId ?? currentWorkspaceId;
+  const visibleWorkspaces = storedWorkspaces.length > 0 ? storedWorkspaces : workspaces;
+  const selectedWorkspace = visibleWorkspaces.find((workspace) => workspace.id === selectedWorkspaceId) ?? visibleWorkspaces[0];
+
+  const workspaceSnapshot = useQuery({
+    queryKey: ["workspace-snapshot"],
+    queryFn: fetchWorkspaceSnapshot,
+    initialData: {
+      currentWorkspaceId,
+      workspaces
+    }
+  });
 
   useEffect(() => {
-    setSelectedWorkspaceId(currentWorkspaceId);
-  }, [currentWorkspaceId]);
+    setWorkspaceSnapshot({ currentWorkspaceId, workspaces });
+  }, [currentWorkspaceId, setWorkspaceSnapshot, workspaces]);
+
+  useEffect(() => {
+    setWorkspaceSnapshot(workspaceSnapshot.data);
+  }, [setWorkspaceSnapshot, workspaceSnapshot.data]);
 
   async function switchWorkspace(workspaceId: string) {
     if (workspaceId === selectedWorkspaceId) {
@@ -31,7 +76,7 @@ export function WorkspaceSwitcher({ currentWorkspaceId, workspaces }: WorkspaceS
     }
 
     const previousWorkspaceId = selectedWorkspaceId;
-    setSelectedWorkspaceId(workspaceId);
+    setCurrentWorkspaceId(workspaceId);
     setPending(true);
     try {
       const response = await fetch("/api/workspaces/switch", {
@@ -41,12 +86,12 @@ export function WorkspaceSwitcher({ currentWorkspaceId, workspaces }: WorkspaceS
         body: JSON.stringify({ workspaceId })
       });
       if (!response.ok) {
-        setSelectedWorkspaceId(previousWorkspaceId);
+        setCurrentWorkspaceId(previousWorkspaceId);
         return;
       }
       window.location.reload();
     } catch {
-      setSelectedWorkspaceId(previousWorkspaceId);
+      setCurrentWorkspaceId(previousWorkspaceId);
     } finally {
       setPending(false);
     }
@@ -65,7 +110,7 @@ export function WorkspaceSwitcher({ currentWorkspaceId, workspaces }: WorkspaceS
           value={selectedWorkspaceId}
           onChange={(event) => switchWorkspace(event.target.value)}
         >
-          {workspaces.map((workspace) => (
+          {visibleWorkspaces.map((workspace) => (
             <option key={workspace.id} value={workspace.id}>
               {workspace.name}
             </option>
