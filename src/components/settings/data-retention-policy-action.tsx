@@ -40,14 +40,19 @@ const retentionPolicyPayload = {
   }
 };
 
+const auditRetentionPruneHref =
+  "/settings?auditAction=audit_log.retention_prune&auditEntityType=AuditLog&auditLimit=20#audit";
+
 export function DataRetentionPolicyAction() {
   const router = useRouter();
   const [pending, setPending] = useState<"refresh" | "prune">();
   const [message, setMessage] = useState<string>();
+  const [showAuditLink, setShowAuditLink] = useState(false);
 
   async function refreshPolicy() {
     setPending("refresh");
     setMessage(undefined);
+    setShowAuditLink(false);
 
     try {
       const response = await fetch("/api/settings/system", {
@@ -73,6 +78,7 @@ export function DataRetentionPolicyAction() {
   async function pruneAuditLogs() {
     setPending("prune");
     setMessage(undefined);
+    setShowAuditLink(false);
 
     try {
       const response = await fetch("/api/audit-logs/retention-prune", {
@@ -85,6 +91,7 @@ export function DataRetentionPolicyAction() {
       }
 
       setMessage(`审计清理完成：${payload?.data?.prunedCount ?? 0} 条`);
+      setShowAuditLink(true);
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "审计日志清理失败");
@@ -107,6 +114,14 @@ export function DataRetentionPolicyAction() {
         <span className="text-xs text-muted-foreground" role="status" aria-live="polite">
           {message}
         </span>
+      ) : null}
+      {showAuditLink ? (
+        <a
+          href={auditRetentionPruneHref}
+          className="focus-ring inline-flex h-8 items-center justify-center rounded-md border border-border px-3 text-xs font-medium text-foreground transition hover:bg-muted"
+        >
+          查看清理审计
+        </a>
       ) : null}
     </div>
   );

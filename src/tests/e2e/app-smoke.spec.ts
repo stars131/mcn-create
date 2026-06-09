@@ -1414,6 +1414,19 @@ test("exposes API key, webhook, and usage reserves with RBAC", async ({ page, re
     }
   });
   await expect(retentionPolicy.getByRole("status")).toContainText("审计清理完成");
+  await expect(retentionPolicy.getByRole("link", { name: "查看清理审计" })).toHaveAttribute(
+    "href",
+    "/settings?auditAction=audit_log.retention_prune&auditEntityType=AuditLog&auditLimit=20#audit"
+  );
+  await retentionPolicy.getByRole("link", { name: "查看清理审计" }).click();
+  await expect(page).toHaveURL(/auditAction=audit_log\.retention_prune/);
+  await expect(page).toHaveURL(/auditEntityType=AuditLog/);
+  const pruneAuditFilter = page.getByRole("form", { name: "审计日志筛选" });
+  await expect(pruneAuditFilter.getByLabel("动作")).toHaveValue("audit_log.retention_prune");
+  await expect(pruneAuditFilter.getByLabel("对象")).toHaveValue("AuditLog");
+  await expect(page.locator("tr").filter({ hasText: "audit_log.retention_prune" }).filter({ hasText: "执行审计日志保留清理" }).first()).toBeVisible();
+  await page.goto("/settings");
+  await expect(page.getByRole("heading", { name: "设置", exact: true })).toBeVisible();
 
   const pruneDenied = await request.post("/api/audit-logs/retention-prune", {
     headers: { Cookie: "contentos_session=mock:user_editor; contentos_workspace=ws_demo" }
