@@ -288,6 +288,8 @@ test("refreshes hotspots and generates topics from a hotspot card", async ({ pag
 test("runs Agent retry and feedback controls from the run center", async ({ page }) => {
   await loginAsOwner(page, "/agent-runs");
   await expect(page.getByRole("heading", { name: "Agent 运行中心" })).toBeVisible();
+  await expect(page.getByText("mock-contentos-v1").first()).toBeVisible();
+  await expect(page.getByText("¥").first()).toBeVisible();
 
   const actions = page.getByRole("group", { name: "Agent 操作：run_002" });
   await expect(actions).toBeVisible();
@@ -307,6 +309,37 @@ test("runs Agent retry and feedback controls from the run center", async ({ page
   });
   await expect(actions.getByRole("status")).toHaveText("反馈已提交");
   await expect(actions).toContainText("1 反馈");
+
+  const detailBeforeRetry = await page.evaluate(async () => {
+    const response = await fetch("/api/agent-runs/run_002");
+    return {
+      ok: response.ok,
+      payload: await response.json()
+    };
+  });
+  expect(detailBeforeRetry.ok).toBeTruthy();
+  expect(detailBeforeRetry.payload.data).toMatchObject({
+    run: {
+      id: "run_002",
+      model: "mock-contentos-v1",
+      costEstimate: expect.any(Number),
+      tokenUsage: {
+        total: expect.any(Number)
+      }
+    },
+    promptTemplate: {
+      name: "risk-check",
+      active: true
+    }
+  });
+  expect(detailBeforeRetry.payload.data.steps.length).toBeGreaterThan(0);
+  expect(detailBeforeRetry.payload.data.outputs.length).toBeGreaterThan(0);
+  expect(detailBeforeRetry.payload.data.feedback).toContainEqual(
+    expect.objectContaining({
+      agentRunId: "run_002",
+      rating: 5
+    })
+  );
 
   const retryResponsePromise = page.waitForResponse(
     (response) => response.url().includes("/api/agent-runs/run_002/retry") && response.request().method() === "POST"

@@ -15,6 +15,10 @@ function summarize(value: unknown, maxLength = 110) {
   return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
 }
 
+function formatCost(value: number) {
+  return `¥${value.toFixed(4)}`;
+}
+
 export default function AgentRunsPage() {
   const workspaceId = getCurrentWorkspaceId();
   const details = listAgentRunDetails(workspaceId);
@@ -78,7 +82,9 @@ export default function AgentRunsPage() {
                 <Th>状态</Th>
                 <Th>输入摘要</Th>
                 <Th>输出摘要</Th>
+                <Th>模型</Th>
                 <Th>token</Th>
+                <Th>成本</Th>
                 <Th>耗时</Th>
                 <Th>错误</Th>
                 <Th>操作</Th>
@@ -97,7 +103,9 @@ export default function AgentRunsPage() {
                   <Td className="max-w-[220px] truncate text-xs text-muted-foreground">
                     {summarize(run.output)}
                   </Td>
+                  <Td className="text-xs text-muted-foreground">{run.model ?? "-"}</Td>
                   <Td>{run.tokenUsage?.total ?? 0}</Td>
+                  <Td>{formatCost(run.costEstimate)}</Td>
                   <Td>{run.latencyMs}ms</Td>
                   <Td className="text-xs text-red-700">{run.errorMessage ?? "-"}</Td>
                   <Td>
