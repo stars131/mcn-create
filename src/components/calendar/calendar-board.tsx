@@ -11,7 +11,7 @@ import {
   startOfWeek
 } from "date-fns";
 import { useMemo, useState } from "react";
-import { ActionButton } from "@/components/ui/action-button";
+import { CalendarItemActions } from "@/components/calendar/calendar-item-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -151,26 +151,8 @@ export function CalendarBoard({ items, referenceDate }: { items: CalendarItem[];
                 </div>
                 <Badge>{item.status}</Badge>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <ActionButton
-                  endpoint={`/api/calendar/items/${item.id}`}
-                  method="PATCH"
-                  body={{ scheduledAt: addDays(new Date(item.scheduledAt), 1).toISOString() }}
-                  label="顺延一天"
-                  pendingLabel="调整中"
-                  icon="chevronRight"
-                />
-                {item.status !== "PUBLISHED" ? (
-                  <ActionButton
-                    endpoint={`/api/calendar/items/${item.id}`}
-                    method="PATCH"
-                    body={{ status: "PUBLISHED" }}
-                    label="标记发布"
-                    pendingLabel="发布中"
-                    icon="checkCircle"
-                    variant="primary"
-                  />
-                ) : null}
+              <div className="mt-3">
+                <CalendarItemActions itemId={item.id} scheduledAt={item.scheduledAt} status={item.status} />
               </div>
             </div>
           ))}

@@ -283,6 +283,51 @@ test("creates a manual publish plan on the calendar", async ({ page }) => {
   await expect(page.getByText("公众号 · 06-26 09:45")).toBeVisible();
 });
 
+test("reschedules a linked calendar publish plan by button", async ({ page, request }) => {
+  const beforeCalendar = await request.get("/api/calendar", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(beforeCalendar.ok()).toBeTruthy();
+  const beforeCalendarPayload = await beforeCalendar.json();
+  const beforeItem = beforeCalendarPayload.data.find((item: { id: string; scheduledAt: string }) => item.id === "cal_001");
+  expect(beforeItem).toBeTruthy();
+  const expectedScheduledAt = new Date(beforeItem.scheduledAt);
+  expectedScheduledAt.setUTCDate(expectedScheduledAt.getUTCDate() + 1);
+
+  await loginAsOwner(page, "/calendar");
+  await expect(page.getByRole("heading", { name: "内容日历" })).toBeVisible();
+
+  const planCard = page.getByLabel("发布计划：小团队别急着买更多 AI 工具");
+  await expect(planCard).toBeVisible();
+
+  const rescheduleResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/calendar/items/cal_001") && response.request().method() === "PATCH"
+  );
+  await planCard.getByRole("button", { name: "顺延一天" }).click();
+  const rescheduleResponse = await rescheduleResponsePromise;
+  expect(rescheduleResponse.ok()).toBeTruthy();
+  await expect(rescheduleResponse.json()).resolves.toMatchObject({
+    data: {
+      id: "cal_001",
+      scheduledAt: expectedScheduledAt.toISOString()
+    }
+  });
+
+  await expect(planCard.getByRole("status")).toHaveText("发布计划已顺延一天");
+
+  const afterCalendar = await request.get("/api/calendar", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(afterCalendar.ok()).toBeTruthy();
+  const afterCalendarPayload = await afterCalendar.json();
+  expect(afterCalendarPayload.data).toContainEqual(
+    expect.objectContaining({
+      id: "cal_001",
+      scheduledAt: expectedScheduledAt.toISOString()
+    })
+  );
+});
+
 test("marks a linked calendar item as published and creates analytics records", async ({ page, request }) => {
   const beforeAnalytics = await request.get("/api/analytics/overview", {
     headers: { Cookie: ownerCookie }

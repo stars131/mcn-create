@@ -130,6 +130,7 @@ describe("calendar service", () => {
 
     try {
       const scheduledAt = "2026-07-01T09:00:00.000Z";
+      const rescheduledAt = "2026-07-02T09:00:00.000Z";
       const calendarItem = scheduleContent({
         workspaceId: "ws_demo",
         userId: "user_owner",
@@ -138,6 +139,28 @@ describe("calendar service", () => {
         scheduledAt
       });
       const publishPlan = store.publishPlans.find((plan) => !beforePublishPlanIds.has(plan.id));
+
+      const rescheduledItem = updateCalendarItem({
+        workspaceId: "ws_demo",
+        userId: "user_owner",
+        id: calendarItem.id,
+        patch: { scheduledAt: rescheduledAt }
+      });
+
+      expect(rescheduledItem.scheduledAt).toBe(rescheduledAt);
+      expect(publishPlan).toMatchObject({
+        scheduledAt: rescheduledAt
+      });
+      expect(store.auditLogs[0]).toMatchObject({
+        action: "calendar_item.update",
+        entityType: "CalendarItem",
+        entityId: calendarItem.id,
+        metadata: {
+          scheduledAt: rescheduledAt,
+          previousScheduledAt: scheduledAt,
+          syncedPublishPlanId: publishPlan?.id
+        }
+      });
 
       const publishedItem = updateCalendarItem({
         workspaceId: "ws_demo",
@@ -160,17 +183,17 @@ describe("calendar service", () => {
         publishPlanId: publishPlan?.id,
         contentDraftId: "content_001",
         platform: "XIAOHONGSHU",
-        publishedAt: scheduledAt
+        publishedAt: rescheduledAt
       });
       expect(postMetric).toMatchObject({
         publishedPostId: publishedPost?.id,
         platform: "XIAOHONGSHU",
-        metricDate: scheduledAt
+        metricDate: rescheduledAt
       });
       expect(accountMetric).toMatchObject({
         platformAccountId: "platform_account_001",
         platform: "XIAOHONGSHU",
-        metricDate: scheduledAt
+        metricDate: rescheduledAt
       });
       expect(store.auditLogs[0]).toMatchObject({
         action: "calendar_item.update",

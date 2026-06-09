@@ -54,7 +54,31 @@ export function updateCalendarItem(input: {
   patch: Partial<Pick<CalendarItem, "scheduledAt" | "status">>;
 }) {
   const item = getCalendarItem(input.workspaceId, input.id);
+  const previousScheduledAt = item.scheduledAt;
   Object.assign(item, input.patch);
+  const now = new Date().toISOString();
+  const syncedPublishPlan =
+    input.patch.scheduledAt && item.contentDraftId
+      ? (store.publishPlans.find(
+          (plan) =>
+            plan.workspaceId === item.workspaceId &&
+            plan.contentDraftId === item.contentDraftId &&
+            plan.platform === item.platform &&
+            plan.scheduledAt === previousScheduledAt &&
+            plan.status !== "PUBLISHED"
+        ) ??
+        store.publishPlans.find(
+          (plan) =>
+            plan.workspaceId === item.workspaceId &&
+            plan.contentDraftId === item.contentDraftId &&
+            plan.platform === item.platform &&
+            plan.status !== "PUBLISHED"
+        ))
+      : undefined;
+  if (syncedPublishPlan && input.patch.scheduledAt) {
+    syncedPublishPlan.scheduledAt = input.patch.scheduledAt;
+    syncedPublishPlan.updatedAt = now;
+  }
   const publishedPost = input.patch.status === "PUBLISHED" ? createPublishedPostFromCalendarItem(item) : undefined;
   writeAuditLog({
     workspaceId: input.workspaceId,
@@ -65,6 +89,8 @@ export function updateCalendarItem(input: {
     summary: `更新日历项：${item.title}`,
     metadata: {
       ...input.patch,
+      previousScheduledAt: input.patch.scheduledAt ? previousScheduledAt : undefined,
+      syncedPublishPlanId: syncedPublishPlan?.id,
       publishedPostId: publishedPost?.id
     }
   });
