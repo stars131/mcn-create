@@ -293,7 +293,7 @@ test("runs Agent retry and feedback controls from the run center", async ({ page
   await expect(page.getByText("mock-contentos-v1").first()).toBeVisible();
   await expect(page.getByText("¥").first()).toBeVisible();
 
-  await page.getByRole("link", { name: "查看 Agent 运行详情：run_002" }).click();
+  await page.getByRole("link", { name: "查看 Agent 运行详情：run_002", exact: true }).click();
   await expect(page).toHaveURL(/\/agent-runs\?runId=run_002$/);
   await expect(page.getByRole("heading", { name: "运行轨迹：run_002" })).toBeVisible();
   await expect(page.getByText("risk-check").first()).toBeVisible();
@@ -322,7 +322,7 @@ test("runs Agent retry and feedback controls from the run center", async ({ page
   const runTable = page.getByRole("table").first();
   await expect(runTable).toContainText("run_002");
   await expect(runTable).not.toContainText("run_001");
-  await page.getByRole("link", { name: "查看 Agent 运行详情：run_002" }).click();
+  await page.getByRole("link", { name: "查看 Agent 运行详情：run_002", exact: true }).click();
   await expect(page).toHaveURL(/runId=run_002/);
   await expect(page).toHaveURL(/agentType=RISK/);
 
@@ -388,7 +388,7 @@ test("runs Agent retry and feedback controls from the run center", async ({ page
   await expect(page.getByLabel("运行输入 JSON")).toContainText("content_001");
   await expect(page.getByLabel("运行输出 JSON")).toContainText("riskLevel");
 
-  const actions = page.getByRole("group", { name: "Agent 操作：run_002" });
+  const actions = page.getByRole("group", { name: "Agent 操作：run_002", exact: true });
   await expect(actions).toBeVisible();
   await expect(actions).toContainText("success");
   const refreshStatusResponsePromise = page.waitForResponse(
@@ -929,6 +929,7 @@ test("imports analytics metrics from an uploaded CSV file", async ({ page }) => 
   const analyticsImportResponse = await analyticsImportResponsePromise;
   expect(analyticsImportResponse.ok()).toBeTruthy();
   await expect(page.getByText("e2e-metrics.csv")).toBeVisible();
+  await expect(page.getByText("用户上传").first()).toBeVisible();
   await expect(page.getByRole("status")).toHaveText("已导入 1 行");
 
   const sampleImport = page.getByRole("group", { name: "CSV 样例导入操作" });
@@ -972,6 +973,8 @@ test("generates an analytics report and backflows recommendations to topics", as
 
   await expect(workflow.getByRole("status")).toContainText("周报已生成");
   await expect(page.getByText(reportPayload.data.title).first()).toBeVisible();
+  await expect(page.getByText("报告 ID：").first()).toBeVisible();
+  await expect(page.getByText("AgentRun：").first()).toBeVisible();
   await expect(page.getByText("异常波动")).toBeVisible();
 
   const backflowResponsePromise = page.waitForResponse(
@@ -988,6 +991,8 @@ test("generates an analytics report and backflows recommendations to topics", as
 
   await expect(workflow.getByRole("status")).toHaveText(`已回流 ${backflowPayload.data.length} 条选题`);
   await expect(page.getByText("已回流").first()).toBeVisible();
+  await expect(page.getByText("ANALYTICS_REPORT").first()).toBeVisible();
+  await expect(page.getByText("生成选题：").first()).toBeVisible();
 });
 
 test("creates, syncs, and revokes a managed platform data source from the form", async ({ page, request }) => {

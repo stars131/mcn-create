@@ -45,6 +45,15 @@ const moduleLabels = {
   CALENDAR: "日历"
 };
 
+const sourceTypeLabels = {
+  OFFICIAL_API: "官方 API",
+  USER_AUTHORIZED: "用户授权",
+  USER_UPLOAD: "用户上传",
+  PUBLIC_COMPLIANT: "公开合规",
+  THIRD_PARTY_LEGAL: "合法第三方",
+  MOCK: "Mock"
+};
+
 function shortDate(value: string) {
   return value.slice(0, 10);
 }
@@ -99,6 +108,10 @@ export default function AnalyticsPage() {
                 <div>
                   <h3 className="text-sm font-semibold">{report.title}</h3>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">{report.summary}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Badge tone="info">报告 ID：{report.id}</Badge>
+                    {report.sourceAgentRunId ? <Badge>AgentRun：{report.sourceAgentRunId}</Badge> : null}
+                  </div>
                 </div>
                 <div>
                   <div className="text-xs font-semibold text-muted-foreground">异常波动</div>
@@ -129,6 +142,7 @@ export default function AnalyticsPage() {
                 <tr>
                   <Th>文件</Th>
                   <Th>类型</Th>
+                  <Th>来源</Th>
                   <Th>行数</Th>
                   <Th>状态</Th>
                 </tr>
@@ -141,6 +155,11 @@ export default function AnalyticsPage() {
                       <div className="mt-1 text-xs text-muted-foreground">{shortDate(file.createdAt)}</div>
                     </Td>
                     <Td>{file.fileType}</Td>
+                    <Td>
+                      <Badge tone={file.sourceType === "USER_UPLOAD" ? "info" : file.sourceType === "MOCK" ? "neutral" : "success"}>
+                        {sourceTypeLabels[file.sourceType]}
+                      </Badge>
+                    </Td>
                     <Td>{file.rowCount}</Td>
                     <Td>
                       <Badge tone={file.status === "PARSED" ? "success" : "danger"}>{file.status === "PARSED" ? "已解析" : "失败"}</Badge>
@@ -168,6 +187,10 @@ export default function AnalyticsPage() {
                   ))}
                 </div>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">{insight.summary}</p>
+                <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  {insight.sourceReportId ? <Badge>报告：{insight.sourceReportId}</Badge> : null}
+                  {insight.sourceAgentRunId ? <Badge>AgentRun：{insight.sourceAgentRunId}</Badge> : null}
+                </div>
               </div>
             ))}
           </CardContent>
@@ -194,6 +217,10 @@ export default function AnalyticsPage() {
                     <Td>
                       <div className="font-medium">{hypothesis.title}</div>
                       <div className="mt-1 text-xs text-muted-foreground">{hypothesis.rationale}</div>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {hypothesis.sourceReportId ? <Badge>报告：{hypothesis.sourceReportId}</Badge> : null}
+                        {hypothesis.sourceAgentRunId ? <Badge>AgentRun：{hypothesis.sourceAgentRunId}</Badge> : null}
+                      </div>
                     </Td>
                     <Td>
                       <div className="text-xs text-muted-foreground">A：{hypothesis.variantA}</div>
@@ -233,6 +260,14 @@ export default function AnalyticsPage() {
                     <Td>
                       <div className="font-medium">{recommendation.title}</div>
                       <div className="mt-1 text-xs text-muted-foreground">{recommendation.rationale}</div>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        <Badge>{recommendation.sourceType}</Badge>
+                        {recommendation.sourceReportId ? <Badge>报告：{recommendation.sourceReportId}</Badge> : null}
+                        {recommendation.sourceAgentRunId ? <Badge>AgentRun：{recommendation.sourceAgentRunId}</Badge> : null}
+                        {recommendation.generatedTopicIds?.length ? (
+                          <Badge tone="success">生成选题：{recommendation.generatedTopicIds.join(", ")}</Badge>
+                        ) : null}
+                      </div>
                     </Td>
                     <Td>{moduleLabels[recommendation.targetModule]}</Td>
                     <Td>
