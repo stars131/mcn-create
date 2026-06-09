@@ -1,4 +1,4 @@
-import { ActionButton } from "@/components/ui/action-button";
+import { AgentRunActions } from "@/components/agent-runs/agent-run-actions";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
@@ -101,26 +101,13 @@ export default function AgentRunsPage() {
                   <Td>{run.latencyMs}ms</Td>
                   <Td className="text-xs text-red-700">{run.errorMessage ?? "-"}</Td>
                   <Td>
-                    <div className="flex flex-wrap gap-2">
-                      <ActionButton
-                        endpoint={`/api/agent-runs/${run.id}/retry`}
-                        label="重跑"
-                        pendingLabel="重跑中"
-                        icon="rotateCcw"
-                      />
-                      <ActionButton
-                        endpoint={`/api/agent-runs/${run.id}/feedback`}
-                        body={{ rating: 5, comment: "页面快捷反馈：结果可用" }}
-                        label="好评"
-                        pendingLabel="提交中"
-                        icon="checkCircle"
-                      />
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-1 text-xs text-muted-foreground">
-                      <Badge>{steps.length} 步</Badge>
-                      <Badge>{outputs.length} 输出</Badge>
-                      <Badge>{feedback.length} 反馈</Badge>
-                    </div>
+                    <AgentRunActions
+                      runId={run.id}
+                      status={run.status}
+                      stepCount={steps.length}
+                      outputCount={outputs.length}
+                      feedbackCount={feedback.length}
+                    />
                   </Td>
                 </tr>
               ))}

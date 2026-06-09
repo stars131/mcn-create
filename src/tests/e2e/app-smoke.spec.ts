@@ -238,6 +238,44 @@ test("opens the dashboard and serves core mock workflow data", async ({ page, re
   });
 });
 
+test("runs Agent retry and feedback controls from the run center", async ({ page }) => {
+  await loginAsOwner(page, "/agent-runs");
+  await expect(page.getByRole("heading", { name: "Agent 运行中心" })).toBeVisible();
+
+  const actions = page.getByRole("group", { name: "Agent 操作：run_002" });
+  await expect(actions).toBeVisible();
+
+  const feedbackResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/agent-runs/run_002/feedback") && response.request().method() === "POST"
+  );
+  await actions.getByRole("button", { name: "好评" }).click();
+  const feedbackResponse = await feedbackResponsePromise;
+  expect(feedbackResponse.ok()).toBeTruthy();
+  await expect(feedbackResponse.json()).resolves.toMatchObject({
+    data: {
+      agentRunId: "run_002",
+      rating: 5,
+      comment: "页面快捷反馈：结果可用"
+    }
+  });
+  await expect(actions.getByRole("status")).toHaveText("反馈已提交");
+  await expect(actions).toContainText("1 反馈");
+
+  const retryResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/agent-runs/run_002/retry") && response.request().method() === "POST"
+  );
+  await actions.getByRole("button", { name: "重跑" }).click();
+  const retryResponse = await retryResponsePromise;
+  expect(retryResponse.ok()).toBeTruthy();
+  await expect(retryResponse.json()).resolves.toMatchObject({
+    data: {
+      riskLevel: "LOW"
+    }
+  });
+  await expect(actions.getByRole("status")).toHaveText("Agent 已重跑");
+  await expect(page.getByText("persist_result").first()).toBeVisible();
+});
+
 test("switches calendar views and filters publish plans by platform", async ({ page }) => {
   await loginAsOwner(page, "/calendar");
   await expect(page.getByRole("heading", { name: "内容日历" })).toBeVisible();
