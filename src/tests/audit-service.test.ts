@@ -28,7 +28,7 @@ describe("audit service", () => {
       });
       const second = writeAuditLog({
         workspaceId: "ws_demo",
-        userId: "user_owner",
+        userId: "user_editor",
         action: "audit.test.second",
         entityType: "AuditFixture",
         entityId: "fixture_002",
@@ -48,9 +48,17 @@ describe("audit service", () => {
         metadata: { marker: "needle" }
       });
 
-      expect(parseAuditLogFilters({ action: " audit.test.first ", entityType: "AuditFixture", q: " needle " })).toEqual({
+      expect(
+        parseAuditLogFilters({
+          action: " audit.test.first ",
+          entityType: "AuditFixture",
+          userId: " user_owner ",
+          q: " needle "
+        })
+      ).toEqual({
         action: "audit.test.first",
         entityType: "AuditFixture",
+        userId: "user_owner",
         q: "needle",
         from: undefined,
         to: undefined,
@@ -59,6 +67,7 @@ describe("audit service", () => {
       expect(parseAuditLogFilters({ from: "invalid", to: to, limit: "999" })).toEqual({
         action: undefined,
         entityType: undefined,
+        userId: undefined,
         q: undefined,
         from: undefined,
         to,
@@ -68,12 +77,14 @@ describe("audit service", () => {
       const filtered = listAuditLogs("ws_demo", {
         action: "audit.test.first",
         entityType: "AuditFixture",
+        userId: "user_owner",
         q: "trace_first",
         from,
         to
       });
       expect(filtered).toEqual([first]);
       expect(listAuditLogs("ws_demo", { entityType: "AuditFixture", q: "needle", limit: 1 })).toEqual([second]);
+      expect(listAuditLogs("ws_demo", { entityType: "AuditFixture", userId: "user_editor" })).toEqual([second]);
       expect(listAuditLogs("ws_brand", { entityType: "AuditFixture" })).not.toContainEqual(first);
     } finally {
       store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
@@ -103,7 +114,8 @@ describe("audit service", () => {
         workspaceId: "ws_demo",
         userId: "user_owner",
         filters: {
-          action: "audit.secret.fixture"
+          action: "audit.secret.fixture",
+          userId: "user_owner"
         }
       });
 
@@ -111,7 +123,8 @@ describe("audit service", () => {
         schemaVersion: "contentos.auditLogExport.v1",
         workspaceId: "ws_demo",
         filters: {
-          action: "audit.secret.fixture"
+          action: "audit.secret.fixture",
+          userId: "user_owner"
         },
         itemCount: 1,
         logs: [
@@ -135,7 +148,8 @@ describe("audit service", () => {
           itemCount: 1,
           schemaVersion: "contentos.auditLogExport.v1",
           filters: {
-            action: "audit.secret.fixture"
+            action: "audit.secret.fixture",
+            userId: "user_owner"
           }
         }
       });

@@ -4,6 +4,7 @@ import type { AuditLog } from "@/types/domain";
 export interface AuditLogFilters {
   action?: string;
   entityType?: string;
+  userId?: string;
   q?: string;
   from?: string;
   to?: string;
@@ -60,6 +61,7 @@ function normalizeLimit(value?: string | number | null) {
 export function parseAuditLogFilters(input: {
   action?: string | null;
   entityType?: string | null;
+  userId?: string | null;
   q?: string | null;
   from?: string | null;
   to?: string | null;
@@ -68,6 +70,7 @@ export function parseAuditLogFilters(input: {
   return {
     action: normalizeText(input.action),
     entityType: normalizeText(input.entityType),
+    userId: normalizeText(input.userId),
     q: normalizeText(input.q),
     from: normalizeDate(input.from),
     to: normalizeDate(input.to),
@@ -112,6 +115,9 @@ function matchesAuditFilters(log: AuditLog, filters: AuditLogFilters) {
     return false;
   }
   if (filters.entityType && log.entityType !== filters.entityType) {
+    return false;
+  }
+  if (filters.userId && log.userId !== filters.userId) {
     return false;
   }
   if (filters.q && !matchesAuditQuery(log, filters.q)) {

@@ -1558,20 +1558,25 @@ test("exposes API key, webhook, and usage reserves with RBAC", async ({ page, re
   const auditFilter = page.getByRole("form", { name: "审计日志筛选" });
   await auditFilter.getByLabel("动作").selectOption("system_setting.upsert");
   await auditFilter.getByLabel("对象").selectOption("SystemSetting");
+  await auditFilter.getByLabel("用户").selectOption("user_owner");
   await auditFilter.getByLabel("关键词").fill("data_retention_policy");
   await auditFilter.getByLabel("条数").fill("10");
   await auditFilter.getByRole("button", { name: "筛选" }).click();
   await expect(page).toHaveURL(/auditAction=system_setting\.upsert/);
   await expect(page).toHaveURL(/auditEntityType=SystemSetting/);
+  await expect(page).toHaveURL(/auditUserId=user_owner/);
   await expect(page).toHaveURL(/auditQ=data_retention_policy/);
-  await expect(page.locator("tr").filter({ hasText: "system_setting.upsert" }).filter({ hasText: "data_retention_policy" })).toBeVisible();
+  await expect(
+    page.locator("tr").filter({ hasText: "system_setting.upsert" }).filter({ hasText: "data_retention_policy" }).first()
+  ).toBeVisible();
+  await expect(page.locator("tr").filter({ hasText: "system_setting.upsert" }).filter({ hasText: "林澈" }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "导出 JSON" })).toHaveAttribute(
     "href",
-    /\/api\/audit-logs\?.*format=export/
+    /\/api\/audit-logs\?.*userId=user_owner/
   );
 
   const auditExport = await request.get(
-    "/api/audit-logs?format=export&action=system_setting.upsert&entityType=SystemSetting&q=data_retention_policy&limit=5",
+    "/api/audit-logs?format=export&action=system_setting.upsert&entityType=SystemSetting&userId=user_owner&q=data_retention_policy&limit=5",
     {
       headers: { Cookie: ownerCookie }
     }
@@ -1585,6 +1590,7 @@ test("exposes API key, webhook, and usage reserves with RBAC", async ({ page, re
     filters: {
       action: "system_setting.upsert",
       entityType: "SystemSetting",
+      userId: "user_owner",
       q: "data_retention_policy",
       limit: 5
     }
@@ -1592,9 +1598,10 @@ test("exposes API key, webhook, and usage reserves with RBAC", async ({ page, re
   expect(auditExportPayload.logs.length).toBeGreaterThan(0);
   expect(
     auditExportPayload.logs.every(
-      (log: { action: string; entityType: string; metadata?: { key?: string } }) =>
+      (log: { action: string; entityType: string; userId?: string; metadata?: { key?: string } }) =>
         log.action === "system_setting.upsert" &&
         log.entityType === "SystemSetting" &&
+        log.userId === "user_owner" &&
         log.metadata?.key === "data_retention_policy"
     )
   ).toBe(true);

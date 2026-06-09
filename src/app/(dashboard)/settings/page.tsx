@@ -52,6 +52,9 @@ function getAuditExportHref(filters: ReturnType<typeof parseAuditLogFilters>) {
   if (filters.entityType) {
     params.set("entityType", filters.entityType);
   }
+  if (filters.userId) {
+    params.set("userId", filters.userId);
+  }
   if (filters.q) {
     params.set("q", filters.q);
   }
@@ -73,6 +76,7 @@ export default function SettingsPage({ searchParams }: SettingsPageProps) {
   const auditFilters = parseAuditLogFilters({
     action: getSearchParamValue(searchParams, "auditAction"),
     entityType: getSearchParamValue(searchParams, "auditEntityType"),
+    userId: getSearchParamValue(searchParams, "auditUserId"),
     q: getSearchParamValue(searchParams, "auditQ"),
     limit: getSearchParamValue(searchParams, "auditLimit") ?? 20
   });
@@ -81,6 +85,16 @@ export default function SettingsPage({ searchParams }: SettingsPageProps) {
   const auditExportHref = getAuditExportHref(auditFilters);
   const auditActionOptions = Array.from(new Set(allAuditLogs.map((log) => log.action))).sort();
   const auditEntityOptions = Array.from(new Set(allAuditLogs.map((log) => log.entityType))).sort();
+  const auditUserOptions = Array.from(
+    new Set(allAuditLogs.map((log) => log.userId).filter((userId): userId is string => Boolean(userId)))
+  ).sort();
+  const auditUserLabel = (userId?: string) => {
+    if (!userId) {
+      return "系统";
+    }
+    const auditUser = store.users.find((item) => item.id === userId);
+    return auditUser ? `${auditUser.name}（${auditUser.email}）` : userId;
+  };
   const apiKeys = listApiKeys(workspaceId);
   const webhooks = listWebhookEndpoints(workspaceId);
   const usageSummary = getUsageSummary(workspaceId);
@@ -411,7 +425,7 @@ export default function SettingsPage({ searchParams }: SettingsPageProps) {
             </a>
           </CardHeader>
           <CardContent className="space-y-3">
-            <form aria-label="审计日志筛选" className="grid gap-2 lg:grid-cols-[1fr_1fr_1.4fr_92px_auto]">
+            <form aria-label="审计日志筛选" className="grid gap-2 lg:grid-cols-[1fr_1fr_1.2fr_1.4fr_92px_auto]">
               <label className="space-y-1 text-xs text-muted-foreground">
                 <span>动作</span>
                 <select
@@ -438,6 +452,21 @@ export default function SettingsPage({ searchParams }: SettingsPageProps) {
                   {auditEntityOptions.map((entityType) => (
                     <option key={entityType} value={entityType}>
                       {entityType}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-1 text-xs text-muted-foreground">
+                <span>用户</span>
+                <select
+                  name="auditUserId"
+                  defaultValue={auditFilters.userId ?? ""}
+                  className="focus-ring h-9 w-full rounded-md border border-border bg-background px-2 text-sm text-foreground"
+                >
+                  <option value="">全部用户</option>
+                  {auditUserOptions.map((userId) => (
+                    <option key={userId} value={userId}>
+                      {auditUserLabel(userId)}
                     </option>
                   ))}
                 </select>
@@ -482,6 +511,7 @@ export default function SettingsPage({ searchParams }: SettingsPageProps) {
                   <tr>
                     <Th>动作</Th>
                     <Th>对象</Th>
+                    <Th>用户</Th>
                     <Th>摘要</Th>
                     <Th>时间</Th>
                   </tr>
@@ -491,6 +521,7 @@ export default function SettingsPage({ searchParams }: SettingsPageProps) {
                     <tr key={log.id}>
                       <Td className="font-medium">{log.action}</Td>
                       <Td>{log.entityType}</Td>
+                      <Td>{auditUserLabel(log.userId)}</Td>
                       <Td>{log.summary}</Td>
                       <Td>{new Date(log.createdAt).toLocaleString("zh-CN")}</Td>
                     </tr>

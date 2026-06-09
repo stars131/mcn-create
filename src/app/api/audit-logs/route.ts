@@ -12,6 +12,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
   const filters = parseAuditLogFilters({
     action: request.nextUrl.searchParams.get("action"),
     entityType: request.nextUrl.searchParams.get("entityType"),
+    userId: request.nextUrl.searchParams.get("userId"),
     q: request.nextUrl.searchParams.get("q"),
     from: request.nextUrl.searchParams.get("from"),
     to: request.nextUrl.searchParams.get("to"),
