@@ -238,6 +238,48 @@ test("opens the dashboard and serves core mock workflow data", async ({ page, re
   });
 });
 
+test("refreshes hotspots and generates topics from a hotspot card", async ({ page }) => {
+  await loginAsOwner(page, "/hotspots");
+  await expect(page.getByRole("heading", { name: "热点中心" })).toBeVisible();
+
+  const refreshWorkflow = page.getByRole("group", { name: "热点刷新工作流" });
+  const refreshResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/hotspots/refresh") && response.request().method() === "POST"
+  );
+  await refreshWorkflow.getByRole("button", { name: "刷新热点" }).click();
+  const refreshResponse = await refreshResponsePromise;
+  expect(refreshResponse.ok()).toBeTruthy();
+  const refreshPayload = (await refreshResponse.json()) as {
+    data: {
+      items: Array<{ id: string; title: string }>;
+    };
+  };
+  expect(refreshPayload.data.items.length).toBeGreaterThan(0);
+  await expect(refreshWorkflow.getByRole("status")).toHaveText(`热点已刷新：${refreshPayload.data.items.length} 条`);
+  await expect(page.getByText("刷新发现").first()).toBeVisible();
+
+  const hotspotTitle = "小团队用 AI 做一周内容排期的真实复盘";
+  const hotspotRow = page.locator("tr", { hasText: hotspotTitle }).filter({ hasText: "小红书" });
+  await expect(hotspotRow).toBeVisible();
+  const hotspotActions = hotspotRow.getByRole("group", { name: `热点操作：${hotspotTitle}` });
+  const topicResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/hotspots/hot_001/generate-topic") && response.request().method() === "POST"
+  );
+  await hotspotActions.getByRole("button", { name: "生成选题" }).click();
+  const topicResponse = await topicResponsePromise;
+  expect(topicResponse.ok()).toBeTruthy();
+  const topicPayload = (await topicResponse.json()) as {
+    data: {
+      topics: Array<{ title: string }>;
+    };
+  };
+  expect(topicPayload.data.topics.length).toBeGreaterThan(0);
+  await expect(hotspotActions.getByRole("status")).toHaveText(`已生成 ${topicPayload.data.topics.length} 条选题`);
+
+  await page.goto("/topics");
+  await expect(page.getByText(topicPayload.data.topics[0].title).first()).toBeVisible();
+});
+
 test("runs Agent retry and feedback controls from the run center", async ({ page }) => {
   await loginAsOwner(page, "/agent-runs");
   await expect(page.getByRole("heading", { name: "Agent 运行中心" })).toBeVisible();

@@ -1,4 +1,4 @@
-import { ActionButton } from "@/components/ui/action-button";
+import { HotspotRefreshAction, HotspotTopicAction } from "@/components/hotspots/hotspot-workflow-actions";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
@@ -22,16 +22,7 @@ export default function HotspotsPage() {
         eyebrow="Hotspot Center"
         title="热点中心"
         description="只接入 mock、用户上传、公开合规或官方授权数据源，热点结果可直接进入选题池。"
-        actions={
-          <ActionButton
-            endpoint="/api/hotspots/refresh"
-            body={{ platforms: ["ALL"], window: "24h" }}
-            label="刷新热点"
-            pendingLabel="刷新中"
-            icon="refresh"
-            variant="primary"
-          />
-        }
+        actions={<HotspotRefreshAction />}
       />
 
       <section className="mb-4 grid gap-3 md:grid-cols-4">
@@ -78,13 +69,7 @@ export default function HotspotsPage() {
                       <RiskBadge level={item.riskLevel} />
                     </Td>
                     <Td>
-                      <ActionButton
-                        endpoint={`/api/hotspots/${item.id}/generate-topic`}
-                        label="生成选题"
-                        pendingLabel="生成中"
-                        icon="sparkles"
-                        variant="primary"
-                      />
+                      <HotspotTopicAction hotItemId={item.id} hotItemTitle={item.title} />
                     </Td>
                   </tr>
                 ))}
