@@ -1,10 +1,10 @@
 import type { NextRequest } from "next/server";
 import { getRequestContext, ok, withApiHandler } from "@/app/api/_utils";
-import { exportAuditLogSnapshot, listAuditLogs, parseAuditLogFilters } from "@/server/audit/audit-service";
+import { exportAuditLogCsv, exportAuditLogSnapshot, listAuditLogs, parseAuditLogFilters } from "@/server/audit/audit-service";
 
-function safeAuditFileName(workspaceId: string) {
+function safeAuditFileName(workspaceId: string, extension: "json" | "csv") {
   const safeWorkspaceId = workspaceId.replace(/[^a-z0-9_-]+/gi, "-");
-  return `audit-logs-${safeWorkspaceId}.json`;
+  return `audit-logs-${safeWorkspaceId}.${extension}`;
 }
 
 export const GET = withApiHandler(async (request: NextRequest) => {
@@ -19,11 +19,24 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     limit: request.nextUrl.searchParams.get("limit")
   });
 
-  if (request.nextUrl.searchParams.get("format") === "export") {
+  const format = request.nextUrl.searchParams.get("format");
+
+  if (format === "csv") {
+    const csvExport = exportAuditLogCsv({ workspaceId, userId: user.id, filters });
+    return new Response(csvExport.content, {
+      headers: {
+        "content-type": "text/csv; charset=utf-8",
+        "content-disposition": `attachment; filename="${safeAuditFileName(workspaceId, "csv")}"`,
+        "cache-control": "no-store"
+      }
+    });
+  }
+
+  if (format === "export") {
     const snapshot = exportAuditLogSnapshot({ workspaceId, userId: user.id, filters });
     return Response.json(snapshot, {
       headers: {
-        "content-disposition": `attachment; filename="${safeAuditFileName(workspaceId)}"`,
+        "content-disposition": `attachment; filename="${safeAuditFileName(workspaceId, "json")}"`,
         "cache-control": "no-store"
       }
     });

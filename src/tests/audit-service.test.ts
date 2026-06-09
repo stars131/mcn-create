@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  exportAuditLogCsv,
   exportAuditLogSnapshot,
   listAuditLogs,
   parseAuditLogFilters,
@@ -149,6 +150,72 @@ describe("audit service", () => {
           schemaVersion: "contentos.auditLogExport.v1",
           filters: {
             action: "audit.secret.fixture",
+            userId: "user_owner"
+          }
+        }
+      });
+    } finally {
+      store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
+    }
+  });
+
+  it("exports redacted audit logs as escaped CSV and records the export", () => {
+    const beforeAuditLogIds = new Set(store.auditLogs.map((log) => log.id));
+
+    try {
+      writeAuditLog({
+        workspaceId: "ws_demo",
+        userId: "user_owner",
+        action: "audit.csv.fixture",
+        entityType: "AuditFixture",
+        entityId: "fixture_csv",
+        summary: "CSV \"quoted\", row\nnext",
+        metadata: {
+          apiKey: "sk-test",
+          nested: {
+            refreshToken: "refresh-token",
+            kept: "visible"
+          }
+        }
+      });
+
+      const csvExport = exportAuditLogCsv({
+        workspaceId: "ws_demo",
+        userId: "user_owner",
+        filters: {
+          action: "audit.csv.fixture",
+          userId: "user_owner"
+        }
+      });
+
+      expect(csvExport).toMatchObject({
+        schemaVersion: "contentos.auditLogCsvExport.v1",
+        workspaceId: "ws_demo",
+        filters: {
+          action: "audit.csv.fixture",
+          userId: "user_owner"
+        },
+        itemCount: 1
+      });
+      expect(csvExport.content).toMatch(
+        /^id,createdAt,workspaceId,userId,action,entityType,entityId,summary,metadata\n/
+      );
+      expect(csvExport.content).toContain("audit.csv.fixture");
+      expect(csvExport.content).toContain("\"CSV \"\"quoted\"\", row\nnext\"");
+      expect(csvExport.content).toContain("\"\"apiKey\"\":\"\"[REDACTED]\"\"");
+      expect(csvExport.content).toContain("\"\"refreshToken\"\":\"\"[REDACTED]\"\"");
+      expect(csvExport.content).toContain("\"\"kept\"\":\"\"visible\"\"");
+      expect(csvExport.content).not.toContain("sk-test");
+      expect(csvExport.content).not.toContain("refresh-token");
+      expect(store.auditLogs[0]).toMatchObject({
+        action: "audit_log.export",
+        entityType: "AuditLog",
+        metadata: {
+          itemCount: 1,
+          schemaVersion: "contentos.auditLogCsvExport.v1",
+          format: "csv",
+          filters: {
+            action: "audit.csv.fixture",
             userId: "user_owner"
           }
         }

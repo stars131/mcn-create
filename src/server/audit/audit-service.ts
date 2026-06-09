@@ -20,6 +20,15 @@ export interface AuditLogExportSnapshot {
   logs: AuditLog[];
 }
 
+export interface AuditLogCsvExport {
+  schemaVersion: "contentos.auditLogCsvExport.v1";
+  exportedAt: string;
+  workspaceId: string;
+  filters: AuditLogFilters;
+  itemCount: number;
+  content: string;
+}
+
 export function writeAuditLog(input: Omit<AuditLog, "id" | "createdAt">) {
   const log: AuditLog = {
     id: `audit_${crypto.randomUUID()}`,
@@ -176,6 +185,65 @@ function redactAuditLog(log: AuditLog): AuditLog {
   };
 }
 
+function stringifyCsvValue(value: unknown) {
+  if (value === undefined || value === null) {
+    return "";
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  return JSON.stringify(value);
+}
+
+function escapeCsvValue(value: unknown) {
+  const text = stringifyCsvValue(value);
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function serializeAuditLogsToCsv(logs: AuditLog[]) {
+  const columns: Array<keyof AuditLog | "metadata"> = [
+    "id",
+    "createdAt",
+    "workspaceId",
+    "userId",
+    "action",
+    "entityType",
+    "entityId",
+    "summary",
+    "metadata"
+  ];
+  const rows = logs.map((log) =>
+    columns
+      .map((column) => (column === "metadata" ? escapeCsvValue(log.metadata ?? {}) : escapeCsvValue(log[column])))
+      .join(",")
+  );
+
+  return [columns.join(","), ...rows].join("\n");
+}
+
+function writeAuditLogExportEvent(input: {
+  workspaceId: string;
+  userId: string;
+  filters: AuditLogFilters;
+  itemCount: number;
+  schemaVersion: AuditLogExportSnapshot["schemaVersion"] | AuditLogCsvExport["schemaVersion"];
+  format: "json" | "csv";
+}) {
+  writeAuditLog({
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    action: "audit_log.export",
+    entityType: "AuditLog",
+    summary: `导出审计日志：${input.itemCount} 条`,
+    metadata: {
+      filters: input.filters,
+      itemCount: input.itemCount,
+      schemaVersion: input.schemaVersion,
+      format: input.format
+    }
+  });
+}
+
 export function listAuditLogs(workspaceId = "ws_demo", filters: AuditLogFilters = {}) {
   const filtered = store.auditLogs
     .filter((log) => !log.workspaceId || log.workspaceId === workspaceId)
@@ -201,18 +269,42 @@ export function exportAuditLogSnapshot(input: {
     logs
   };
 
-  writeAuditLog({
+  writeAuditLogExportEvent({
     workspaceId: input.workspaceId,
     userId: input.userId,
-    action: "audit_log.export",
-    entityType: "AuditLog",
-    summary: `导出审计日志：${logs.length} 条`,
-    metadata: {
-      filters,
-      itemCount: logs.length,
-      schemaVersion: snapshot.schemaVersion
-    }
+    filters,
+    itemCount: logs.length,
+    schemaVersion: snapshot.schemaVersion,
+    format: "json"
   });
 
   return snapshot;
+}
+
+export function exportAuditLogCsv(input: {
+  workspaceId: string;
+  userId: string;
+  filters?: AuditLogFilters;
+}): AuditLogCsvExport {
+  const filters = input.filters ?? {};
+  const logs = listAuditLogs(input.workspaceId, filters).map(redactAuditLog);
+  const csvExport: AuditLogCsvExport = {
+    schemaVersion: "contentos.auditLogCsvExport.v1",
+    exportedAt: new Date().toISOString(),
+    workspaceId: input.workspaceId,
+    filters,
+    itemCount: logs.length,
+    content: serializeAuditLogsToCsv(logs)
+  };
+
+  writeAuditLogExportEvent({
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    filters,
+    itemCount: logs.length,
+    schemaVersion: csvExport.schemaVersion,
+    format: "csv"
+  });
+
+  return csvExport;
 }

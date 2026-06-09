@@ -44,8 +44,8 @@ function getSearchParamValue(searchParams: SettingsPageProps["searchParams"], ke
   return Array.isArray(value) ? value[0] : value;
 }
 
-function getAuditExportHref(filters: ReturnType<typeof parseAuditLogFilters>) {
-  const params = new URLSearchParams({ format: "export", limit: String(filters.limit ?? 50) });
+function getAuditExportHref(filters: ReturnType<typeof parseAuditLogFilters>, format: "export" | "csv") {
+  const params = new URLSearchParams({ format, limit: String(filters.limit ?? 50) });
   if (filters.action) {
     params.set("action", filters.action);
   }
@@ -82,7 +82,8 @@ export default function SettingsPage({ searchParams }: SettingsPageProps) {
   });
   const allAuditLogs = listAuditLogs(workspaceId);
   const logs = listAuditLogs(workspaceId, auditFilters);
-  const auditExportHref = getAuditExportHref(auditFilters);
+  const auditJsonExportHref = getAuditExportHref(auditFilters, "export");
+  const auditCsvExportHref = getAuditExportHref(auditFilters, "csv");
   const auditActionOptions = Array.from(new Set(allAuditLogs.map((log) => log.action))).sort();
   const auditEntityOptions = Array.from(new Set(allAuditLogs.map((log) => log.entityType))).sort();
   const auditUserOptions = Array.from(
@@ -416,13 +417,22 @@ export default function SettingsPage({ searchParams }: SettingsPageProps) {
               <CardTitle>审计日志</CardTitle>
               <p className="mt-1 text-xs text-muted-foreground">当前筛选 {logs.length} 条，默认保留最近 20 条。</p>
             </div>
-            <a
-              href={auditExportHref}
-              className="focus-ring inline-flex h-8 shrink-0 items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 text-xs font-medium text-foreground transition hover:bg-muted"
-            >
-              <Download className="h-3.5 w-3.5" aria-hidden="true" />
-              导出 JSON
-            </a>
+            <div className="flex shrink-0 items-center gap-2">
+              <a
+                href={auditJsonExportHref}
+                className="focus-ring inline-flex h-8 items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 text-xs font-medium text-foreground transition hover:bg-muted"
+              >
+                <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                导出 JSON
+              </a>
+              <a
+                href={auditCsvExportHref}
+                className="focus-ring inline-flex h-8 items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 text-xs font-medium text-foreground transition hover:bg-muted"
+              >
+                <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                导出 CSV
+              </a>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             <form aria-label="审计日志筛选" className="grid gap-2 lg:grid-cols-[1fr_1fr_1.2fr_1.4fr_92px_auto]">

@@ -1574,6 +1574,14 @@ test("exposes API key, webhook, and usage reserves with RBAC", async ({ page, re
     "href",
     /\/api\/audit-logs\?.*userId=user_owner/
   );
+  await expect(page.getByRole("link", { name: "导出 CSV" })).toHaveAttribute(
+    "href",
+    /\/api\/audit-logs\?.*format=csv/
+  );
+  await expect(page.getByRole("link", { name: "导出 CSV" })).toHaveAttribute(
+    "href",
+    /\/api\/audit-logs\?.*userId=user_owner/
+  );
 
   const auditExport = await request.get(
     "/api/audit-logs?format=export&action=system_setting.upsert&entityType=SystemSetting&userId=user_owner&q=data_retention_policy&limit=5",
@@ -1603,8 +1611,24 @@ test("exposes API key, webhook, and usage reserves with RBAC", async ({ page, re
         log.entityType === "SystemSetting" &&
         log.userId === "user_owner" &&
         log.metadata?.key === "data_retention_policy"
-    )
+      )
   ).toBe(true);
+
+  const auditCsvExport = await request.get(
+    "/api/audit-logs?format=csv&action=system_setting.upsert&entityType=SystemSetting&userId=user_owner&q=data_retention_policy&limit=5",
+    {
+      headers: { Cookie: ownerCookie }
+    }
+  );
+  expect(auditCsvExport.ok()).toBeTruthy();
+  expect(auditCsvExport.headers()["content-type"]).toContain("text/csv");
+  expect(auditCsvExport.headers()["content-disposition"]).toContain("audit-logs-ws_demo.csv");
+  const auditCsvText = await auditCsvExport.text();
+  expect(auditCsvText).toContain("id,createdAt,workspaceId,userId,action,entityType,entityId,summary,metadata");
+  expect(auditCsvText).toContain("system_setting.upsert");
+  expect(auditCsvText).toContain("SystemSetting");
+  expect(auditCsvText).toContain("user_owner");
+  expect(auditCsvText).toContain("data_retention_policy");
 });
 
 test("normalizes API validation errors through the shared handler", async ({ request }) => {
