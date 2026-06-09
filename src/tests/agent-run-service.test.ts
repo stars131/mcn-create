@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ApiError } from "@/server/errors";
 import {
   addAgentFeedback,
+  exportAgentRunTrace,
   getAgentRunDetail,
   listAgentRuns,
   parseAgentRunFilters,
@@ -199,6 +200,79 @@ describe("agent run service", () => {
       });
     } finally {
       store.agentFeedback = store.agentFeedback.filter((feedback) => beforeFeedbackIds.has(feedback.id));
+      store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
+    }
+  });
+
+  it("exports a redacted trace snapshot and writes an audit log", () => {
+    const beforeAuditLogIds = new Set(store.auditLogs.map((log) => log.id));
+    const sensitiveRun: AgentRun = {
+      id: `run_${crypto.randomUUID().slice(0, 8)}`,
+      workspaceId: "ws_demo",
+      userId: "user_owner",
+      agentType: "RISK",
+      status: "SUCCESS",
+      input: {
+        contentDraftId: "content_001",
+        apiKey: "sk-test",
+        nested: {
+          refreshToken: "refresh-test",
+          allowed: "kept"
+        }
+      },
+      output: {
+        riskLevel: "LOW",
+        secret: "model-secret"
+      },
+      model: "mock-contentos-v1",
+      tokenUsage: { prompt: 10, completion: 20, total: 30 },
+      costEstimate: 0,
+      latencyMs: 42,
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      store.agentRuns.unshift(sensitiveRun);
+      const trace = exportAgentRunTrace({ workspaceId: "ws_demo", userId: "user_owner", id: sensitiveRun.id });
+
+      expect(trace).toMatchObject({
+        schemaVersion: "contentos.agentRunTrace.v1",
+        workspaceId: "ws_demo",
+        runId: sensitiveRun.id,
+        trace: {
+          run: {
+            id: sensitiveRun.id,
+            input: {
+              contentDraftId: "content_001",
+              apiKey: "[REDACTED]",
+              nested: {
+                refreshToken: "[REDACTED]",
+                allowed: "kept"
+              }
+            },
+            output: {
+              riskLevel: "LOW",
+              secret: "[REDACTED]"
+            }
+          }
+        }
+      });
+      expect(trace.trace.promptTemplate).toMatchObject({
+        agentType: "RISK",
+        name: "risk-check"
+      });
+      expect(store.auditLogs[0]).toMatchObject({
+        action: "agent.trace.export",
+        entityType: "AgentRun",
+        entityId: sensitiveRun.id,
+        metadata: {
+          agentType: "RISK",
+          status: "SUCCESS",
+          schemaVersion: "contentos.agentRunTrace.v1"
+        }
+      });
+    } finally {
+      store.agentRuns = store.agentRuns.filter((run) => run.id !== sensitiveRun.id);
       store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
     }
   });

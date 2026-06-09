@@ -303,6 +303,10 @@ test("runs Agent retry and feedback controls from the run center", async ({ page
   await expect(page.getByText("Token Usage JSON")).toBeVisible();
   await expect(page.getByText("步骤载荷")).toBeVisible();
   await expect(page.getByText("AgentOutput 载荷")).toBeVisible();
+  await expect(page.getByRole("link", { name: "导出 trace" })).toHaveAttribute(
+    "href",
+    "/api/agent-runs/run_002/export"
+  );
   await expect(page.getByLabel("运行输入 JSON")).toContainText("contentDraftId");
   await expect(page.getByLabel("运行输出 JSON")).toContainText("riskLevel");
   await expect(page.getByLabel("Token Usage JSON")).toContainText("completion");
@@ -345,6 +349,37 @@ test("runs Agent retry and feedback controls from the run center", async ({ page
         JSON.stringify(run.input).includes("content_001")
     )
   ).toBe(true);
+
+  const exportedTrace = await page.evaluate(async () => {
+    const response = await fetch("/api/agent-runs/run_002/export");
+    return {
+      ok: response.ok,
+      contentDisposition: response.headers.get("content-disposition"),
+      payload: await response.json()
+    };
+  });
+  expect(exportedTrace.ok).toBeTruthy();
+  expect(exportedTrace.contentDisposition).toContain("agent-run-run_002-trace.json");
+  expect(exportedTrace.payload).toMatchObject({
+    schemaVersion: "contentos.agentRunTrace.v1",
+    workspaceId: "ws_demo",
+    runId: "run_002",
+    trace: {
+      run: {
+        id: "run_002",
+        input: {
+          contentDraftId: "content_001"
+        },
+        output: {
+          riskLevel: "LOW"
+        }
+      },
+      promptTemplate: {
+        name: "risk-check",
+        active: true
+      }
+    }
+  });
 
   await page.goto("/agent-runs?runId=run_002");
   await expect(page.getByRole("heading", { name: "运行轨迹：run_002" })).toBeVisible();
@@ -406,6 +441,20 @@ test("runs Agent retry and feedback controls from the run center", async ({ page
     expect.objectContaining({
       agentRunId: "run_002",
       rating: 5
+    })
+  );
+  const auditAfterTraceExport = await page.evaluate(async () => {
+    const response = await fetch("/api/audit-logs");
+    return response.json();
+  });
+  expect(auditAfterTraceExport.data).toContainEqual(
+    expect.objectContaining({
+      action: "agent.trace.export",
+      entityType: "AgentRun",
+      entityId: "run_002",
+      metadata: expect.objectContaining({
+        schemaVersion: "contentos.agentRunTrace.v1"
+      })
     })
   );
 

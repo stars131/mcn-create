@@ -20,6 +20,20 @@ export interface AgentRunDetail {
   promptTemplate?: AgentPromptTemplate;
 }
 
+export interface AgentRunTraceExport {
+  schemaVersion: "contentos.agentRunTrace.v1";
+  exportedAt: string;
+  workspaceId: string;
+  runId: string;
+  trace: {
+    run: unknown;
+    steps: unknown[];
+    outputs: unknown[];
+    feedback: unknown[];
+    promptTemplate?: unknown;
+  };
+}
+
 export interface AgentRunFilters {
   agentType?: AgentType;
   status?: AgentStatus;
@@ -105,6 +119,83 @@ export function getAgentRunDetail(workspaceId: string, id: string): AgentRunDeta
 
 export function listAgentRunDetails(workspaceId: string, filters: AgentRunFilters = {}) {
   return listAgentRuns(workspaceId, filters).map((run) => getAgentRunDetail(workspaceId, run.id));
+}
+
+const sensitiveTraceKeys = new Set([
+  "accesstoken",
+  "apikey",
+  "authorization",
+  "cookie",
+  "keyhash",
+  "password",
+  "refreshtoken",
+  "secret",
+  "secrethash",
+  "token",
+  "tokenref"
+]);
+
+function shouldRedactTraceKey(key: string) {
+  const normalizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return sensitiveTraceKeys.has(normalizedKey) || normalizedKey.endsWith("secret") || normalizedKey.endsWith("token");
+}
+
+function redactTraceValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => redactTraceValue(item));
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [
+      key,
+      shouldRedactTraceKey(key) ? "[REDACTED]" : redactTraceValue(item)
+    ])
+  );
+}
+
+export function exportAgentRunTrace(input: {
+  workspaceId: string;
+  userId: string;
+  id: string;
+}): AgentRunTraceExport {
+  const detail = getAgentRunDetail(input.workspaceId, input.id);
+  const exportedAt = new Date().toISOString();
+  const trace: AgentRunTraceExport = {
+    schemaVersion: "contentos.agentRunTrace.v1",
+    exportedAt,
+    workspaceId: input.workspaceId,
+    runId: input.id,
+    trace: {
+      run: redactTraceValue(detail.run),
+      steps: detail.steps.map((step) => redactTraceValue(step)),
+      outputs: detail.outputs.map((output) => redactTraceValue(output)),
+      feedback: detail.feedback.map((feedback) => redactTraceValue(feedback)),
+      promptTemplate: detail.promptTemplate ? redactTraceValue(detail.promptTemplate) : undefined
+    }
+  };
+
+  writeAuditLog({
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    action: "agent.trace.export",
+    entityType: "AgentRun",
+    entityId: input.id,
+    summary: `导出 Agent trace：${input.id}`,
+    metadata: {
+      agentType: detail.run.agentType,
+      status: detail.run.status,
+      stepCount: detail.steps.length,
+      outputCount: detail.outputs.length,
+      feedbackCount: detail.feedback.length,
+      schemaVersion: trace.schemaVersion
+    }
+  });
+
+  return trace;
 }
 
 export function getAgentRun(workspaceId: string, id: string) {

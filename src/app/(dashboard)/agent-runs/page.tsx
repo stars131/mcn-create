@@ -91,6 +91,10 @@ function buildAgentRunHref(runId: string, filters: ReturnType<typeof parseAgentR
   return `/agent-runs?${params.toString()}`;
 }
 
+function buildAgentRunExportHref(runId: string) {
+  return `/api/agent-runs/${encodeURIComponent(runId)}/export`;
+}
+
 interface AgentRunsPageProps {
   searchParams?: {
     runId?: string;
@@ -302,7 +306,15 @@ export default function AgentRunsPage({ searchParams }: AgentRunsPageProps) {
         <section className="mt-5 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
           <Card>
             <CardHeader>
-              <CardTitle>运行轨迹：{selected.run.id}</CardTitle>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <CardTitle>运行轨迹：{selected.run.id}</CardTitle>
+                <Link
+                  className="focus-ring inline-flex h-8 items-center justify-center rounded-md border border-border bg-surface px-3 text-xs font-medium text-foreground hover:bg-muted"
+                  href={buildAgentRunExportHref(selected.run.id)}
+                >
+                  导出 trace
+                </Link>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-4">
