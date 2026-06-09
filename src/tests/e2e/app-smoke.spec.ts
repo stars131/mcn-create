@@ -298,6 +298,15 @@ test("runs Agent retry and feedback controls from the run center", async ({ page
   await expect(page.getByRole("heading", { name: "运行轨迹：run_002" })).toBeVisible();
   await expect(page.getByText("risk-check").first()).toBeVisible();
   await expect(page.getByText("ContentRiskCheck").first()).toBeVisible();
+  await expect(page.getByText("运行输入 JSON")).toBeVisible();
+  await expect(page.getByText("运行输出 JSON")).toBeVisible();
+  await expect(page.getByText("Token Usage JSON")).toBeVisible();
+  await expect(page.getByText("步骤载荷")).toBeVisible();
+  await expect(page.getByText("AgentOutput 载荷")).toBeVisible();
+  await expect(page.getByLabel("运行输入 JSON")).toContainText("contentDraftId");
+  await expect(page.getByLabel("运行输出 JSON")).toContainText("riskLevel");
+  await expect(page.getByLabel("Token Usage JSON")).toContainText("completion");
+  await expect(page.getByLabel("ContentRiskCheck JSON")).toContainText("LOW");
 
   await page.getByLabel("搜索").fill("content_001");
   await page.getByLabel("Agent 类型").selectOption("RISK");
@@ -339,10 +348,19 @@ test("runs Agent retry and feedback controls from the run center", async ({ page
 
   await page.goto("/agent-runs?runId=run_002");
   await expect(page.getByRole("heading", { name: "运行轨迹：run_002" })).toBeVisible();
+  await expect(page.getByText("步骤输入 JSON").first()).toBeVisible();
+  await expect(page.getByText("步骤输出 JSON").first()).toBeVisible();
+  await expect(page.getByLabel("运行输入 JSON")).toContainText("content_001");
+  await expect(page.getByLabel("运行输出 JSON")).toContainText("riskLevel");
 
   const actions = page.getByRole("group", { name: "Agent 操作：run_002" });
   await expect(actions).toBeVisible();
 
+  const feedbackCountBeforeAction = await page.evaluate(async () => {
+    const response = await fetch("/api/agent-runs/run_002");
+    const payload = await response.json();
+    return payload.data.feedback.length as number;
+  });
   const feedbackResponsePromise = page.waitForResponse(
     (response) => response.url().includes("/api/agent-runs/run_002/feedback") && response.request().method() === "POST"
   );
@@ -357,7 +375,7 @@ test("runs Agent retry and feedback controls from the run center", async ({ page
     }
   });
   await expect(actions.getByRole("status")).toHaveText("反馈已提交");
-  await expect(actions).toContainText("1 反馈");
+  await expect(actions).toContainText(`${feedbackCountBeforeAction + 1} 反馈`);
   await expect(page.getByText("页面快捷反馈：结果可用").first()).toBeVisible();
 
   const detailBeforeRetry = await page.evaluate(async () => {

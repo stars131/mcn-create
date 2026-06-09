@@ -31,11 +31,45 @@ const agentStatusLabels: Record<AgentStatus, string> = {
 };
 
 function summarize(value: unknown, maxLength = 110) {
-  const text = typeof value === "string" ? value : JSON.stringify(value);
+  const text = stringifyTraceValue(value);
   if (!text) {
     return "-";
   }
   return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+}
+
+function stringifyTraceValue(value: unknown, pretty = false) {
+  if (value === undefined || value === null) {
+    return "未记录";
+  }
+
+  if (typeof value === "string") {
+    try {
+      return JSON.stringify(JSON.parse(value), null, pretty ? 2 : 0);
+    } catch {
+      return value;
+    }
+  }
+
+  try {
+    return JSON.stringify(value, null, pretty ? 2 : 0) ?? String(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function TraceJsonBlock({ title, value }: { title: string; value: unknown }) {
+  return (
+    <div className="overflow-hidden rounded-md border border-border bg-surface">
+      <div className="border-b border-border bg-muted px-3 py-2 text-xs font-semibold text-foreground">{title}</div>
+      <pre
+        aria-label={title}
+        className="max-h-72 overflow-auto whitespace-pre-wrap break-words px-3 py-2 font-mono text-[11px] leading-5 text-muted-foreground"
+      >
+        {stringifyTraceValue(value, true)}
+      </pre>
+    </div>
+  );
 }
 
 function formatCost(value: number) {
@@ -289,6 +323,11 @@ export default function AgentRunsPage({ searchParams }: AgentRunsPageProps) {
                   <div className="mt-1 font-semibold text-foreground">{formatCost(selected.run.costEstimate)}</div>
                 </div>
               </div>
+              <div className="grid gap-3 lg:grid-cols-3">
+                <TraceJsonBlock title="运行输入 JSON" value={selected.run.input} />
+                <TraceJsonBlock title="运行输出 JSON" value={selected.run.output} />
+                <TraceJsonBlock title="Token Usage JSON" value={selected.run.tokenUsage ?? { total: 0 }} />
+              </div>
               <Table>
                 <thead>
                   <tr>
@@ -313,6 +352,23 @@ export default function AgentRunsPage({ searchParams }: AgentRunsPageProps) {
                   ))}
                 </tbody>
               </Table>
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-foreground">步骤载荷</h3>
+                {selected.steps.map((step) => (
+                  <div key={`${step.id}-payload`} className="space-y-3 rounded-md border border-border p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-xs font-semibold text-foreground">{step.name}</span>
+                      <AgentStatusBadge status={step.status} />
+                      <span className="text-xs text-muted-foreground">{step.latencyMs}ms</span>
+                    </div>
+                    <div className="grid gap-3 lg:grid-cols-3">
+                      <TraceJsonBlock title="步骤输入 JSON" value={step.input} />
+                      <TraceJsonBlock title="步骤输出 JSON" value={step.output} />
+                      <TraceJsonBlock title="步骤错误" value={step.errorMessage ?? "无"} />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
 
@@ -343,21 +399,36 @@ export default function AgentRunsPage({ searchParams }: AgentRunsPageProps) {
                 <CardTitle>输出与反馈</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {selected.outputs.slice(0, 3).map((output) => (
-                  <div key={output.id} className="rounded-md border border-border p-3">
-                    <div className="flex items-center gap-2">
-                      <Badge tone={output.entityType === "AgentError" ? "danger" : "success"}>{output.entityType}</Badge>
-                      <span className="text-xs text-muted-foreground">{output.entityId ?? "-"}</span>
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-foreground">AgentOutput 载荷</h3>
+                  {selected.outputs.map((output) => (
+                    <div key={output.id} className="space-y-3 rounded-md border border-border p-3">
+                      <div className="flex items-center gap-2">
+                        <Badge tone={output.entityType === "AgentError" ? "danger" : "success"}>{output.entityType}</Badge>
+                        <span className="text-xs text-muted-foreground">{output.entityId ?? "-"}</span>
+                      </div>
+                      <TraceJsonBlock title={`${output.entityType} JSON`} value={output.payload} />
                     </div>
-                    <div className="mt-2 text-xs leading-5 text-muted-foreground">{summarize(output.payload, 180)}</div>
-                  </div>
-                ))}
-                {selected.feedback.slice(0, 3).map((feedback) => (
-                  <div key={feedback.id} className="rounded-md bg-muted px-3 py-2 text-sm">
-                    <span className="font-medium">{feedback.rating}/5</span>
-                    <span className="ml-2 text-muted-foreground">{feedback.comment ?? "无备注"}</span>
-                  </div>
-                ))}
+                  ))}
+                  {selected.outputs.length === 0 ? (
+                    <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">暂无结构化输出。</p>
+                  ) : null}
+                </div>
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-foreground">反馈列表</h3>
+                  {selected.feedback.map((feedback) => (
+                    <div key={feedback.id} className="space-y-3 rounded-md bg-muted px-3 py-2 text-sm">
+                      <div>
+                        <span className="font-medium">{feedback.rating}/5</span>
+                        <span className="ml-2 text-muted-foreground">{feedback.comment ?? "无备注"}</span>
+                      </div>
+                      <TraceJsonBlock title="反馈 JSON" value={feedback} />
+                    </div>
+                  ))}
+                  {selected.feedback.length === 0 ? (
+                    <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">暂无人工反馈。</p>
+                  ) : null}
+                </div>
               </CardContent>
             </Card>
           </div>
