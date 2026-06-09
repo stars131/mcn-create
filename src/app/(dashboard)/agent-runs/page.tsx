@@ -97,6 +97,16 @@ function buildAgentRunExportHref(runId: string) {
   return `/api/agent-runs/${encodeURIComponent(runId)}/export`;
 }
 
+function buildAgentRunTraceAuditHref(runId: string) {
+  const params = new URLSearchParams({
+    auditAction: "agent.trace.export",
+    auditEntityType: "AgentRun",
+    auditQ: runId,
+    auditLimit: "20"
+  });
+  return `/settings?${params.toString()}#audit`;
+}
+
 interface AgentRunsPageProps {
   searchParams?: {
     runId?: string;
@@ -397,6 +407,12 @@ export default function AgentRunsPage({ searchParams }: AgentRunsPageProps) {
                   href={buildAgentRunExportHref(selected.run.id)}
                 >
                   导出 trace
+                </Link>
+                <Link
+                  className="focus-ring inline-flex h-8 items-center justify-center rounded-md border border-border bg-surface px-3 text-xs font-medium text-foreground hover:bg-muted"
+                  href={buildAgentRunTraceAuditHref(selected.run.id)}
+                >
+                  查看 trace 审计
                 </Link>
                 <AgentRunTraceCopyAction
                   runId={selected.run.id}

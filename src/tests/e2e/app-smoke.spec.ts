@@ -455,6 +455,23 @@ test("runs Agent retry and feedback controls from the run center", async ({ page
   await expect(page.getByText("步骤输出 JSON").first()).toBeVisible();
   await expect(page.getByLabel("运行输入 JSON")).toContainText("content_001");
   await expect(page.getByLabel("运行输出 JSON")).toContainText("riskLevel");
+  const traceAuditLink = page.getByRole("link", { name: "查看 trace 审计" });
+  await expect(traceAuditLink).toHaveAttribute(
+    "href",
+    "/settings?auditAction=agent.trace.export&auditEntityType=AgentRun&auditQ=run_002&auditLimit=20#audit"
+  );
+  await traceAuditLink.click();
+  await expect(page).toHaveURL(/\/settings\?auditAction=agent\.trace\.export&auditEntityType=AgentRun&auditQ=run_002&auditLimit=20#audit$/);
+  const traceAuditFilter = page.getByRole("form", { name: "审计日志筛选" });
+  await expect(traceAuditFilter.getByLabel("动作")).toHaveValue("agent.trace.export");
+  await expect(traceAuditFilter.getByLabel("对象")).toHaveValue("AgentRun");
+  await expect(traceAuditFilter.getByLabel("关键词")).toHaveValue("run_002");
+  await expect(
+    page.locator("tr").filter({ hasText: "agent.trace.export" }).filter({ hasText: "导出 Agent trace：run_002" }).first()
+  ).toBeVisible();
+
+  await page.goto("/agent-runs?runId=run_002");
+  await expect(page.getByRole("heading", { name: "运行轨迹：run_002" })).toBeVisible();
 
   const actions = page.getByRole("group", { name: "Agent 操作：run_002", exact: true });
   await expect(actions).toBeVisible();
