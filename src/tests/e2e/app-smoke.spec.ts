@@ -1555,17 +1555,29 @@ test("exposes API key, webhook, and usage reserves with RBAC", async ({ page, re
   });
   expect(errorLogsPayload.data[0]).not.toHaveProperty("stack");
 
+  await page.goto("/settings?auditLimit=1#audit");
+  const auditPagination = page.getByRole("navigation", { name: "审计日志分页" });
+  await expect(page.getByText(/第 1 \/ \d+ 页/).first()).toBeVisible();
+  await expect(auditPagination.getByRole("link", { name: "下一页" })).toHaveAttribute("href", /auditPage=2/);
+  await auditPagination.getByRole("link", { name: "下一页" }).click();
+  await expect(page).toHaveURL(/auditPage=2/);
+  await expect(page).toHaveURL(/auditLimit=1/);
+  await expect(
+    page.getByRole("navigation", { name: "审计日志分页" }).getByRole("link", { name: "上一页" })
+  ).toHaveAttribute("href", /auditPage=1/);
+
   const auditFilter = page.getByRole("form", { name: "审计日志筛选" });
   await auditFilter.getByLabel("动作").selectOption("system_setting.upsert");
   await auditFilter.getByLabel("对象").selectOption("SystemSetting");
   await auditFilter.getByLabel("用户").selectOption("user_owner");
   await auditFilter.getByLabel("关键词").fill("data_retention_policy");
-  await auditFilter.getByLabel("条数").fill("10");
+  await auditFilter.getByLabel("每页").fill("10");
   await auditFilter.getByRole("button", { name: "筛选" }).click();
   await expect(page).toHaveURL(/auditAction=system_setting\.upsert/);
   await expect(page).toHaveURL(/auditEntityType=SystemSetting/);
   await expect(page).toHaveURL(/auditUserId=user_owner/);
   await expect(page).toHaveURL(/auditQ=data_retention_policy/);
+  await expect(page).toHaveURL(/auditPage=1/);
   await expect(
     page.locator("tr").filter({ hasText: "system_setting.upsert" }).filter({ hasText: "data_retention_policy" }).first()
   ).toBeVisible();
@@ -1629,6 +1641,27 @@ test("exposes API key, webhook, and usage reserves with RBAC", async ({ page, re
   expect(auditCsvText).toContain("SystemSetting");
   expect(auditCsvText).toContain("user_owner");
   expect(auditCsvText).toContain("data_retention_policy");
+
+  const auditPageResponse = await request.get(
+    "/api/audit-logs?page=1&pageSize=1&action=system_setting.upsert&entityType=SystemSetting&userId=user_owner",
+    {
+      headers: { Cookie: ownerCookie }
+    }
+  );
+  expect(auditPageResponse.ok()).toBeTruthy();
+  const auditPagePayload = await auditPageResponse.json();
+  expect(auditPagePayload.data).toMatchObject({
+    page: 1,
+    pageSize: 1
+  });
+  expect(auditPagePayload.data.total).toBeGreaterThan(0);
+  expect(auditPagePayload.data.items.length).toBe(1);
+  expect(
+    auditPagePayload.data.items.every(
+      (log: { action: string; entityType: string; userId?: string }) =>
+        log.action === "system_setting.upsert" && log.entityType === "SystemSetting" && log.userId === "user_owner"
+    )
+  ).toBe(true);
 });
 
 test("normalizes API validation errors through the shared handler", async ({ request }) => {

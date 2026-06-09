@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
 import { Table, Td, Th } from "@/components/ui/table";
-import { listAuditLogs, parseAuditLogFilters } from "@/server/audit/audit-service";
+import { listAuditLogPage, listAuditLogs, parseAuditLogFilters } from "@/server/audit/audit-service";
 import { promptTemplates } from "@/server/ai/prompts/templates";
 import { getCurrentUser, getCurrentWorkspaceId } from "@/server/auth/session";
 import { listPublicErrorLogs } from "@/server/observability/error-log-service";
@@ -45,7 +45,7 @@ function getSearchParamValue(searchParams: SettingsPageProps["searchParams"], ke
 }
 
 function getAuditExportHref(filters: ReturnType<typeof parseAuditLogFilters>, format: "export" | "csv") {
-  const params = new URLSearchParams({ format, limit: String(filters.limit ?? 50) });
+  const params = new URLSearchParams({ format, limit: String(filters.limit ?? filters.pageSize ?? 50) });
   if (filters.action) {
     params.set("action", filters.action);
   }
@@ -67,23 +67,55 @@ function getAuditExportHref(filters: ReturnType<typeof parseAuditLogFilters>, fo
   return `/api/audit-logs?${params.toString()}`;
 }
 
+function getAuditPageHref(filters: ReturnType<typeof parseAuditLogFilters>, page: number) {
+  const params = new URLSearchParams({
+    auditPage: String(page),
+    auditLimit: String(filters.pageSize ?? filters.limit ?? 20)
+  });
+  if (filters.action) {
+    params.set("auditAction", filters.action);
+  }
+  if (filters.entityType) {
+    params.set("auditEntityType", filters.entityType);
+  }
+  if (filters.userId) {
+    params.set("auditUserId", filters.userId);
+  }
+  if (filters.q) {
+    params.set("auditQ", filters.q);
+  }
+  if (filters.from) {
+    params.set("auditFrom", filters.from);
+  }
+  if (filters.to) {
+    params.set("auditTo", filters.to);
+  }
+  return `/settings?${params.toString()}#audit`;
+}
+
 export default function SettingsPage({ searchParams }: SettingsPageProps) {
   const user = getCurrentUser();
   const workspaceId = getCurrentWorkspaceId();
   const workspace = store.workspaces.find((item) => item.id === workspaceId);
   const brandProfiles = listBrandProfiles(workspaceId);
   const activeBrand = brandProfiles[0];
+  const auditLimit = getSearchParamValue(searchParams, "auditLimit") ?? 20;
   const auditFilters = parseAuditLogFilters({
     action: getSearchParamValue(searchParams, "auditAction"),
     entityType: getSearchParamValue(searchParams, "auditEntityType"),
     userId: getSearchParamValue(searchParams, "auditUserId"),
     q: getSearchParamValue(searchParams, "auditQ"),
-    limit: getSearchParamValue(searchParams, "auditLimit") ?? 20
+    limit: auditLimit,
+    pageSize: auditLimit,
+    page: getSearchParamValue(searchParams, "auditPage")
   });
   const allAuditLogs = listAuditLogs(workspaceId);
-  const logs = listAuditLogs(workspaceId, auditFilters);
+  const auditPage = listAuditLogPage(workspaceId, auditFilters);
+  const logs = auditPage.items;
   const auditJsonExportHref = getAuditExportHref(auditFilters, "export");
   const auditCsvExportHref = getAuditExportHref(auditFilters, "csv");
+  const auditPreviousPageHref = auditPage.hasPreviousPage ? getAuditPageHref(auditFilters, auditPage.page - 1) : undefined;
+  const auditNextPageHref = auditPage.hasNextPage ? getAuditPageHref(auditFilters, auditPage.page + 1) : undefined;
   const auditActionOptions = Array.from(new Set(allAuditLogs.map((log) => log.action))).sort();
   const auditEntityOptions = Array.from(new Set(allAuditLogs.map((log) => log.entityType))).sort();
   const auditUserOptions = Array.from(
@@ -415,7 +447,9 @@ export default function SettingsPage({ searchParams }: SettingsPageProps) {
           <CardHeader className="flex items-start justify-between gap-3 sm:flex-row">
             <div>
               <CardTitle>审计日志</CardTitle>
-              <p className="mt-1 text-xs text-muted-foreground">当前筛选 {logs.length} 条，默认保留最近 20 条。</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                当前筛选 {auditPage.total} 条，第 {auditPage.page} / {auditPage.pageCount} 页，每页 {auditPage.pageSize} 条。
+              </p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <a
@@ -436,6 +470,7 @@ export default function SettingsPage({ searchParams }: SettingsPageProps) {
           </CardHeader>
           <CardContent className="space-y-3">
             <form aria-label="审计日志筛选" className="grid gap-2 lg:grid-cols-[1fr_1fr_1.2fr_1.4fr_92px_auto]">
+              <input type="hidden" name="auditPage" value="1" />
               <label className="space-y-1 text-xs text-muted-foreground">
                 <span>动作</span>
                 <select
@@ -491,10 +526,10 @@ export default function SettingsPage({ searchParams }: SettingsPageProps) {
                 />
               </label>
               <label className="space-y-1 text-xs text-muted-foreground">
-                <span>条数</span>
+                <span>每页</span>
                 <input
                   name="auditLimit"
-                  defaultValue={auditFilters.limit ?? 20}
+                  defaultValue={auditPage.pageSize}
                   min={1}
                   max={100}
                   type="number"
@@ -541,6 +576,42 @@ export default function SettingsPage({ searchParams }: SettingsPageProps) {
             ) : (
               <div className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">未找到匹配的审计日志</div>
             )}
+
+            <nav className="flex items-center justify-between gap-3 text-sm" aria-label="审计日志分页">
+              {auditPreviousPageHref ? (
+                <a
+                  href={auditPreviousPageHref}
+                  className="focus-ring inline-flex h-8 items-center justify-center rounded-md border border-border bg-surface px-3 text-xs font-medium text-foreground transition hover:bg-muted"
+                >
+                  上一页
+                </a>
+              ) : (
+                <span
+                  aria-disabled="true"
+                  className="inline-flex h-8 items-center justify-center rounded-md border border-border px-3 text-xs font-medium text-muted-foreground"
+                >
+                  上一页
+                </span>
+              )}
+              <span className="text-xs text-muted-foreground">
+                第 {auditPage.page} / {auditPage.pageCount} 页
+              </span>
+              {auditNextPageHref ? (
+                <a
+                  href={auditNextPageHref}
+                  className="focus-ring inline-flex h-8 items-center justify-center rounded-md border border-border bg-surface px-3 text-xs font-medium text-foreground transition hover:bg-muted"
+                >
+                  下一页
+                </a>
+              ) : (
+                <span
+                  aria-disabled="true"
+                  className="inline-flex h-8 items-center justify-center rounded-md border border-border px-3 text-xs font-medium text-muted-foreground"
+                >
+                  下一页
+                </span>
+              )}
+            </nav>
           </CardContent>
         </Card>
 

@@ -9,6 +9,8 @@ export interface AuditLogFilters {
   from?: string;
   to?: string;
   limit?: number;
+  page?: number;
+  pageSize?: number;
 }
 
 export interface AuditLogExportSnapshot {
@@ -27,6 +29,16 @@ export interface AuditLogCsvExport {
   filters: AuditLogFilters;
   itemCount: number;
   content: string;
+}
+
+export interface AuditLogPage {
+  items: AuditLog[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
 }
 
 export function writeAuditLog(input: Omit<AuditLog, "id" | "createdAt">) {
@@ -67,6 +79,20 @@ function normalizeLimit(value?: string | number | null) {
   return Number.isNaN(parsed) ? undefined : Math.min(100, Math.max(1, parsed));
 }
 
+function normalizePage(value?: string | number | null) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? Math.max(1, Math.trunc(value)) : undefined;
+  }
+
+  const normalized = normalizeText(value);
+  if (!normalized) {
+    return undefined;
+  }
+
+  const parsed = Number.parseInt(normalized, 10);
+  return Number.isNaN(parsed) ? undefined : Math.max(1, parsed);
+}
+
 export function parseAuditLogFilters(input: {
   action?: string | null;
   entityType?: string | null;
@@ -75,6 +101,8 @@ export function parseAuditLogFilters(input: {
   from?: string | null;
   to?: string | null;
   limit?: string | number | null;
+  page?: string | number | null;
+  pageSize?: string | number | null;
 }): AuditLogFilters {
   return {
     action: normalizeText(input.action),
@@ -83,7 +111,9 @@ export function parseAuditLogFilters(input: {
     q: normalizeText(input.q),
     from: normalizeDate(input.from),
     to: normalizeDate(input.to),
-    limit: normalizeLimit(input.limit)
+    limit: normalizeLimit(input.limit),
+    page: normalizePage(input.page),
+    pageSize: normalizeLimit(input.pageSize)
   };
 }
 
@@ -244,13 +274,37 @@ function writeAuditLogExportEvent(input: {
   });
 }
 
-export function listAuditLogs(workspaceId = "ws_demo", filters: AuditLogFilters = {}) {
-  const filtered = store.auditLogs
+function listFilteredAuditLogs(workspaceId: string, filters: AuditLogFilters) {
+  return store.auditLogs
     .filter((log) => !log.workspaceId || log.workspaceId === workspaceId)
     .filter((log) => matchesAuditFilters(log, filters))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export function listAuditLogs(workspaceId = "ws_demo", filters: AuditLogFilters = {}) {
+  const filtered = listFilteredAuditLogs(workspaceId, filters);
 
   return typeof filters.limit === "number" ? filtered.slice(0, filters.limit) : filtered;
+}
+
+export function listAuditLogPage(workspaceId = "ws_demo", filters: AuditLogFilters = {}): AuditLogPage {
+  const filtered = listFilteredAuditLogs(workspaceId, filters);
+  const pageSize = filters.pageSize ?? filters.limit ?? 20;
+  const total = filtered.length;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(filters.page ?? 1, pageCount);
+  const start = (page - 1) * pageSize;
+  const items = filtered.slice(start, start + pageSize);
+
+  return {
+    items,
+    total,
+    page,
+    pageSize,
+    pageCount,
+    hasPreviousPage: page > 1,
+    hasNextPage: page < pageCount
+  };
 }
 
 export function exportAuditLogSnapshot(input: {

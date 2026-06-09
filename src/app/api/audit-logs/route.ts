@@ -1,6 +1,12 @@
 import type { NextRequest } from "next/server";
 import { getRequestContext, ok, withApiHandler } from "@/app/api/_utils";
-import { exportAuditLogCsv, exportAuditLogSnapshot, listAuditLogs, parseAuditLogFilters } from "@/server/audit/audit-service";
+import {
+  exportAuditLogCsv,
+  exportAuditLogSnapshot,
+  listAuditLogPage,
+  listAuditLogs,
+  parseAuditLogFilters
+} from "@/server/audit/audit-service";
 
 function safeAuditFileName(workspaceId: string, extension: "json" | "csv") {
   const safeWorkspaceId = workspaceId.replace(/[^a-z0-9_-]+/gi, "-");
@@ -16,10 +22,13 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     q: request.nextUrl.searchParams.get("q"),
     from: request.nextUrl.searchParams.get("from"),
     to: request.nextUrl.searchParams.get("to"),
-    limit: request.nextUrl.searchParams.get("limit")
+    limit: request.nextUrl.searchParams.get("limit"),
+    page: request.nextUrl.searchParams.get("page"),
+    pageSize: request.nextUrl.searchParams.get("pageSize")
   });
 
   const format = request.nextUrl.searchParams.get("format");
+  const paginated = request.nextUrl.searchParams.has("page") || request.nextUrl.searchParams.has("pageSize");
 
   if (format === "csv") {
     const csvExport = exportAuditLogCsv({ workspaceId, userId: user.id, filters });
@@ -42,5 +51,5 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     });
   }
 
-  return ok(listAuditLogs(workspaceId, filters));
+  return ok(paginated ? listAuditLogPage(workspaceId, filters) : listAuditLogs(workspaceId, filters));
 });

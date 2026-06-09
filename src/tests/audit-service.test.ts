@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   exportAuditLogCsv,
   exportAuditLogSnapshot,
+  listAuditLogPage,
   listAuditLogs,
   parseAuditLogFilters,
   writeAuditLog
@@ -63,16 +64,20 @@ describe("audit service", () => {
         q: "needle",
         from: undefined,
         to: undefined,
-        limit: undefined
+        limit: undefined,
+        page: undefined,
+        pageSize: undefined
       });
-      expect(parseAuditLogFilters({ from: "invalid", to: to, limit: "999" })).toEqual({
+      expect(parseAuditLogFilters({ from: "invalid", to: to, limit: "999", page: "0", pageSize: "999" })).toEqual({
         action: undefined,
         entityType: undefined,
         userId: undefined,
         q: undefined,
         from: undefined,
         to,
-        limit: 100
+        limit: 100,
+        page: 1,
+        pageSize: 100
       });
 
       const filtered = listAuditLogs("ws_demo", {
@@ -87,6 +92,79 @@ describe("audit service", () => {
       expect(listAuditLogs("ws_demo", { entityType: "AuditFixture", q: "needle", limit: 1 })).toEqual([second]);
       expect(listAuditLogs("ws_demo", { entityType: "AuditFixture", userId: "user_editor" })).toEqual([second]);
       expect(listAuditLogs("ws_brand", { entityType: "AuditFixture" })).not.toContainEqual(first);
+    } finally {
+      store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
+    }
+  });
+
+  it("paginates filtered audit logs with total counts and workspace isolation", () => {
+    const beforeAuditLogIds = new Set(store.auditLogs.map((log) => log.id));
+    const baseTime = Date.now();
+
+    try {
+      const logs = Array.from({ length: 5 }, (_, index) => {
+        const log = writeAuditLog({
+          workspaceId: "ws_demo",
+          userId: index % 2 === 0 ? "user_owner" : "user_editor",
+          action: "audit.page.fixture",
+          entityType: "AuditPageFixture",
+          entityId: `fixture_page_${index + 1}`,
+          summary: `分页测试 ${index + 1}`,
+          metadata: { marker: "audit-page" }
+        });
+        log.createdAt = new Date(baseTime + index * 1000).toISOString();
+        return log;
+      });
+      const crossWorkspace = writeAuditLog({
+        workspaceId: "ws_brand",
+        userId: "user_owner",
+        action: "audit.page.fixture",
+        entityType: "AuditPageFixture",
+        entityId: "fixture_page_cross_workspace",
+        summary: "跨 workspace 分页测试",
+        metadata: { marker: "audit-page" }
+      });
+      crossWorkspace.createdAt = new Date(baseTime + 10_000).toISOString();
+
+      const firstPage = listAuditLogPage("ws_demo", {
+        entityType: "AuditPageFixture",
+        page: 1,
+        pageSize: 2
+      });
+      expect(firstPage).toMatchObject({
+        total: 5,
+        page: 1,
+        pageSize: 2,
+        pageCount: 3,
+        hasPreviousPage: false,
+        hasNextPage: true
+      });
+      expect(firstPage.items.map((log) => log.summary)).toEqual(["分页测试 5", "分页测试 4"]);
+
+      const lastPage = listAuditLogPage("ws_demo", {
+        entityType: "AuditPageFixture",
+        page: 99,
+        pageSize: 2
+      });
+      expect(lastPage).toMatchObject({
+        total: 5,
+        page: 3,
+        pageSize: 2,
+        pageCount: 3,
+        hasPreviousPage: true,
+        hasNextPage: false
+      });
+      expect(lastPage.items).toEqual([logs[0]]);
+
+      const ownerPage = listAuditLogPage("ws_demo", {
+        entityType: "AuditPageFixture",
+        userId: "user_owner",
+        page: 1,
+        pageSize: 10
+      });
+      expect(ownerPage.total).toBe(3);
+      expect(ownerPage.items.every((log) => log.userId === "user_owner")).toBe(true);
+      expect(listAuditLogPage("ws_brand", { entityType: "AuditPageFixture" }).items).toEqual([crossWorkspace]);
     } finally {
       store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
     }
