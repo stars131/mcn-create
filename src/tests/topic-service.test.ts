@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createTopic, generateBrief, getTopicRuntimeDetail, updateTopic } from "@/server/services/topic-service";
+import {
+  addTopicToCalendar,
+  createTopic,
+  generateBrief,
+  getTopicRuntimeDetail,
+  updateTopic
+} from "@/server/services/topic-service";
 import { store } from "@/server/services/mock-store";
 
 describe("topic service", () => {
@@ -25,6 +31,7 @@ describe("topic service", () => {
   it("creates topic runtime artifacts and tracks later score and status changes", () => {
     const beforeTopicIds = new Set(store.topics.map((topic) => topic.id));
     const beforeBriefIds = new Set(store.topicBriefs.map((brief) => brief.id));
+    const beforeCalendarIds = new Set(store.calendarItems.map((item) => item.id));
     const beforeAngleIds = new Set(store.topicAngles.map((angle) => angle.id));
     const beforeScoreIds = new Set(store.topicScores.map((score) => score.id));
     const beforeStatusHistoryIds = new Set(store.topicStatusHistories.map((history) => history.id));
@@ -83,9 +90,30 @@ describe("topic service", () => {
           topicId: topic.id
         }
       });
+
+      const calendarItem = addTopicToCalendar({
+        workspaceId: "ws_demo",
+        userId: "user_owner",
+        topicId: topic.id,
+        platform: "WECHAT"
+      });
+      expect(calendarItem).toMatchObject({
+        workspaceId: "ws_demo",
+        topicId: topic.id,
+        title: topic.title,
+        platform: "WECHAT",
+        ownerName: "林澈",
+        status: "PLANNED"
+      });
+      expect(store.auditLogs[0]).toMatchObject({
+        action: "topic.add_to_calendar",
+        entityType: "TopicCalendarItem",
+        entityId: calendarItem.id
+      });
     } finally {
       store.topics = store.topics.filter((topic) => beforeTopicIds.has(topic.id));
       store.topicBriefs = store.topicBriefs.filter((brief) => beforeBriefIds.has(brief.id));
+      store.calendarItems = store.calendarItems.filter((item) => beforeCalendarIds.has(item.id));
       store.topicAngles = store.topicAngles.filter((angle) => beforeAngleIds.has(angle.id));
       store.topicScores = store.topicScores.filter((score) => beforeScoreIds.has(score.id));
       store.topicStatusHistories = store.topicStatusHistories.filter((history) => beforeStatusHistoryIds.has(history.id));

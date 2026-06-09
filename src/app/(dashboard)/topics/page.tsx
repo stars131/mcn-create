@@ -1,6 +1,6 @@
-import { ActionButton } from "@/components/ui/action-button";
 import { TopicCreateForm } from "@/components/topics/topic-create-form";
 import { TopicUpdateForm } from "@/components/topics/topic-update-form";
+import { TopicWorkflowActions } from "@/components/topics/topic-workflow-actions";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
@@ -110,19 +110,11 @@ export default function TopicsPage() {
                       <RiskBadge level={topic.riskLevel} />
                     </Td>
                     <Td>
-                      <div className="flex flex-wrap gap-2">
-                        <ActionButton
-                          endpoint={`/api/topics/${topic.id}/generate-brief`}
-                          label="生成 brief"
-                          pendingLabel="生成中"
-                          icon="fileText"
-                          variant="primary"
-                        />
-                        <ActionButton
-                          endpoint={`/api/topics/${topic.id}/add-to-calendar`}
-                          label="加日历"
-                          pendingLabel="排期中"
-                          icon="calendarPlus"
+                      <div className="flex flex-wrap gap-3">
+                        <TopicWorkflowActions
+                          topicId={topic.id}
+                          topicTitle={topic.title}
+                          targetPlatforms={topic.targetPlatforms}
                         />
                         <TopicUpdateForm
                           topicId={topic.id}

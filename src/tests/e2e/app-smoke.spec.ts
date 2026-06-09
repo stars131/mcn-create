@@ -417,6 +417,47 @@ test("updates a topic status and score from the topic pool", async ({ page }) =>
   await expect(topicRow).toContainText("91");
 });
 
+test("generates a topic brief and adds the topic to the calendar", async ({ page }) => {
+  await loginAsOwner(page, "/topics");
+  await expect(page.getByRole("heading", { name: "选题池" })).toBeVisible();
+
+  const topicRow = page.locator("tr", { hasText: "一条热点如何拆成小红书、抖音和公众号三个版本" });
+  await expect(topicRow).toBeVisible();
+  const workflow = topicRow.getByRole("group", { name: "选题工作流：一条热点如何拆成小红书、抖音和公众号三个版本" });
+
+  const briefResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/topics/topic_002/generate-brief") && response.request().method() === "POST"
+  );
+  await workflow.getByRole("button", { name: "生成 brief" }).click();
+  const briefResponse = await briefResponsePromise;
+  expect(briefResponse.ok()).toBeTruthy();
+  await expect(briefResponse.json()).resolves.toMatchObject({
+    data: {
+      topicId: "topic_002",
+      version: expect.any(Number)
+    }
+  });
+  await expect(workflow.getByRole("status")).toHaveText("内容 brief 已生成");
+  await expect(topicRow).toContainText("写作中");
+  await expect(page.getByText("内容 brief v").first()).toBeVisible();
+
+  await workflow.getByLabel("日历平台：一条热点如何拆成小红书、抖音和公众号三个版本").selectOption("WECHAT");
+  const calendarResponsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/topics/topic_002/add-to-calendar") && response.request().method() === "POST"
+  );
+  await workflow.getByRole("button", { name: "加日历" }).click();
+  const calendarResponse = await calendarResponsePromise;
+  expect(calendarResponse.ok()).toBeTruthy();
+  await expect(calendarResponse.json()).resolves.toMatchObject({
+    data: {
+      topicId: "topic_002",
+      platform: "WECHAT",
+      status: "PLANNED"
+    }
+  });
+  await expect(workflow.getByRole("status")).toHaveText("公众号日历计划已创建");
+});
+
 test("imports historical content into persona memory", async ({ page }) => {
   const importedContent = `E2E 历史内容 ${Date.now()} 强调克制表达、人工审核和复盘证据。`;
 
