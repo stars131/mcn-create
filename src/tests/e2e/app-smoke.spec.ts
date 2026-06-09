@@ -730,7 +730,7 @@ test("generates an analytics report and backflows recommendations to topics", as
   await expect(page.getByText("已回流").first()).toBeVisible();
 });
 
-test("creates a managed platform data source from the form", async ({ page }) => {
+test("creates, syncs, and revokes a managed platform data source from the form", async ({ page, request }) => {
   const sourceName = `E2E 小红书授权 ${Date.now()}`;
 
   await loginAsOwner(page, "/data-sources");
@@ -748,6 +748,13 @@ test("creates a managed platform data source from the form", async ({ page }) =>
   await page.getByRole("button", { name: "新增数据源" }).click();
   const createResponse = await createResponsePromise;
   expect(createResponse.ok()).toBeTruthy();
+  const createPayload = (await createResponse.json()) as {
+    data: {
+      id: string;
+      name: string;
+    };
+  };
+  expect(createPayload.data.name).toBe(sourceName);
 
   await expect(page.getByRole("status")).toHaveText("数据源已创建");
   const sourceRow = page.locator("tr", { hasText: sourceName });
@@ -757,6 +764,60 @@ test("creates a managed platform data source from the form", async ({ page }) =>
   await expect(sourceRow).toContainText("E2E 通过表单创建的用户授权数据源");
   await expect(page.getByRole("heading", { name: "授权账号" })).toBeVisible();
   await expect(page.getByText(sourceName).last()).toBeVisible();
+
+  const actions = sourceRow.getByRole("group", { name: `数据源操作：${sourceName}` });
+  const syncResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes(`/api/data-sources/${createPayload.data.id}/sync`) &&
+      response.request().method() === "POST"
+  );
+  await actions.getByRole("button", { name: "同步" }).click();
+  const syncResponse = await syncResponsePromise;
+  expect(syncResponse.ok()).toBeTruthy();
+  await expect(actions.getByRole("status")).toHaveText("数据源已同步");
+
+  const authorizationBeforeDelete = await request.get("/api/data-sources/platform-authorizations", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(authorizationBeforeDelete.ok()).toBeTruthy();
+  const authorizationBeforeDeletePayload = await authorizationBeforeDelete.json();
+  expect(authorizationBeforeDeletePayload.data.accounts).toContainEqual(
+    expect.objectContaining({
+      displayName: sourceName,
+      authorization: expect.objectContaining({
+        authorizationStatus: "CONNECTED",
+        hasTokenRef: true
+      })
+    })
+  );
+
+  const deleteResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes(`/api/data-sources/${createPayload.data.id}`) &&
+      response.request().method() === "DELETE"
+  );
+  await actions.getByRole("button", { name: "删除授权" }).click();
+  const deleteResponse = await deleteResponsePromise;
+  expect(deleteResponse.ok()).toBeTruthy();
+  await expect(actions.getByRole("status")).toHaveText("授权数据已删除");
+  await expect(sourceRow).toContainText("REVOKED");
+  await expect(sourceRow).toContainText("授权数据已删除，保留最小审计记录。");
+  await expect(actions.getByRole("button", { name: "同步" })).toBeDisabled();
+
+  const authorizationAfterDelete = await request.get("/api/data-sources/platform-authorizations", {
+    headers: { Cookie: ownerCookie }
+  });
+  expect(authorizationAfterDelete.ok()).toBeTruthy();
+  const authorizationAfterDeletePayload = await authorizationAfterDelete.json();
+  expect(authorizationAfterDeletePayload.data.accounts).toContainEqual(
+    expect.objectContaining({
+      displayName: sourceName,
+      authorization: expect.objectContaining({
+        authorizationStatus: "REVOKED",
+        hasTokenRef: false
+      })
+    })
+  );
 });
 
 test("invites a workspace member with an explicit role", async ({ page }) => {

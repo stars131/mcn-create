@@ -1,4 +1,5 @@
 import { DataSourceCreateForm } from "@/components/data-sources/data-source-create-form";
+import { DataSourceRowActions } from "@/components/data-sources/data-source-row-actions";
 import { ActionButton } from "@/components/ui/action-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -86,22 +87,11 @@ export default function DataSourcesPage() {
                       </Td>
                       <Td>{source.lastSyncedAt ? new Date(source.lastSyncedAt).toLocaleString("zh-CN") : "-"}</Td>
                       <Td>
-                        <div className="flex flex-wrap gap-2">
-                          <ActionButton
-                            endpoint={`/api/data-sources/${source.id}/sync`}
-                            label="同步"
-                            pendingLabel="同步中"
-                            icon="database"
-                          />
-                          <ActionButton
-                            endpoint={`/api/data-sources/${source.id}`}
-                            method="DELETE"
-                            label="删授权"
-                            pendingLabel="删除中"
-                            icon="shieldX"
-                            variant="danger"
-                          />
-                        </div>
+                        <DataSourceRowActions
+                          sourceId={source.id}
+                          sourceName={source.name}
+                          authorizationStatus={source.authorizationStatus}
+                        />
                       </Td>
                     </tr>
                   );
