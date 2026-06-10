@@ -5,7 +5,9 @@ import {
   exportAuditLogSnapshot,
   listAuditLogPage,
   listAuditLogs,
-  parseAuditLogFilters
+  parseAuditLogFilters,
+  publicAuditLogPage,
+  publicAuditLogs
 } from "@/server/audit/audit-service";
 
 function safeAuditFileName(workspaceId: string, extension: "json" | "csv") {
@@ -51,5 +53,9 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     });
   }
 
-  return ok(paginated ? listAuditLogPage(workspaceId, filters) : listAuditLogs(workspaceId, filters));
+  return ok(
+    paginated
+      ? publicAuditLogPage(listAuditLogPage(workspaceId, filters))
+      : publicAuditLogs(listAuditLogs(workspaceId, filters))
+  );
 });

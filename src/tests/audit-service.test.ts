@@ -6,6 +6,9 @@ import {
   listAuditLogs,
   parseAuditLogFilters,
   pruneAuditLogsByRetentionPolicy,
+  publicAuditLog,
+  publicAuditLogPage,
+  publicAuditLogs,
   writeAuditLog
 } from "@/server/audit/audit-service";
 import { store } from "@/server/services/mock-store";
@@ -330,6 +333,76 @@ describe("audit service", () => {
       });
     } finally {
       store.auditLogs = store.auditLogs.filter((log) => beforeAuditLogIds.has(log.id));
+    }
+  });
+
+  it("redacts public audit log metadata recursively without mutating stored logs", () => {
+    const beforeAuditLogIds = new Set(store.auditLogs.map((item) => item.id));
+
+    try {
+      const log = writeAuditLog({
+        workspaceId: "ws_demo",
+        userId: "user_owner",
+        action: "audit.public_redaction.fixture",
+        entityType: "AuditFixture",
+        entityId: "fixture_public_redaction",
+        summary: "公共审计脱敏测试",
+        metadata: {
+          apiKey: "sk-test",
+          tokenRef: "vault://token",
+          nested: {
+            refreshToken: "refresh-token",
+            webhookSecret: "webhook-secret",
+            kept: "visible"
+          },
+          list: [
+            {
+              secretHash: "hash-secret",
+              marker: "kept"
+            }
+          ]
+        }
+      });
+
+      const redacted = publicAuditLog(log);
+      const redactedList = publicAuditLogs([log]);
+      const redactedPage = publicAuditLogPage({
+        items: [log],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+        pageCount: 1,
+        hasPreviousPage: false,
+        hasNextPage: false
+      });
+
+      expect(redacted.metadata).toEqual({
+        apiKey: "[REDACTED]",
+        tokenRef: "[REDACTED]",
+        nested: {
+          refreshToken: "[REDACTED]",
+          webhookSecret: "[REDACTED]",
+          kept: "visible"
+        },
+        list: [
+          {
+            secretHash: "[REDACTED]",
+            marker: "kept"
+          }
+        ]
+      });
+      expect(redactedList[0].metadata).toEqual(redacted.metadata);
+      expect(redactedPage.items[0].metadata).toEqual(redacted.metadata);
+      expect(log.metadata).toMatchObject({
+        apiKey: "sk-test",
+        tokenRef: "vault://token",
+        nested: {
+          refreshToken: "refresh-token",
+          webhookSecret: "webhook-secret"
+        }
+      });
+    } finally {
+      store.auditLogs = store.auditLogs.filter((item) => beforeAuditLogIds.has(item.id));
     }
   });
 

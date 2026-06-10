@@ -1612,10 +1612,20 @@ test("exposes API key, webhook, and usage reserves with RBAC", async ({ page, re
   await expect(page).toHaveURL(/auditUserId=user_owner/);
   await expect(page).toHaveURL(/auditQ=data_retention_policy/);
   await expect(page).toHaveURL(/auditPage=1/);
-  await expect(
-    page.locator("tr").filter({ hasText: "system_setting.upsert" }).filter({ hasText: "data_retention_policy" }).first()
-  ).toBeVisible();
+  const filteredAuditRow = page
+    .locator("tr")
+    .filter({ hasText: "system_setting.upsert" })
+    .filter({ hasText: "data_retention_policy" })
+    .first();
+  await expect(filteredAuditRow).toBeVisible();
   await expect(page.locator("tr").filter({ hasText: "system_setting.upsert" }).filter({ hasText: "林澈" }).first()).toBeVisible();
+  await filteredAuditRow.getByText("详情", { exact: true }).click();
+  await expect(filteredAuditRow).toContainText("对象 ID");
+  await expect(filteredAuditRow.getByLabel(/审计 metadata/)).toContainText('"key": "data_retention_policy"');
+  const settingsBody = page.locator("body");
+  await expect(settingsBody).not.toContainText("keyHash");
+  await expect(settingsBody).not.toContainText("secretHash");
+  await expect(settingsBody).not.toContainText("tokenRef");
   await expect(page.getByRole("link", { name: "导出 JSON" })).toHaveAttribute(
     "href",
     /\/api\/audit-logs\?.*userId=user_owner/

@@ -223,6 +223,21 @@ function redactAuditLog(log: AuditLog): AuditLog {
   };
 }
 
+export function publicAuditLog(log: AuditLog): AuditLog {
+  return redactAuditLog(log);
+}
+
+export function publicAuditLogs(logs: AuditLog[]) {
+  return logs.map(publicAuditLog);
+}
+
+export function publicAuditLogPage(page: AuditLogPage): AuditLogPage {
+  return {
+    ...page,
+    items: publicAuditLogs(page.items)
+  };
+}
+
 function stringifyCsvValue(value: unknown) {
   if (value === undefined || value === null) {
     return "";
@@ -386,7 +401,7 @@ export function exportAuditLogSnapshot(input: {
   filters?: AuditLogFilters;
 }): AuditLogExportSnapshot {
   const filters = input.filters ?? {};
-  const logs = listAuditLogs(input.workspaceId, filters).map(redactAuditLog);
+  const logs = publicAuditLogs(listAuditLogs(input.workspaceId, filters));
   const snapshot: AuditLogExportSnapshot = {
     schemaVersion: "contentos.auditLogExport.v1",
     exportedAt: new Date().toISOString(),
@@ -414,7 +429,7 @@ export function exportAuditLogCsv(input: {
   filters?: AuditLogFilters;
 }): AuditLogCsvExport {
   const filters = input.filters ?? {};
-  const logs = listAuditLogs(input.workspaceId, filters).map(redactAuditLog);
+  const logs = publicAuditLogs(listAuditLogs(input.workspaceId, filters));
   const csvExport: AuditLogCsvExport = {
     schemaVersion: "contentos.auditLogCsvExport.v1",
     exportedAt: new Date().toISOString(),

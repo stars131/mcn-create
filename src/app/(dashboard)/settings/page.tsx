@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
 import { Table, Td, Th } from "@/components/ui/table";
-import { listAuditLogPage, listAuditLogs, parseAuditLogFilters } from "@/server/audit/audit-service";
+import { listAuditLogPage, listAuditLogs, parseAuditLogFilters, publicAuditLogs } from "@/server/audit/audit-service";
 import { promptTemplates } from "@/server/ai/prompts/templates";
 import { getCurrentUser, getCurrentWorkspaceId } from "@/server/auth/session";
 import { listPublicErrorLogs } from "@/server/observability/error-log-service";
@@ -93,6 +93,10 @@ function getAuditPageHref(filters: ReturnType<typeof parseAuditLogFilters>, page
   return `/settings?${params.toString()}#audit`;
 }
 
+function formatAuditMetadata(metadata?: Record<string, unknown>) {
+  return JSON.stringify(metadata ?? {}, null, 2);
+}
+
 export default function SettingsPage({ searchParams }: SettingsPageProps) {
   const user = getCurrentUser();
   const workspaceId = getCurrentWorkspaceId();
@@ -111,7 +115,7 @@ export default function SettingsPage({ searchParams }: SettingsPageProps) {
   });
   const allAuditLogs = listAuditLogs(workspaceId);
   const auditPage = listAuditLogPage(workspaceId, auditFilters);
-  const logs = auditPage.items;
+  const logs = publicAuditLogs(auditPage.items);
   const auditJsonExportHref = getAuditExportHref(auditFilters, "export");
   const auditCsvExportHref = getAuditExportHref(auditFilters, "csv");
   const auditPreviousPageHref = auditPage.hasPreviousPage ? getAuditPageHref(auditFilters, auditPage.page - 1) : undefined;
@@ -567,7 +571,33 @@ export default function SettingsPage({ searchParams }: SettingsPageProps) {
                       <Td className="font-medium">{log.action}</Td>
                       <Td>{log.entityType}</Td>
                       <Td>{auditUserLabel(log.userId)}</Td>
-                      <Td>{log.summary}</Td>
+                      <Td>
+                        <div>{log.summary}</div>
+                        <details className="mt-2 rounded-md border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">
+                          <summary className="cursor-pointer font-medium text-foreground">详情</summary>
+                          <dl className="mt-2 grid gap-1">
+                            <div className="grid gap-1">
+                              <dt className="font-medium text-foreground">ID</dt>
+                              <dd className="break-all">{log.id}</dd>
+                            </div>
+                            <div className="grid gap-1">
+                              <dt className="font-medium text-foreground">对象 ID</dt>
+                              <dd className="break-all">{log.entityId ?? "-"}</dd>
+                            </div>
+                            <div className="grid gap-1">
+                              <dt className="font-medium text-foreground">Metadata</dt>
+                              <dd>
+                                <pre
+                                  aria-label={`审计 metadata：${log.id}`}
+                                  className="max-h-48 overflow-auto whitespace-pre-wrap break-all rounded bg-background p-2 leading-5"
+                                >
+                                  {formatAuditMetadata(log.metadata)}
+                                </pre>
+                              </dd>
+                            </div>
+                          </dl>
+                        </details>
+                      </Td>
                       <Td>{new Date(log.createdAt).toLocaleString("zh-CN")}</Td>
                     </tr>
                   ))}
